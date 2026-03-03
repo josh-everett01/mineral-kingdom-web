@@ -1,25 +1,35 @@
 // src/lib/auth/api.ts
 export type LoginRequest = { email: string; password: string };
 
-// What the BFF code wants to work with everywhere:
+// What the BFF code wants everywhere:
 export type TokenResponse = { access_token: string; refresh_token: string };
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
 
-function normalizeTokens(json: any): TokenResponse {
-  // Supports snake_case or camelCase (and a couple common variants)
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function getString(obj: Record<string, unknown>, key: string): string | null {
+  const v = obj[key];
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+function normalizeTokens(json: unknown): TokenResponse {
+  if (!isRecord(json)) {
+    throw new Error("Auth API returned non-object JSON");
+  }
+
   const access =
-    json?.access_token ??
-    json?.accessToken ??
-    json?.access ??
-    json?.token ??
-    null;
+    getString(json, "access_token") ??
+    getString(json, "accessToken") ??
+    getString(json, "access") ??
+    getString(json, "token");
 
   const refresh =
-    json?.refresh_token ??
-    json?.refreshToken ??
-    json?.refresh ??
-    null;
+    getString(json, "refresh_token") ??
+    getString(json, "refreshToken") ??
+    getString(json, "refresh");
 
   if (!access || !refresh) {
     throw new Error("Auth API did not return access/refresh tokens in expected shape");
@@ -41,7 +51,7 @@ export async function apiLogin(body: LoginRequest): Promise<TokenResponse> {
     throw new Error(text || `Login failed (${res.status})`);
   }
 
-  const json = await res.json();
+  const json: unknown = await res.json();
   return normalizeTokens(json);
 }
 
@@ -58,7 +68,7 @@ export async function apiRefresh(refresh_token: string): Promise<TokenResponse> 
     throw new Error(text || `Refresh failed (${res.status})`);
   }
 
-  const json = await res.json();
+  const json: unknown = await res.json();
   return normalizeTokens(json);
 }
 
