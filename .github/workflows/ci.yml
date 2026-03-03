@@ -8,9 +8,12 @@ on:
 
 jobs:
   test:
-    name: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: mineral-kingdom-web
 
     steps:
       - name: Checkout
@@ -21,6 +24,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: mineral-kingdom-web/package-lock.json
 
       - name: Install deps
         run: npm ci
@@ -31,7 +35,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Playwright browsers
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
       - name: E2E
@@ -42,5 +46,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          path: mineral-kingdom-web/playwright-report/
           if-no-files-found: ignore
