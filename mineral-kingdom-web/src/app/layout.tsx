@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { SiteShell } from "@/components/site/SiteShell";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from '@/components/auth/AuthProvider'
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -19,8 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
-          <SiteShell>{children}</SiteShell>
-          <Toaster richColors />
+          <AuthProvider>
+            <SiteShell>{children}</SiteShell>
+            <Toaster richColors />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
