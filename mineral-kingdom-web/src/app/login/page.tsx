@@ -1,9 +1,16 @@
+// src/app/login/page.tsx
 "use client";
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Container } from "@/components/site/Container";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +37,7 @@ export default function LoginPage() {
       });
 
       const data = (await res.json()) as { ok: boolean; message?: string };
+
       if (!res.ok || !data.ok) {
         toast.error(data.message ?? "Login failed");
         return;
@@ -38,6 +46,8 @@ export default function LoginPage() {
       toast.success("Welcome back");
       router.push(next);
       router.refresh();
+    } catch {
+      toast.error("Login failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -47,15 +57,17 @@ export default function LoginPage() {
     <Container className="py-12">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
+          <CardTitle data-testid="login-title">Login</CardTitle>
           <CardDescription>Sign in to your Mineral Kingdom account.</CardDescription>
         </CardHeader>
+
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                data-testid="login-email"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -68,6 +80,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
+                data-testid="login-password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -76,7 +89,12 @@ export default function LoginPage() {
               />
             </div>
 
-            <Button className="w-full" type="submit" disabled={isSubmitting}>
+            <Button
+              className="w-full"
+              type="submit"
+              data-testid="login-submit"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Signing in..." : "Sign in"}
             </Button>
           </form>
