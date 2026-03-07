@@ -3,10 +3,6 @@ import { test, expect } from "@playwright/test";
 test.skip(!!process.env.CI, "Register e2e requires API/DB running (BFF proxies to API).");
 
 test("register: validation + success state", async ({ page }) => {
-  // ...existing test...
-});
-
-test("register: validation + success state", async ({ page }) => {
   await page.goto("/register");
 
   // Invalid submit (empty)
