@@ -1,0 +1,142 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mk
+          POSTGRES_PASSWORD: mk_dev_pw
+          POSTGRES_DB: mk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U mk -d mk"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    defaults:
+      run:
+        working-directory: mineral-kingdom-web
+
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      # Checkout backend into a sibling folder
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: josh-everett01/mineral-kingdom-api
+          path: mineral-kingdom-api
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mineral-kingdom-web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # Backend boot: dotnet + migrations + run API
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+        working-directory: .
+
+      - name: Restore backend
+        run: dotnet restore MineralKingdom.sln
+        working-directory: mineral-kingdom-api/mineral-kingdom-api/MineralKingdom
+
+      - name: Build backend
+        run: dotnet build MineralKingdom.sln --configuration Release --no-restore
+        working-directory: mineral-kingdom-api/mineral-kingdom-api/MineralKingdom
+
+      - name: Apply DB migrations
+        working-directory: mineral-kingdom-api/mineral-kingdom-api/MineralKingdom
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          MK_DB__HOST: localhost
+          MK_DB__PORT: "5432"
+          MK_DB__DATABASE: mk
+          MK_DB__USERNAME: mk
+          MK_DB__PASSWORD: mk_dev_pw
+        run: |
+          dotnet ef database update \
+            --project MineralKingdom.Infrastructure \
+            --startup-project MineralKingdom.Api
+
+      - name: Start API (background)
+        working-directory: mineral-kingdom-api/mineral-kingdom-api/MineralKingdom
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          ASPNETCORE_URLS: http://+:8080
+          MK_DB__HOST: localhost
+          MK_DB__PORT: "5432"
+          MK_DB__DATABASE: mk
+          MK_DB__USERNAME: mk
+          MK_DB__PASSWORD: mk_dev_pw
+        run: |
+          nohup dotnet run --project MineralKingdom.Api --configuration Release --no-build > api.log 2>&1 &
+          echo "API started"
+
+      - name: Wait for API health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/health > /dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API failed to become healthy"
+          exit 1
+        working-directory: .
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: E2E
+        env:
+          # Critical: Next dev server (webServer) inherits this and your BFF uses it.
+          API_BASE_URL: http://localhost:8080
+        run: npm run test:e2e
+
+      - name: Upload Playwright report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: mineral-kingdom-web/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload backend API log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mk-api-log
+          path: mineral-kingdom-api/mineral-kingdom-api/MineralKingdom/api.log
+          if-no-files-found: ignore
