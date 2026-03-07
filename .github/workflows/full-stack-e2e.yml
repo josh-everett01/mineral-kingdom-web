@@ -33,12 +33,16 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
-      # Docker is available on ubuntu-latest runners; no extra setup needed.
+      - name: Debug backend folder
+        run: |
+          ls -la mineral-kingdom-api
+          ls -la mineral-kingdom-api | sed -n '1,200p'
 
       - name: Start backend via docker compose
         working-directory: mineral-kingdom-api
         run: |
-          docker compose up -d --build postgres api worker
+          docker compose -f docker-compose.yml up -d --build postgres api worker
+          docker compose -f docker-compose.yml ps
 
       - name: Wait for backend API to be ready
         run: |
@@ -93,7 +97,9 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
+        working-directory: mineral-kingdom-api
         run: |
+          docker compose -f docker-compose.yml ps
           docker ps
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
@@ -102,4 +108,4 @@ jobs:
         if: always()
         working-directory: mineral-kingdom-api
         run: |
-          docker compose down -v
+          docker compose -f docker-compose.yml down -v
