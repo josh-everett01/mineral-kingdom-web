@@ -12,21 +12,13 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF will call this
       API_BASE_URL: http://localhost:8080
-
-      # Make backend include verificationToken in RegisterResponse (Testing behavior)
       ASPNETCORE_ENVIRONMENT: Testing
 
-      # Playwright config defaults to localhost:${PORT}; no need to set unless you want to override
-      # PLAYWRIGHT_BASE_URL: http://localhost:3005
-
     steps:
-      # --- Frontend repo ---
       - name: Checkout frontend
         uses: actions/checkout@v4
 
-      # --- Backend repo (checked out into subfolder) ---
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
@@ -34,8 +26,11 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           ls -lah
           test -f docker-compose.yml
@@ -54,11 +49,8 @@ jobs:
           done
 
           echo "API did not become ready in time."
-          docker ps
-          docker logs mk_api --tail 200 || true
           exit 1
 
-      # Seed a verified user for auth e2e (so we can unskip auth.spec.ts)
       - name: Seed verified E2E user
         run: |
           set -euo pipefail
@@ -72,7 +64,7 @@ jobs:
             -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")"
 
           echo "$RESP" > /tmp/register.json
-          TOKEN="$(cat /tmp/register.json | jq -r '.verificationToken // empty')"
+          TOKEN="$(jq -r '.verificationToken // empty' /tmp/register.json)"
 
           if [ -z "$TOKEN" ]; then
             echo "No verificationToken returned. Response was:"
@@ -88,7 +80,6 @@ jobs:
           echo "E2E_EMAIL=${EMAIL}" >> "$GITHUB_ENV"
           echo "E2E_PASSWORD=${PASSWORD}" >> "$GITHUB_ENV"
 
-      # --- Frontend deps/build/test ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -126,13 +117,13 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker ps
-          docker logs mk_api --tail 200 || true
-          docker logs mk_worker --tail 200 || true
+          docker compose -f docker-compose.yml ps
+          docker compose -f docker-compose.yml logs --tail 300 api worker || true
 
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           docker compose -f docker-compose.yml down -v
