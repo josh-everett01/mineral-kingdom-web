@@ -12,74 +12,84 @@ jobs:
     timeout-minutes: 25
 
     env:
+      # Next.js BFF will call this
       API_BASE_URL: http://localhost:8080
+
+      # Ensure backend runs in Testing for dev-friendly behaviors (e.g., verificationToken in responses)
       ASPNETCORE_ENVIRONMENT: Testing
 
+      # Playwright config defaults to localhost:${PORT} (PORT defaults to 3005 in your config)
+      PORT: 3005
+      PLAYWRIGHT_BASE_URL: http://localhost:3005
+
     steps:
+      # --- Frontend repo ---
       - name: Checkout frontend
         uses: actions/checkout@v4
 
+      # --- Backend repo (checked out into subfolder) ---
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
           repository: josh-everett01/mineral-kingdom-api
-          path: mineral-kingdom-api
+          path: mineral-kingdom-api/mineral-kingdom-api
           fetch-depth: 1
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      # --- Create backend .env (compose requires it) ---
+      - name: Create backend .env for CI
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
 
+          # Force environment to Testing inside the file too (compose env_file reads this)
+          # Safe even if already present.
+          if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
+            sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
+          else
+            echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
+          fi
+
+          echo "Backend .env created:"
+          ls -lah .env
+          echo "ASPNETCORE_ENVIRONMENT in .env:"
+          grep '^ASPNETCORE_ENVIRONMENT=' .env || true
+
+      # --- Start backend via docker compose ---
       - name: Start backend via docker compose
         working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          ls -lah
-          test -f docker-compose.yml
           docker compose -f docker-compose.yml up -d --build postgres api worker
           docker compose -f docker-compose.yml ps
 
+      # --- Wait for backend API to be ready ---
       - name: Wait for backend API to be ready
         run: |
-          echo "Waiting for API /health..."
+          echo "Waiting for API..."
+
+          # Prefer swagger if available; fall back to a basic root probe.
           for i in {1..60}; do
-            if curl -fsS http://localhost:8080/health >/dev/null; then
-              echo "API is ready."
+            if curl -fsS http://localhost:8080/swagger/v1/swagger.json >/dev/null 2>&1; then
+              echo "API is ready (swagger)."
               exit 0
             fi
+
+            # Some configurations may not expose swagger in Testing; treat any HTTP response as "up".
+            if curl -fsS -o /dev/null http://localhost:8080/ >/dev/null 2>&1; then
+              echo "API is responding (root)."
+              exit 0
+            fi
+
             sleep 2
           done
 
           echo "API did not become ready in time."
+          docker ps || true
+          docker logs mk_api --tail 200 || true
           exit 1
 
-      - name: Seed verified E2E user
-        run: |
-          set -euo pipefail
-
-          EMAIL="e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
-          PASSWORD="Str0ngPass!123"
-
-          echo "Creating user ${EMAIL}..."
-          RESP="$(curl -fsS -X POST "http://localhost:8080/api/auth/register" \
-            -H "content-type: application/json" \
-            -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")"
-
-          echo "$RESP" > /tmp/register.json
-          TOKEN="$(jq -r '.verificationToken // empty' /tmp/register.json)"
-
-          if [ -z "$TOKEN" ]; then
-            echo "No verificationToken returned. Response was:"
-            cat /tmp/register.json
-            exit 1
-          fi
-
-          echo "Verifying email..."
-          curl -fsS -X POST "http://localhost:8080/api/auth/verify-email" \
-            -H "content-type: application/json" \
-            -d "{\"token\":\"${TOKEN}\"}" >/dev/null
-
-          echo "E2E_EMAIL=${EMAIL}" >> "$GITHUB_ENV"
-          echo "E2E_PASSWORD=${PASSWORD}" >> "$GITHUB_ENV"
-
+      # --- Frontend deps/build/test ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -115,13 +125,17 @@ jobs:
           path: mineral-kingdom-web/playwright-report/
           if-no-files-found: ignore
 
+      # --- Diagnostics ---
       - name: Dump backend logs on failure
         if: failure()
         working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker compose -f docker-compose.yml ps
-          docker compose -f docker-compose.yml logs --tail 300 api worker || true
+          docker compose -f docker-compose.yml ps || true
+          docker logs mk_api --tail 200 || true
+          docker logs mk_worker --tail 200 || true
+          docker logs mk_postgres --tail 200 || true
 
+      # --- Teardown ---
       - name: Stop backend
         if: always()
         working-directory: mineral-kingdom-api/mineral-kingdom-api
