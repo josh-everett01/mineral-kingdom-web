@@ -12,13 +12,10 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF will call this
+      # Next.js BFF will call this (from the frontend runtime)
       API_BASE_URL: http://localhost:8080
-      # Make backend include verificationToken in RegisterResponse (Dev/Testing behavior)
+      # Backend behavior for dev/testing
       ASPNETCORE_ENVIRONMENT: Testing
-
-      # Optional: Playwright base URL override (your config defaults to localhost:${PORT})
-      # PLAYWRIGHT_BASE_URL: http://localhost:3005
 
     steps:
       # --- Frontend repo ---
@@ -33,16 +30,34 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
-      - name: Debug backend folder
+      - name: Create backend .env for docker compose
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          ls -la mineral-kingdom-api
-          ls -la mineral-kingdom-api | sed -n '1,200p'
+          cat > .env <<'EOF'
+          ASPNETCORE_ENVIRONMENT=Testing
+
+          MK_DB__HOST=localhost
+          MK_DB__PORT=5432
+          MK_DB__NAME=mk
+          MK_DB__USER=mk
+          MK_DB__PASSWORD=mk_dev_pw
+
+          MK_JWT__ISSUER=mineral-kingdom
+          MK_JWT__AUDIENCE=mineral-kingdom-web
+          MK_JWT__SIGNING_KEY=CI_DEV_ONLY_LONG_RANDOM_SIGNING_KEY_CHANGE_ME
+
+          MK_EMAIL__PROVIDER=NONE
+          MK_EMAIL__FROM=no-reply@mineralkingdom.local
+          MK_EMAIL__SMTP__HOST=
+          MK_EMAIL__SMTP__PORT=
+          MK_EMAIL__SMTP__USER=
+          MK_EMAIL__SMTP__PASS=
+          EOF
 
       - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           docker compose -f docker-compose.yml up -d --build postgres api worker
-          docker compose -f docker-compose.yml ps
 
       - name: Wait for backend API to be ready
         run: |
@@ -85,6 +100,9 @@ jobs:
 
       - name: E2E
         working-directory: mineral-kingdom-web
+        env:
+          # make sure the Next dev server / route handlers see it during the test run
+          API_BASE_URL: http://localhost:8080
         run: npm run test:e2e
 
       - name: Upload Playwright report (always)
@@ -97,15 +115,14 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
-        working-directory: mineral-kingdom-api
         run: |
-          docker compose -f docker-compose.yml ps
           docker ps
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
+          docker logs mk_postgres --tail 200 || true
 
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           docker compose -f docker-compose.yml down -v
