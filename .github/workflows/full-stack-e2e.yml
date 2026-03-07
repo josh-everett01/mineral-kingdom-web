@@ -12,10 +12,14 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF will call this (from the frontend runtime)
+      # Next.js BFF will call this
       API_BASE_URL: http://localhost:8080
-      # Backend behavior for dev/testing
+
+      # Make backend include verificationToken in RegisterResponse (Testing behavior)
       ASPNETCORE_ENVIRONMENT: Testing
+
+      # Playwright config defaults to localhost:${PORT}; no need to set unless you want to override
+      # PLAYWRIGHT_BASE_URL: http://localhost:3005
 
     steps:
       # --- Frontend repo ---
@@ -30,49 +34,59 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
-      - name: Create backend .env for docker compose
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
-        run: |
-          cat > .env <<'EOF'
-          ASPNETCORE_ENVIRONMENT=Testing
-
-          MK_DB__HOST=localhost
-          MK_DB__PORT=5432
-          MK_DB__NAME=mk
-          MK_DB__USER=mk
-          MK_DB__PASSWORD=mk_dev_pw
-
-          MK_JWT__ISSUER=mineral-kingdom
-          MK_JWT__AUDIENCE=mineral-kingdom-web
-          MK_JWT__SIGNING_KEY=CI_DEV_ONLY_LONG_RANDOM_SIGNING_KEY_CHANGE_ME
-
-          MK_EMAIL__PROVIDER=NONE
-          MK_EMAIL__FROM=no-reply@mineralkingdom.local
-          MK_EMAIL__SMTP__HOST=
-          MK_EMAIL__SMTP__PORT=
-          MK_EMAIL__SMTP__USER=
-          MK_EMAIL__SMTP__PASS=
-          EOF
-
       - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: mineral-kingdom-api
         run: |
+          ls -lah
+          test -f docker-compose.yml
           docker compose -f docker-compose.yml up -d --build postgres api worker
+          docker compose -f docker-compose.yml ps
 
       - name: Wait for backend API to be ready
         run: |
-          echo "Waiting for API..."
+          echo "Waiting for API /health..."
           for i in {1..60}; do
-            if curl -fsS http://localhost:8080/swagger/v1/swagger.json >/dev/null; then
+            if curl -fsS http://localhost:8080/health >/dev/null; then
               echo "API is ready."
               exit 0
             fi
             sleep 2
           done
+
           echo "API did not become ready in time."
           docker ps
           docker logs mk_api --tail 200 || true
           exit 1
+
+      # Seed a verified user for auth e2e (so we can unskip auth.spec.ts)
+      - name: Seed verified E2E user
+        run: |
+          set -euo pipefail
+
+          EMAIL="e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
+          PASSWORD="Str0ngPass!123"
+
+          echo "Creating user ${EMAIL}..."
+          RESP="$(curl -fsS -X POST "http://localhost:8080/api/auth/register" \
+            -H "content-type: application/json" \
+            -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")"
+
+          echo "$RESP" > /tmp/register.json
+          TOKEN="$(cat /tmp/register.json | jq -r '.verificationToken // empty')"
+
+          if [ -z "$TOKEN" ]; then
+            echo "No verificationToken returned. Response was:"
+            cat /tmp/register.json
+            exit 1
+          fi
+
+          echo "Verifying email..."
+          curl -fsS -X POST "http://localhost:8080/api/auth/verify-email" \
+            -H "content-type: application/json" \
+            -d "{\"token\":\"${TOKEN}\"}" >/dev/null
+
+          echo "E2E_EMAIL=${EMAIL}" >> "$GITHUB_ENV"
+          echo "E2E_PASSWORD=${PASSWORD}" >> "$GITHUB_ENV"
 
       # --- Frontend deps/build/test ---
       - name: Setup Node
@@ -100,9 +114,6 @@ jobs:
 
       - name: E2E
         working-directory: mineral-kingdom-web
-        env:
-          # make sure the Next dev server / route handlers see it during the test run
-          API_BASE_URL: http://localhost:8080
         run: npm run test:e2e
 
       - name: Upload Playwright report (always)
@@ -119,10 +130,9 @@ jobs:
           docker ps
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
-          docker logs mk_postgres --tail 200 || true
 
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: mineral-kingdom-api
         run: |
           docker compose -f docker-compose.yml down -v
