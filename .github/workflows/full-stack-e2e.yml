@@ -12,15 +12,18 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF will call this
+      # Next.js BFF will call this (used by Next dev server during Playwright)
       API_BASE_URL: http://localhost:8080
 
-      # Ensure backend runs in Testing for dev-friendly behaviors (e.g., verificationToken in responses)
+      # Backend runs in Testing in CI (Swagger is Development-only)
       ASPNETCORE_ENVIRONMENT: Testing
 
-      # Playwright config defaults to localhost:${PORT} (PORT defaults to 3005 in your config)
-      PORT: 3005
-      PLAYWRIGHT_BASE_URL: http://localhost:3005
+      # Credentials for auth.spec.ts (we will seed this user before Playwright)
+      E2E_EMAIL: mk-ci-${{ github.run_id }}-${{ github.run_attempt }}@example.com
+      E2E_PASSWORD: Str0ngPass!123
+
+      # Optional if you want to override Playwright config baseURL
+      # PLAYWRIGHT_BASE_URL: http://localhost:3005
 
     steps:
       # --- Frontend repo ---
@@ -32,62 +35,103 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: josh-everett01/mineral-kingdom-api
-          path: mineral-kingdom-api/mineral-kingdom-api
+          path: mineral-kingdom-api
           fetch-depth: 1
 
-      # --- Create backend .env (compose requires it) ---
-      - name: Create backend .env for CI
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+      # --- Backend: create .env in the RIGHT folder and start compose ---
+      - name: Create backend .env (from example)
+        working-directory: mineral-kingdom-api
         run: |
+          set -euxo pipefail
+
+          # show what we have (helps debug path issues)
+          ls -lah
+
+          # Create .env alongside docker-compose.yml (compose expects .env in same folder)
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
 
-          # Force environment to Testing inside the file too (compose env_file reads this)
-          # Safe even if already present.
-          if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
-            sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
-          else
-            echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
-          fi
+          # Force CI-friendly values
+          # (DB host overridden to postgres by compose service env, but leaving consistent is fine)
+          sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
+          sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_ONLY_LONG_RANDOM_SIGNING_KEY_CHANGE_ME_0123456789abcdef0123456789abcdef/' .env
 
-          echo "Backend .env created:"
-          ls -lah .env
-          echo "ASPNETCORE_ENVIRONMENT in .env:"
-          grep '^ASPNETCORE_ENVIRONMENT=' .env || true
+          echo "----- .env (sanity) -----"
+          rg -n "ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__ISSUER|MK_JWT__AUDIENCE|MK_JWT__SIGNING_KEY|MK_EMAIL__PROVIDER" .env || true
 
-      # --- Start backend via docker compose ---
       - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: mineral-kingdom-api
         run: |
+          set -euxo pipefail
           docker compose -f docker-compose.yml up -d --build postgres api worker
           docker compose -f docker-compose.yml ps
 
-      # --- Wait for backend API to be ready ---
       - name: Wait for backend API to be ready
         run: |
-          echo "Waiting for API..."
+          set -euxo pipefail
 
-          # Prefer swagger if available; fall back to a basic root probe.
+          echo "Waiting for API on :8080 (Swagger is disabled in Testing)..."
           for i in {1..60}; do
-            if curl -fsS http://localhost:8080/swagger/v1/swagger.json >/dev/null 2>&1; then
-              echo "API is ready (swagger)."
+            # Register endpoint exists; GET might be 404, so POST a harmless payload and accept any HTTP response != 000
+            code="$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/auth/register -H "content-type: application/json" -d '{"email":"probe@example.com","password":"Str0ngPass!123"}' || true)"
+            if [ "$code" != "000" ]; then
+              echo "API is reachable (HTTP $code)."
               exit 0
             fi
-
-            # Some configurations may not expose swagger in Testing; treat any HTTP response as "up".
-            if curl -fsS -o /dev/null http://localhost:8080/ >/dev/null 2>&1; then
-              echo "API is responding (root)."
-              exit 0
-            fi
-
             sleep 2
           done
 
-          echo "API did not become ready in time."
-          docker ps || true
+          echo "API did not become reachable in time."
+          docker ps
           docker logs mk_api --tail 200 || true
+          docker logs mk_worker --tail 200 || true
           exit 1
+
+      # --- Seed auth user for unskipped auth.spec.ts ---
+      - name: Seed E2E user (register + verify email)
+        run: |
+          set -euxo pipefail
+
+          echo "Seeding E2E user: $E2E_EMAIL"
+
+          # Register
+          python - << 'PY'
+          import json, os, sys, urllib.request
+          email = os.environ["E2E_EMAIL"]
+          password = os.environ["E2E_PASSWORD"]
+
+          req = urllib.request.Request(
+              "http://localhost:8080/api/auth/register",
+              method="POST",
+              headers={"content-type": "application/json"},
+              data=json.dumps({"email": email, "password": password}).encode("utf-8"),
+          )
+          try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8")
+              data = json.loads(body) if body else {}
+              print("REGISTER status:", resp.status)
+              print("REGISTER response keys:", list(data.keys()))
+              token = data.get("verificationToken")
+              if token:
+                print("verificationToken present (len):", len(token))
+                # Verify email
+                req2 = urllib.request.Request(
+                    "http://localhost:8080/api/auth/verify-email",
+                    method="POST",
+                    headers={"content-type": "application/json"},
+                    data=json.dumps({"token": token}).encode("utf-8"),
+                )
+                with urllib.request.urlopen(req2, timeout=15) as resp2:
+                  print("VERIFY status:", resp2.status)
+              else:
+                print("No verificationToken returned; continuing (login may still work depending on backend rules).")
+          except Exception as e:
+            # If user already exists (409), ignore and continue. This can happen on re-runs.
+            # (We used run_id/run_attempt, but keeping this guard is helpful.)
+            print("Seed step error (non-fatal):", repr(e))
+          PY
 
       # --- Frontend deps/build/test ---
       - name: Setup Node
@@ -125,19 +169,16 @@ jobs:
           path: mineral-kingdom-web/playwright-report/
           if-no-files-found: ignore
 
-      # --- Diagnostics ---
       - name: Dump backend logs on failure
         if: failure()
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker compose -f docker-compose.yml ps || true
+          docker ps || true
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
           docker logs mk_postgres --tail 200 || true
 
-      # --- Teardown ---
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: mineral-kingdom-api
         run: |
-          docker compose -f docker-compose.yml down -v
+          docker compose -f docker-compose.yml down -v || true
