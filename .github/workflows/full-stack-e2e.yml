@@ -12,18 +12,15 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF will call this (used by Next dev server during Playwright)
       API_BASE_URL: http://localhost:8080
-
-      # Backend runs in Testing in CI (Swagger is Development-only)
       ASPNETCORE_ENVIRONMENT: Testing
 
-      # Credentials for auth.spec.ts (we will seed this user before Playwright)
+      # Auth test credentials (we seed these)
       E2E_EMAIL: mk-ci-${{ github.run_id }}-${{ github.run_attempt }}@example.com
       E2E_PASSWORD: Str0ngPass!123
 
-      # Optional if you want to override Playwright config baseURL
-      # PLAYWRIGHT_BASE_URL: http://localhost:3005
+      # Backend repo lands nested (per your log)
+      BACKEND_DIR: mineral-kingdom-api/mineral-kingdom-api
 
     steps:
       # --- Frontend repo ---
@@ -38,43 +35,49 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
+      - name: Show backend folder layout (debug)
+        run: |
+          set -euxo pipefail
+          ls -lah
+          ls -lah mineral-kingdom-api
+          ls -lah "${BACKEND_DIR}"
+
       # --- Backend: create .env in the RIGHT folder and start compose ---
       - name: Create backend .env (from example)
-        working-directory: mineral-kingdom-api
+        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           set -euxo pipefail
 
-          # show what we have (helps debug path issues)
           ls -lah
 
-          # Create .env alongside docker-compose.yml (compose expects .env in same folder)
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
 
           # Force CI-friendly values
-          # (DB host overridden to postgres by compose service env, but leaving consistent is fine)
           sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
           sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_ONLY_LONG_RANDOM_SIGNING_KEY_CHANGE_ME_0123456789abcdef0123456789abcdef/' .env
+          sed -i 's/^MK_EMAIL__PROVIDER=.*/MK_EMAIL__PROVIDER=NONE/' .env
 
           echo "----- .env (sanity) -----"
-          rg -n "ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__ISSUER|MK_JWT__AUDIENCE|MK_JWT__SIGNING_KEY|MK_EMAIL__PROVIDER" .env || true
+          grep -E "ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__|MK_EMAIL__PROVIDER" .env || true
 
       - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api
+        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           set -euxo pipefail
           docker compose -f docker-compose.yml up -d --build postgres api worker
           docker compose -f docker-compose.yml ps
+          docker ps -a
 
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
 
-          echo "Waiting for API on :8080 (Swagger is disabled in Testing)..."
+          echo "Waiting for API on :8080 (Swagger may be disabled in Testing)..."
           for i in {1..60}; do
-            # Register endpoint exists; GET might be 404, so POST a harmless payload and accept any HTTP response != 000
-            code="$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/auth/register -H "content-type: application/json" -d '{"email":"probe@example.com","password":"Str0ngPass!123"}' || true)"
+            # Any non-000 indicates the port is accepting connections
+            code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || true)"
             if [ "$code" != "000" ]; then
               echo "API is reachable (HTTP $code)."
               exit 0
@@ -83,54 +86,58 @@ jobs:
           done
 
           echo "API did not become reachable in time."
-          docker ps
+          docker ps -a || true
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
+          docker logs mk_postgres --tail 200 || true
           exit 1
 
-      # --- Seed auth user for unskipped auth.spec.ts ---
+      # --- Seed auth user for auth.spec.ts ---
       - name: Seed E2E user (register + verify email)
         run: |
           set -euxo pipefail
-
           echo "Seeding E2E user: $E2E_EMAIL"
 
-          # Register
           python - << 'PY'
-          import json, os, sys, urllib.request
+          import json, os, urllib.request, urllib.error
+
           email = os.environ["E2E_EMAIL"]
           password = os.environ["E2E_PASSWORD"]
 
-          req = urllib.request.Request(
-              "http://localhost:8080/api/auth/register",
+          def post(url, payload):
+            req = urllib.request.Request(
+              url,
               method="POST",
-              headers={"content-type": "application/json"},
-              data=json.dumps({"email": email, "password": password}).encode("utf-8"),
-          )
-          try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-              body = resp.read().decode("utf-8")
-              data = json.loads(body) if body else {}
-              print("REGISTER status:", resp.status)
-              print("REGISTER response keys:", list(data.keys()))
-              token = data.get("verificationToken")
-              if token:
-                print("verificationToken present (len):", len(token))
-                # Verify email
-                req2 = urllib.request.Request(
-                    "http://localhost:8080/api/auth/verify-email",
-                    method="POST",
-                    headers={"content-type": "application/json"},
-                    data=json.dumps({"token": token}).encode("utf-8"),
-                )
-                with urllib.request.urlopen(req2, timeout=15) as resp2:
-                  print("VERIFY status:", resp2.status)
-              else:
-                print("No verificationToken returned; continuing (login may still work depending on backend rules).")
-          except Exception as e:
-            # If user already exists (409), ignore and continue. This can happen on re-runs.
-            # (We used run_id/run_attempt, but keeping this guard is helpful.)
-            print("Seed step error (non-fatal):", repr(e))
+              headers={"content-type":"application/json"},
+              data=json.dumps(payload).encode("utf-8"),
+            )
+            try:
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                body = resp.read().decode("utf-8")
+                return resp.status, (json.loads(body) if body else None)
+            except urllib.error.HTTPError as e:
+              raw = e.read().decode("utf-8")
+              try:
+                parsed = json.loads(raw) if raw else None
+              except Exception:
+                parsed = raw
+              return e.code, parsed
+
+          # Register
+          status, data = post("http://localhost:8080/api/auth/register", {"email": email, "password": password})
+          print("REGISTER status:", status)
+          print("REGISTER data:", data)
+
+          token = None
+          if isinstance(data, dict):
+            token = data.get("verificationToken")
+
+          # Verify if token present
+          if token:
+            status2, _ = post("http://localhost:8080/api/auth/verify-email", {"token": token})
+            print("VERIFY status:", status2)
+          else:
+            print("No verificationToken returned; continuing.")
           PY
 
       # --- Frontend deps/build/test ---
@@ -172,13 +179,13 @@ jobs:
       - name: Dump backend logs on failure
         if: failure()
         run: |
-          docker ps || true
+          docker ps -a || true
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
           docker logs mk_postgres --tail 200 || true
 
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api
+        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           docker compose -f docker-compose.yml down -v || true
