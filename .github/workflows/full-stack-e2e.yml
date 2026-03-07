@@ -3,124 +3,59 @@ name: Full Stack E2E
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - "mineral-kingdom-web/**"
-      - "mineral-kingdom-api/**"
-      - ".github/workflows/full-stack-e2e.yml"
   push:
     branches: [ main ]
-    paths:
-      - "mineral-kingdom-web/**"
-      - "mineral-kingdom-api/**"
-      - ".github/workflows/full-stack-e2e.yml"
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: mk
-          POSTGRES_PASSWORD: mk_dev_pw
-          POSTGRES_DB: mk
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U mk -d mk"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=20
+    env:
+      # Next.js BFF will call this
+      API_BASE_URL: http://localhost:8080
+      # Make backend include verificationToken in RegisterResponse (Dev/Testing behavior)
+      ASPNETCORE_ENVIRONMENT: Testing
+
+      # Optional: Playwright base URL override (your config defaults to localhost:${PORT})
+      # PLAYWRIGHT_BASE_URL: http://localhost:3005
 
     steps:
-      - name: Checkout
+      # --- Frontend repo ---
+      - name: Checkout frontend
         uses: actions/checkout@v4
 
-      # -------------------------
-      # Backend: build + run API
-      # -------------------------
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      # --- Backend repo (checked out into subfolder) ---
+      - name: Checkout backend
+        uses: actions/checkout@v4
         with:
-          dotnet-version: "8.0.x"
+          repository: josh-everett01/mineral-kingdom-api
+          path: mineral-kingdom-api
+          fetch-depth: 1
 
-      - name: Restore backend
-        working-directory: mineral-kingdom-api/MineralKingdom
-        run: dotnet restore MineralKingdom.sln
+      # Docker is available on ubuntu-latest runners; no extra setup needed.
 
-      - name: Build backend
-        working-directory: mineral-kingdom-api/MineralKingdom
-        run: dotnet build MineralKingdom.sln --configuration Release --no-restore
-
-      - name: Start API (background)
-        working-directory: mineral-kingdom-api/MineralKingdom
-        env:
-          ASPNETCORE_ENVIRONMENT: Testing
-          ASPNETCORE_URLS: http://+:8080
-
-          # DB (use localhost because API runs on host)
-          MK_DB__HOST: localhost
-          MK_DB__PORT: "5432"
-          MK_DB__DATABASE: mk
-          MK_DB__USERNAME: mk
-          MK_DB__PASSWORD: mk_dev_pw
-
-          # JWT signing key for auth
-          MK_JWT__SIGNING_KEY: "ci_only_signing_key_change_me_1234567890"
-
-          # Used in some link generation (safe to set)
-          MK_APP__PUBLIC_URL: http://localhost:3005
+      - name: Start backend via docker compose
+        working-directory: mineral-kingdom-api
         run: |
-          nohup dotnet run --project MineralKingdom.Api/MineralKingdom.Api.csproj \
-            --configuration Release --no-build --urls http://localhost:8080 \
-            > /tmp/mk_api.log 2>&1 &
-          echo "API started (logs at /tmp/mk_api.log)"
+          docker compose up -d --build postgres api worker
 
-      - name: Wait for API ready
+      - name: Wait for backend API to be ready
         run: |
+          echo "Waiting for API..."
           for i in {1..60}; do
-            if curl -fsS http://localhost:8080/swagger/v1/swagger.json >/dev/null 2>&1; then
-              echo "API is ready"
+            if curl -fsS http://localhost:8080/swagger/v1/swagger.json >/dev/null; then
+              echo "API is ready."
               exit 0
             fi
             sleep 2
           done
-          echo "API failed to start. Logs:"
-          tail -n 200 /tmp/mk_api.log || true
+          echo "API did not become ready in time."
+          docker ps
+          docker logs mk_api --tail 200 || true
           exit 1
 
-      # Optional: ensure the auth user exists + is verified for auth.spec.ts
-      - name: Seed E2E user (register + verify if token returned)
-        env:
-          E2E_EMAIL: smoke_user1@example.com
-          E2E_PASSWORD: Str0ngPass!123
-        run: |
-          set -euo pipefail
-
-          # Register (ignore EMAIL_ALREADY_IN_USE)
-          resp="$(curl -sS -X POST http://localhost:8080/api/auth/register \
-            -H "content-type: application/json" \
-            -d "{\"email\":\"$E2E_EMAIL\",\"password\":\"$E2E_PASSWORD\"}" || true)"
-
-          echo "Register response: $resp"
-
-          # If the backend returns verificationToken in Testing env, verify it
-          token="$(node -e "try{const j=JSON.parse(process.argv[1]); console.log(j.verificationToken||'')}catch{console.log('')}" "$resp")"
-          if [ -n "$token" ]; then
-            echo "Verifying email with token..."
-            curl -fsS -X POST http://localhost:8080/api/auth/verify-email \
-              -H "content-type: application/json" \
-              -d "{\"token\":\"$token\"}" >/dev/null
-            echo "Verified."
-          else
-            echo "No verificationToken returned; skipping verify step."
-          fi
-
-      # -------------------------
-      # Frontend: install + test
-      # -------------------------
+      # --- Frontend deps/build/test ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -146,16 +81,6 @@ jobs:
 
       - name: E2E
         working-directory: mineral-kingdom-web
-        env:
-          # IMPORTANT: Next dev server (started by Playwright) needs this for BFF proxying.
-          API_BASE_URL: http://localhost:8080
-
-          # Auth test creds
-          E2E_EMAIL: smoke_user1@example.com
-          E2E_PASSWORD: Str0ngPass!123
-
-          # Playwright config uses PORT=3005 by default
-          PORT: "3005"
         run: npm run test:e2e
 
       - name: Upload Playwright report (always)
@@ -166,8 +91,15 @@ jobs:
           path: mineral-kingdom-web/playwright-report/
           if-no-files-found: ignore
 
-      - name: Dump API logs on failure
+      - name: Dump backend logs on failure
         if: failure()
         run: |
-          echo "==== API logs (tail) ===="
-          tail -n 250 /tmp/mk_api.log || true
+          docker ps
+          docker logs mk_api --tail 200 || true
+          docker logs mk_worker --tail 200 || true
+
+      - name: Stop backend
+        if: always()
+        working-directory: mineral-kingdom-api
+        run: |
+          docker compose down -v
