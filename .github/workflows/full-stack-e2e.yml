@@ -1,13 +1,12 @@
 name: Full Stack E2E
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [ main ]
-  push:
-    branches: [ "**" ]  # run on pushes to feature branches too
 
 concurrency:
-  group: full-stack-e2e-${{ github.ref }}
+  group: full-stack-e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,45 +15,36 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
-      # Keep backend in Testing so dev-only behaviors can be enabled
       ASPNETCORE_ENVIRONMENT: Testing
 
     steps:
-      # --------------------
-      # Checkout frontend repo (this repo)
-      # --------------------
       - name: Checkout frontend
         uses: actions/checkout@v4
 
-      # --------------------
-      # Checkout backend repo into ./mineral-kingdom-api
-      # Backend repo layout (observed from your logs):
-      #   mineral-kingdom-api/
-      #     mineral-kingdom-api/
-      #       docker-compose.yml
-      #       .env.example
-      # --------------------
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
           repository: josh-everett01/mineral-kingdom-api
-          path: mineral-kingdom-api
+          path: backend
           fetch-depth: 1
 
-      - name: Backend folder layout (debug)
+      - name: Debug backend folder layout
         run: |
           set -euxo pipefail
           ls -lah
-          ls -lah mineral-kingdom-api
-          ls -lah mineral-kingdom-api/mineral-kingdom-api
+          ls -lah backend
+          ls -lah backend/mineral-kingdom-api
+          test -f backend/mineral-kingdom-api/docker-compose.yml
+          test -f backend/mineral-kingdom-api/.env.example
 
-      # --------------------
-      # Prepare backend .env (compose references env_file: .env)
-      # --------------------
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Create backend .env from example
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: backend/mineral-kingdom-api
         run: |
           set -euxo pipefail
 
@@ -62,109 +52,109 @@ jobs:
             cp .env.example .env
           fi
 
-          # Force Testing env inside containers
           if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
             sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
           else
             echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
           fi
 
-          # Ensure JWT signing key exists for token issuance in tests
           if grep -q '^MK_JWT__SIGNING_KEY=' .env; then
             sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
           else
             echo 'MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
           fi
 
-          echo "---- .env (sanity) ----"
-          grep -E '^(ASPNETCORE_ENVIRONMENT|MK_JWT__SIGNING_KEY|MK_DB__)=' .env || true
-
-      # --------------------
-      # Start backend with docker compose
-      # --------------------
-      - name: Start backend via docker compose
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+      - name: Start Postgres (docker compose)
+        working-directory: backend/mineral-kingdom-api
         run: |
           set -euxo pipefail
-          docker compose up -d --build postgres api worker
+          docker compose up -d postgres
           docker compose ps
+          docker ps
 
-      # --------------------
-      # Wait for API readiness
-      # Swagger may be disabled in Testing -> don't rely on /swagger.
-      # We probe an actual endpoint and accept "not 000 and not 404".
-      # --------------------
+      - name: Wait for Postgres to be healthy
+        run: |
+          set -euxo pipefail
+          for i in {1..60}; do
+            if docker inspect --format='{{json .State.Health.Status}}' mk_postgres 2>/dev/null | grep -q '"healthy"'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs mk_postgres --tail 200 || true
+          exit 1
+
+      - name: Apply database migrations
+        working-directory: backend/mineral-kingdom-api/MineralKingdom
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          MK_DB__HOST: localhost
+          MK_DB__PORT: "5432"
+          MK_DB__NAME: mk
+          MK_DB__USER: mk
+          MK_DB__PASSWORD: mk_dev_pw
+          MK_JWT__ISSUER: mineral-kingdom
+          MK_JWT__AUDIENCE: mineral-kingdom-web
+          MK_JWT__SIGNING_KEY: CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890
+        run: |
+          set -euxo pipefail
+          dotnet restore MineralKingdom.sln
+          dotnet tool install -g dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+          dotnet ef database update \
+            --project MineralKingdom.Infrastructure \
+            --startup-project MineralKingdom.Api
+
+      - name: Start backend (api + worker)
+        working-directory: backend/mineral-kingdom-api
+        run: |
+          set -euxo pipefail
+          docker compose up -d --build api worker
+          docker compose ps
+          docker ps
+
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
-          echo "Waiting for API (POST /api/auth/register should return a non-404 once routing is live)..."
-
           for i in {1..60}; do
             code="$(curl -s -o /dev/null -w "%{http_code}" \
               -X POST "http://localhost:8080/api/auth/register" \
               -H "content-type: application/json" \
               -d '{}' || true)"
-
-            echo "Attempt $i: HTTP $code"
-
-            if [ "$code" != "000" ] && [ "$code" != "404" ]; then
-              echo "API is ready (got HTTP $code)."
+            if [ "$code" != "000" ] && [ "$code" != "404" ] && [ "${code:0:1}" != "5" ]; then
               exit 0
             fi
-
             sleep 2
           done
-
-          echo "API did not become ready in time."
-          docker ps || true
+          docker logs mk_api --tail 200 || true
           exit 1
 
-      # --------------------
-      # Create a verified user for auth e2e (register + verify)
-      # In Testing, backend should include verificationToken in RegisterResponse.
-      # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         run: |
           set -euxo pipefail
-
           EMAIL="mk-ci-$(date +%s)-${RANDOM}@example.com"
           PASSWORD="Str0ngPass!123"
-
-          echo "Creating user: $EMAIL"
 
           register_json="$(curl -fsS \
             -X POST "http://localhost:8080/api/auth/register" \
             -H "content-type: application/json" \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 
-          echo "Register response: $register_json"
-
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
           if [ -z "$TOKEN" ]; then
-            echo "verificationToken missing from register response (Testing env may not be returning it)."
-            echo "Failing because auth e2e needs a verified account."
+            echo "$register_json"
             exit 1
           fi
 
-          # Verify email: OpenAPI says 200 with no content
-          verify_code="$(curl -s -o /dev/null -w "%{http_code}" \
+          curl -fsS -o /dev/null \
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
-            -d "{\"token\":\"$TOKEN\"}" || true)"
-
-          echo "Verify status: $verify_code"
-          if [ "$verify_code" != "200" ]; then
-            echo "Verify-email failed with HTTP $verify_code"
-            exit 1
-          fi
+            -d "{\"token\":\"$TOKEN\"}"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
-      # --------------------
-      # Frontend install/build/lint + Playwright
-      # --------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -207,15 +197,13 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: backend/mineral-kingdom-api
         run: |
           docker compose ps || true
-          docker compose logs --no-color --tail 250 api || true
-          docker compose logs --no-color --tail 250 worker || true
-          docker compose logs --no-color --tail 250 postgres || true
+          docker compose logs --no-color --tail 200 postgres api worker || true
 
       - name: Stop backend
         if: always()
-        working-directory: mineral-kingdom-api/mineral-kingdom-api
+        working-directory: backend/mineral-kingdom-api
         run: |
           docker compose down -v || true
