@@ -12,22 +12,25 @@ jobs:
     timeout-minutes: 25
 
     env:
+      # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
+
+      # Ensure backend returns VerificationToken in RegisterResponse (Testing enables this)
       ASPNETCORE_ENVIRONMENT: Testing
 
-      # Auth test credentials (we seed these)
-      E2E_EMAIL: mk-ci-${{ github.run_id }}-${{ github.run_attempt }}@example.com
-      E2E_PASSWORD: Str0ngPass!123
-
-      # Backend repo lands nested (per your log)
-      BACKEND_DIR: mineral-kingdom-api/mineral-kingdom-api
-
     steps:
-      # --- Frontend repo ---
+      # --------------------
+      # Checkout frontend repo (this repo)
+      # --------------------
       - name: Checkout frontend
         uses: actions/checkout@v4
 
-      # --- Backend repo (checked out into subfolder) ---
+      # --------------------
+      # Checkout backend repo into ./mineral-kingdom-api
+      # NOTE: backend repo itself contains a nested folder: mineral-kingdom-api/
+      # So compose + .env.example live at:
+      #   mineral-kingdom-api/mineral-kingdom-api/docker-compose.yml
+      # --------------------
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
@@ -35,112 +38,125 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
-      - name: Show backend folder layout (debug)
+      - name: Backend folder layout (debug)
         run: |
           set -euxo pipefail
           ls -lah
           ls -lah mineral-kingdom-api
-          ls -lah "${BACKEND_DIR}"
+          ls -lah mineral-kingdom-api/mineral-kingdom-api
 
-      # --- Backend: create .env in the RIGHT folder and start compose ---
-      - name: Create backend .env (from example)
-        working-directory: ${{ env.BACKEND_DIR }}
+      # --------------------
+      # Prepare backend .env (compose references env_file: .env)
+      # --------------------
+      - name: Create backend .env from example
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           set -euxo pipefail
-
-          ls -lah
 
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
 
-          # Force CI-friendly values
-          sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
-          sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_ONLY_LONG_RANDOM_SIGNING_KEY_CHANGE_ME_0123456789abcdef0123456789abcdef/' .env
-          sed -i 's/^MK_EMAIL__PROVIDER=.*/MK_EMAIL__PROVIDER=NONE/' .env
+          # Force Testing env inside containers (also set at job level, but keep .env consistent)
+          if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
+            sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
+          else
+            echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
+          fi
 
-          echo "----- .env (sanity) -----"
-          grep -E "ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__|MK_EMAIL__PROVIDER" .env || true
+          # Ensure JWT signing key exists for token issuance in tests
+          if ! grep -q '^MK_JWT__SIGNING_KEY=' .env; then
+            echo 'MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
+          fi
 
+          echo "---- .env (sanity) ----"
+          grep -E '^(ASPNETCORE_ENVIRONMENT|MK_JWT__SIGNING_KEY|MK_DB__)=' .env || true
+
+      # --------------------
+      # Start backend with docker compose
+      # --------------------
       - name: Start backend via docker compose
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
           set -euxo pipefail
-          docker compose -f docker-compose.yml up -d --build postgres api worker
-          docker compose -f docker-compose.yml ps
-          docker ps -a
+          docker compose up -d --build postgres api worker
+          docker ps
 
+      # --------------------
+      # Wait for API readiness
+      # Swagger is Development-only, so in Testing it 404s.
+      # Instead we probe a real endpoint and accept "not-404" as "routes are up".
+      # --------------------
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
+          echo "Waiting for API (POST /api/auth/register should return 4xx once routing is live)..."
 
-          echo "Waiting for API on :8080 (Swagger may be disabled in Testing)..."
           for i in {1..60}; do
-            # Any non-000 indicates the port is accepting connections
-            code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || true)"
-            if [ "$code" != "000" ]; then
-              echo "API is reachable (HTTP $code)."
+            code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d '{}' || true)"
+
+            echo "Attempt $i: HTTP $code"
+
+            # When API is live, we expect 400/409/422/etc (anything except 000/404)
+            if [ "$code" != "000" ] && [ "$code" != "404" ]; then
+              echo "API is ready (got HTTP $code)."
               exit 0
             fi
+
             sleep 2
           done
 
-          echo "API did not become reachable in time."
-          docker ps -a || true
+          echo "API did not become ready in time."
+          docker ps || true
           docker logs mk_api --tail 200 || true
-          docker logs mk_worker --tail 200 || true
-          docker logs mk_postgres --tail 200 || true
           exit 1
 
-      # --- Seed auth user for auth.spec.ts ---
-      - name: Seed E2E user (register + verify email)
+      # --------------------
+      # Create a verified user for auth e2e
+      # Backend in Testing returns verificationToken on register.
+      # --------------------
+      - name: Seed verified E2E user (register + verify)
+        id: seed_user
         run: |
           set -euxo pipefail
-          echo "Seeding E2E user: $E2E_EMAIL"
 
-          python - << 'PY'
-          import json, os, urllib.request, urllib.error
+          EMAIL="mk-ci-$(date +%s)-${RANDOM}@example.com"
+          PASSWORD="Str0ngPass!123"
 
-          email = os.environ["E2E_EMAIL"]
-          password = os.environ["E2E_PASSWORD"]
+          echo "Creating user: $EMAIL"
 
-          def post(url, payload):
-            req = urllib.request.Request(
-              url,
-              method="POST",
-              headers={"content-type":"application/json"},
-              data=json.dumps(payload).encode("utf-8"),
-            )
-            try:
-              with urllib.request.urlopen(req, timeout=20) as resp:
-                body = resp.read().decode("utf-8")
-                return resp.status, (json.loads(body) if body else None)
-            except urllib.error.HTTPError as e:
-              raw = e.read().decode("utf-8")
-              try:
-                parsed = json.loads(raw) if raw else None
-              except Exception:
-                parsed = raw
-              return e.code, parsed
+          # Register (expect 201 Created; capture token)
+          register_json="$(curl -fsS \
+            -X POST "http://localhost:8080/api/auth/register" \
+            -H "content-type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 
-          # Register
-          status, data = post("http://localhost:8080/api/auth/register", {"email": email, "password": password})
-          print("REGISTER status:", status)
-          print("REGISTER data:", data)
+          echo "$register_json" | python3 - <<'PY'
+import json,sys
+obj=json.load(sys.stdin)
+tok=obj.get("verificationToken")
+if not tok:
+  raise SystemExit("verificationToken missing from register response")
+print(tok)
+PY
+          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["verificationToken"])')"
 
-          token = None
-          if isinstance(data, dict):
-            token = data.get("verificationToken")
+          # Verify email (NoContent 204 on success)
+          curl -fsS -o /dev/null \
+            -X POST "http://localhost:8080/api/auth/verify-email" \
+            -H "content-type: application/json" \
+            -d "{\"token\":\"$TOKEN\"}"
 
-          # Verify if token present
-          if token:
-            status2, _ = post("http://localhost:8080/api/auth/verify-email", {"token": token})
-            print("VERIFY status:", status2)
-          else:
-            print("No verificationToken returned; continuing.")
-          PY
+          # Export outputs for later steps
+          echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
-      # --- Frontend deps/build/test ---
+      # --------------------
+      # Frontend install/build/lint + Playwright
+      # --------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -166,6 +182,14 @@ jobs:
 
       - name: E2E
         working-directory: mineral-kingdom-web
+        env:
+          # Let the auth.spec.ts run with a known-good verified user
+          E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
+          E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
+
+          # Ensure Next.js BFF points at backend during tests
+          API_BASE_URL: http://localhost:8080
+          ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e
 
       - name: Upload Playwright report (always)
@@ -178,14 +202,15 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker ps -a || true
+          docker ps || true
           docker logs mk_api --tail 200 || true
           docker logs mk_worker --tail 200 || true
           docker logs mk_postgres --tail 200 || true
 
       - name: Stop backend
         if: always()
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker compose -f docker-compose.yml down -v || true
+          docker compose down -v || true
