@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-test.skip(!!process.env.CI, "Cart bridge e2e requires API/DB running locally");
+// Run only when backend is wired up (CI full-stack job sets E2E_BACKEND=1)
+test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
 test("cart proxy persists X-Cart-Id and maintains continuity", async ({ request }) => {
   const res1 = await request.get("/api/bff/proxy/cart");

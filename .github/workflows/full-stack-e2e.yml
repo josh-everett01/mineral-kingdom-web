@@ -19,6 +19,8 @@ jobs:
       API_BASE_URL: http://localhost:8080
       # Ensure backend uses Testing behavior (token surfacing etc.)
       ASPNETCORE_ENVIRONMENT: Testing
+      # Enable E2E specs that require backend
+      E2E_BACKEND: "1"
 
     steps:
       # --------------------
@@ -68,7 +70,6 @@ jobs:
       # Prepare backend .env (compose uses env_file: .env)
       # IMPORTANT:
       #   Backend expects MK_JWT:SigningKey (=> env var MK_JWT__SigningKey)
-      #   NOT MK_JWT__SIGNING_KEY (that maps to MK_JWT:SIGNING_KEY and won't bind)
       # --------------------
       - name: Create backend .env from example (CI-safe)
         shell: bash
@@ -88,7 +89,6 @@ jobs:
           fi
 
           # Ensure required JWT keys exist with correct names
-          # (Case-insensitive, but property name must match: SigningKey)
           if ! grep -q '^MK_JWT__Issuer=' .env; then
             echo 'MK_JWT__Issuer=mineral-kingdom' >> .env
           fi
@@ -151,11 +151,8 @@ jobs:
           set -euo pipefail
           cd "$BACKEND_DIR"
 
-          # Ensure dependencies restored
           dotnet restore MineralKingdom/MineralKingdom.sln
 
-          # Run migrations against postgres exposed on localhost:5432
-          # (API container will use service name 'postgres', but migrations run on runner => localhost)
           export MK_DB__HOST=localhost
           export MK_DB__PORT=5432
           export MK_DB__NAME=mk
@@ -260,6 +257,7 @@ jobs:
       - name: E2E
         working-directory: mineral-kingdom-web
         env:
+          E2E_BACKEND: "1"
           E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
           API_BASE_URL: http://localhost:8080
