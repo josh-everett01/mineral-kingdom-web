@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: full-stack-e2e-${{ github.ref }}
+  group: full-stack-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -15,7 +15,9 @@ jobs:
     timeout-minutes: 30
 
     env:
+      # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
+      # Ensure backend uses Testing behavior (token surfacing etc.)
       ASPNETCORE_ENVIRONMENT: Testing
 
     steps:
@@ -36,20 +38,20 @@ jobs:
           fetch-depth: 1
 
       # --------------------
-      # Resolve backend root (handles nested folder layouts)
+      # Resolve backend root folder (handles nested repo layout)
+      # Exports BACKEND_DIR for subsequent steps.
       # --------------------
-      - name: Resolve backend root
-        id: backend_root
+      - name: Resolve backend directory
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -f "mineral-kingdom-api/.env.example" && -f "mineral-kingdom-api/docker-compose.yml" ]]; then
-            ROOT="mineral-kingdom-api"
-          elif [[ -f "mineral-kingdom-api/mineral-kingdom-api/.env.example" && -f "mineral-kingdom-api/mineral-kingdom-api/docker-compose.yml" ]]; then
-            ROOT="mineral-kingdom-api/mineral-kingdom-api"
+          if [ -f "mineral-kingdom-api/.env.example" ] && [ -f "mineral-kingdom-api/docker-compose.yml" ]; then
+            BACKEND_DIR="mineral-kingdom-api"
+          elif [ -f "mineral-kingdom-api/mineral-kingdom-api/.env.example" ] && [ -f "mineral-kingdom-api/mineral-kingdom-api/docker-compose.yml" ]; then
+            BACKEND_DIR="mineral-kingdom-api/mineral-kingdom-api"
           else
-            echo "ERROR: Could not locate backend root containing .env.example + docker-compose.yml"
+            echo "ERROR: Could not locate backend .env.example + docker-compose.yml"
             echo "Top-level:"
             ls -lah || true
             echo "mineral-kingdom-api:"
@@ -59,48 +61,60 @@ jobs:
             exit 1
           fi
 
-          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-          echo "Resolved backend root: $ROOT"
-          ls -lah "$ROOT"
+          echo "Resolved backend dir: $BACKEND_DIR"
+          echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
 
       # --------------------
-      # Create backend .env from .env.example
+      # Prepare backend .env (compose uses env_file: .env)
+      # IMPORTANT:
+      #   Backend expects MK_JWT:SigningKey (=> env var MK_JWT__SigningKey)
+      #   NOT MK_JWT__SIGNING_KEY (that maps to MK_JWT:SIGNING_KEY and won't bind)
       # --------------------
-      - name: Create backend .env
-        working-directory: ${{ steps.backend_root.outputs.root }}
+      - name: Create backend .env from example (CI-safe)
         shell: bash
         run: |
           set -euo pipefail
+          cd "$BACKEND_DIR"
 
-          if [[ ! -f .env ]]; then
+          if [ ! -f .env ]; then
             cp .env.example .env
           fi
 
-          # Force Testing
+          # Force Testing in containers
           if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
             sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
           else
             echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
           fi
 
-          # Ensure JWT signing key is not placeholder
-          if grep -q '^MK_JWT__SIGNING_KEY=' .env; then
-            sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
-          else
-            echo 'MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
+          # Ensure required JWT keys exist with correct names
+          # (Case-insensitive, but property name must match: SigningKey)
+          if ! grep -q '^MK_JWT__Issuer=' .env; then
+            echo 'MK_JWT__Issuer=mineral-kingdom' >> .env
           fi
 
-          echo "---- .env sanity (subset) ----"
-          grep -E '^(ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__SIGNING_KEY)=' .env || true
+          if ! grep -q '^MK_JWT__Audience=' .env; then
+            echo 'MK_JWT__Audience=mineral-kingdom-web' >> .env
+          fi
+
+          # Always set a non-placeholder signing key using the correct key name
+          if grep -q '^MK_JWT__SigningKey=' .env; then
+            sed -i 's/^MK_JWT__SigningKey=.*/MK_JWT__SigningKey=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
+          else
+            echo 'MK_JWT__SigningKey=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
+          fi
+
+          echo "---- backend .env sanity ----"
+          grep -E '^(ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__)=' .env || true
 
       # --------------------
-      # Start Postgres first
+      # Start postgres only
       # --------------------
       - name: Start postgres
-        working-directory: ${{ steps.backend_root.outputs.root }}
         shell: bash
         run: |
           set -euo pipefail
+          cd "$BACKEND_DIR"
           docker compose up -d postgres
           docker ps
 
@@ -108,23 +122,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Waiting for mk_postgres health=healthy..."
           for i in {1..60}; do
-            status="$(docker inspect -f '{{.State.Health.Status}}' mk_postgres 2>/dev/null || true)"
-            echo "Attempt $i: $status"
-            if [[ "$status" == "healthy" ]]; then
-              echo "Postgres is healthy."
+            if docker exec mk_postgres pg_isready -U mk -d mk >/dev/null 2>&1; then
+              echo "Postgres is ready."
               exit 0
             fi
             sleep 2
           done
-          echo "Postgres did not become healthy in time."
-          docker ps || true
-          docker logs mk_postgres --tail 300 || true
+          echo "Postgres did not become ready in time."
+          docker logs mk_postgres --tail 200 || true
           exit 1
 
       # --------------------
-      # Run EF migrations (fixes: relation users does not exist)
+      # Apply EF migrations (prevents "relation users does not exist")
       # --------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -135,59 +145,60 @@ jobs:
         shell: bash
         run: dotnet tool install --global dotnet-ef
 
-      - name: Run migrations
-        working-directory: ${{ steps.backend_root.outputs.root }}
+      - name: Run database migrations
         shell: bash
-        env:
-          MK_DB__HOST: localhost
-          MK_DB__PORT: "5432"
-          MK_DB__NAME: mk
-          MK_DB__USER: mk
-          MK_DB__PASSWORD: mk_dev_pw
-          ASPNETCORE_ENVIRONMENT: Testing
         run: |
           set -euo pipefail
+          cd "$BACKEND_DIR"
 
+          # Ensure dependencies restored
           dotnet restore MineralKingdom/MineralKingdom.sln
+
+          # Run migrations against postgres exposed on localhost:5432
+          # (API container will use service name 'postgres', but migrations run on runner => localhost)
+          export MK_DB__HOST=localhost
+          export MK_DB__PORT=5432
+          export MK_DB__NAME=mk
+          export MK_DB__USER=mk
+          export MK_DB__PASSWORD=mk_dev_pw
+          export ASPNETCORE_ENVIRONMENT=Testing
 
           dotnet ef database update \
             --project MineralKingdom/MineralKingdom.Infrastructure/MineralKingdom.Infrastructure.csproj \
             --startup-project MineralKingdom/MineralKingdom.Api/MineralKingdom.Api.csproj
 
       # --------------------
-      # Start API + worker after schema exists
+      # Start api + worker after schema exists
       # --------------------
       - name: Start api + worker
-        working-directory: ${{ steps.backend_root.outputs.root }}
         shell: bash
         run: |
           set -euo pipefail
+          cd "$BACKEND_DIR"
           docker compose up -d --build api worker
           docker ps
 
-      - name: Wait for backend API ready
+      - name: Wait for backend API to be ready
         shell: bash
         run: |
           set -euo pipefail
-          echo "Waiting for API..."
-
+          echo "Waiting for API /db-ping..."
           for i in {1..60}; do
             code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/db-ping || true)"
             echo "Attempt $i: HTTP $code"
-            if [[ "$code" == "200" ]]; then
+            if [ "$code" = "200" ]; then
               echo "API is ready."
               exit 0
             fi
             sleep 2
           done
-
           echo "API did not become ready in time."
           docker ps || true
-          docker logs mk_api --tail 300 || true
+          docker logs mk_api --tail 250 || true
           exit 1
 
       # --------------------
-      # Seed a verified E2E user (so auth.spec.ts can run)
+      # Seed verified E2E user (register + verify)
       # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
@@ -206,8 +217,8 @@ jobs:
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
-          if [[ -z "$TOKEN" ]]; then
-            echo "Register response missing verificationToken:"
+          if [ -z "$TOKEN" ]; then
+            echo "Register response did not include verificationToken. Response was:"
             echo "$register_json"
             exit 1
           fi
@@ -274,7 +285,8 @@ jobs:
 
       - name: Stop backend
         if: always()
-        working-directory: ${{ steps.backend_root.outputs.root }}
         shell: bash
         run: |
-          docker compose down -v || true
+          set +e
+          cd "$BACKEND_DIR"
+          docker compose down -v
