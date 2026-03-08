@@ -1,12 +1,18 @@
+# .github/workflows/full-stack-e2e.yml
 name: Full Stack E2E
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+    # Optional: restrict when this runs
+    paths:
+      - "mineral-kingdom-web/**"
+      - ".github/workflows/full-stack-e2e.yml"
 
+# Prevent duplicate runs and cancel superseded runs on the same PR
 concurrency:
-  group: full-stack-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: full-stack-e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,16 +44,20 @@ jobs:
           fetch-depth: 1
 
       # --------------------
-      # Resolve backend root folder (handles nested layout)
+      # Resolve backend dir (repo may contain nested mineral-kingdom-api/)
+      # IMPORTANT: $GITHUB_ENV applies to the NEXT step, so we must also
+      # keep a local BACKEND_DIR variable inside this step.
       # --------------------
       - name: Resolve backend root folder
         run: |
           set -euxo pipefail
 
+          BACKEND_DIR=""
+
           if [ -f "mineral-kingdom-api/.env.example" ] && [ -f "mineral-kingdom-api/docker-compose.yml" ]; then
-            echo "BACKEND_DIR=mineral-kingdom-api" >> "$GITHUB_ENV"
+            BACKEND_DIR="mineral-kingdom-api"
           elif [ -f "mineral-kingdom-api/mineral-kingdom-api/.env.example" ] && [ -f "mineral-kingdom-api/mineral-kingdom-api/docker-compose.yml" ]; then
-            echo "BACKEND_DIR=mineral-kingdom-api/mineral-kingdom-api" >> "$GITHUB_ENV"
+            BACKEND_DIR="mineral-kingdom-api/mineral-kingdom-api"
           else
             echo "ERROR: Could not locate backend .env.example + docker-compose.yml"
             echo "Top-level:"
@@ -61,6 +71,9 @@ jobs:
 
           echo "Resolved BACKEND_DIR=$BACKEND_DIR"
           ls -lah "$BACKEND_DIR"
+
+          # Export for subsequent steps
+          echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
 
       # --------------------
       # Prepare backend .env (compose references env_file: .env)
@@ -102,25 +115,25 @@ jobs:
           docker ps
 
       - name: Wait for postgres healthy
-        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           set -euxo pipefail
           for i in {1..60}; do
-            # This works on ubuntu runners (jq is present). Compose emits JSON status.
-            if docker compose ps --format json | jq -e '.[] | select(.Service=="postgres") | .Health=="healthy"' >/dev/null 2>&1; then
+            # container_name is mk_postgres in docker-compose.yml
+            health="$(docker inspect -f '{{.State.Health.Status}}' mk_postgres 2>/dev/null || true)"
+            echo "Attempt $i: postgres health=$health"
+            if [ "$health" = "healthy" ]; then
               echo "Postgres is healthy."
               exit 0
             fi
             sleep 2
           done
           echo "Postgres did not become healthy in time."
-          docker compose ps || true
+          docker ps || true
           docker logs mk_postgres --tail 200 || true
           exit 1
 
       # --------------------
       # Apply EF migrations (fixes: "relation users does not exist")
-      # Run on runner against localhost:5432 (published by postgres service)
       # --------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -128,11 +141,16 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef
+        run: |
+          set -euxo pipefail
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          dotnet ef --version
 
       - name: Run migrations
         working-directory: ${{ env.BACKEND_DIR }}
         env:
+          # Migrations run on the runner against the published Postgres port
           MK_DB__HOST: localhost
           MK_DB__PORT: "5432"
           MK_DB__NAME: mk
@@ -158,33 +176,32 @@ jobs:
           docker compose up -d --build api worker
           docker ps
 
-      # --------------------
-      # Wait for backend API to be ready
-      # Prefer /db-ping if present; fallback to a non-404 /api/auth/register probe.
-      # --------------------
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
           echo "Waiting for API..."
 
           for i in {1..60}; do
-            code_db="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/db-ping || true)"
-            if [ "$code_db" = "200" ]; then
-              echo "API is ready (db-ping)."
+            # Prefer /db-ping if present
+            code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/db-ping || true)"
+            echo "Attempt $i: /db-ping HTTP $code"
+
+            if [ "$code" = "200" ]; then
+              echo "API is ready."
               exit 0
             fi
 
-            code_reg="$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "http://localhost:8080/api/auth/register" \
-              -H "content-type: application/json" \
-              -d '{}' || true)"
-
-            echo "Attempt $i: /db-ping=$code_db, /api/auth/register=$code_reg"
-
-            # when routing is live, register should be something other than 000/404
-            if [ "$code_reg" != "000" ] && [ "$code_reg" != "404" ]; then
-              echo "API is ready (register probe: $code_reg)."
-              exit 0
+            # If /db-ping isn't available, probe register route (anything but 000/404 is good)
+            if [ "$code" = "404" ]; then
+              code2="$(curl -s -o /dev/null -w "%{http_code}" \
+                -X POST "http://localhost:8080/api/auth/register" \
+                -H "content-type: application/json" \
+                -d '{}' || true)"
+              echo "Attempt $i: /api/auth/register probe HTTP $code2"
+              if [ "$code2" != "000" ] && [ "$code2" != "404" ]; then
+                echo "API is ready (register probe HTTP $code2)."
+                exit 0
+              fi
             fi
 
             sleep 2
@@ -220,7 +237,7 @@ jobs:
             exit 1
           fi
 
-          # Verify email (OpenAPI says 200 with empty body)
+          # Verify email (OpenAPI indicates 200 with empty body)
           curl -fsS -o /dev/null \
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
@@ -274,7 +291,6 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
-        working-directory: ${{ env.BACKEND_DIR }}
         run: |
           docker ps || true
           docker logs mk_api --tail 300 || true
