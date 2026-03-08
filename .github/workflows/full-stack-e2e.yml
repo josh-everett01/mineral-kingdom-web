@@ -1,18 +1,12 @@
-# .github/workflows/full-stack-e2e.yml
 name: Full Stack E2E
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [ main ]
-    # Optional: restrict when this runs
-    paths:
-      - "mineral-kingdom-web/**"
-      - ".github/workflows/full-stack-e2e.yml"
 
-# Prevent duplicate runs and cancel superseded runs on the same PR
 concurrency:
-  group: full-stack-e2e-${{ github.event.pull_request.number || github.ref }}
+  group: full-stack-e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -44,15 +38,13 @@ jobs:
           fetch-depth: 1
 
       # --------------------
-      # Resolve backend dir (repo may contain nested mineral-kingdom-api/)
-      # IMPORTANT: $GITHUB_ENV applies to the NEXT step, so we must also
-      # keep a local BACKEND_DIR variable inside this step.
+      # Resolve backend directory (repo has a nested folder with same name)
+      # We output backend_dir so later steps can reference it safely.
       # --------------------
-      - name: Resolve backend root folder
+      - name: Resolve backend paths
+        id: paths
         run: |
-          set -euxo pipefail
-
-          BACKEND_DIR=""
+          set -euo pipefail
 
           if [ -f "mineral-kingdom-api/.env.example" ] && [ -f "mineral-kingdom-api/docker-compose.yml" ]; then
             BACKEND_DIR="mineral-kingdom-api"
@@ -69,19 +61,17 @@ jobs:
             exit 1
           fi
 
+          echo "backend_dir=$BACKEND_DIR" >> "$GITHUB_OUTPUT"
           echo "Resolved BACKEND_DIR=$BACKEND_DIR"
           ls -lah "$BACKEND_DIR"
-
-          # Export for subsequent steps
-          echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
 
       # --------------------
       # Prepare backend .env (compose references env_file: .env)
       # --------------------
       - name: Create backend .env from example
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           if [ ! -f .env ]; then
             cp .env.example .env
@@ -94,7 +84,7 @@ jobs:
             echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
           fi
 
-          # Ensure JWT signing key is usable in CI (not placeholder)
+          # Ensure JWT signing key is usable in CI
           if grep -q '^MK_JWT__SIGNING_KEY=' .env; then
             sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
           else
@@ -108,20 +98,19 @@ jobs:
       # Start ONLY postgres first
       # --------------------
       - name: Start postgres
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           docker compose up -d postgres
           docker ps
 
       - name: Wait for postgres healthy
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           for i in {1..60}; do
-            # container_name is mk_postgres in docker-compose.yml
-            health="$(docker inspect -f '{{.State.Health.Status}}' mk_postgres 2>/dev/null || true)"
-            echo "Attempt $i: postgres health=$health"
-            if [ "$health" = "healthy" ]; then
+            status="$(docker inspect -f '{{.State.Health.Status}}' mk_postgres 2>/dev/null || true)"
+            echo "Attempt $i: postgres health = $status"
+            if [ "$status" = "healthy" ]; then
               echo "Postgres is healthy."
               exit 0
             fi
@@ -141,16 +130,12 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Install dotnet-ef
-        run: |
-          set -euxo pipefail
-          dotnet tool install --global dotnet-ef
-          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
-          dotnet ef --version
+        run: dotnet tool install --global dotnet-ef
 
       - name: Run migrations
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         env:
-          # Migrations run on the runner against the published Postgres port
+          # Migrations run on the runner against the published port
           MK_DB__HOST: localhost
           MK_DB__PORT: "5432"
           MK_DB__NAME: mk
@@ -158,7 +143,7 @@ jobs:
           MK_DB__PASSWORD: mk_dev_pw
           ASPNETCORE_ENVIRONMENT: Testing
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           dotnet restore MineralKingdom/MineralKingdom.sln
 
@@ -170,43 +155,25 @@ jobs:
       # Start api + worker after schema exists
       # --------------------
       - name: Start api + worker
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           docker compose up -d --build api worker
           docker ps
 
       - name: Wait for backend API to be ready
         run: |
-          set -euxo pipefail
-          echo "Waiting for API..."
-
+          set -euo pipefail
+          echo "Waiting for API (/db-ping)..."
           for i in {1..60}; do
-            # Prefer /db-ping if present
             code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/db-ping || true)"
-            echo "Attempt $i: /db-ping HTTP $code"
-
+            echo "Attempt $i: HTTP $code"
             if [ "$code" = "200" ]; then
               echo "API is ready."
               exit 0
             fi
-
-            # If /db-ping isn't available, probe register route (anything but 000/404 is good)
-            if [ "$code" = "404" ]; then
-              code2="$(curl -s -o /dev/null -w "%{http_code}" \
-                -X POST "http://localhost:8080/api/auth/register" \
-                -H "content-type: application/json" \
-                -d '{}' || true)"
-              echo "Attempt $i: /api/auth/register probe HTTP $code2"
-              if [ "$code2" != "000" ] && [ "$code2" != "404" ]; then
-                echo "API is ready (register probe HTTP $code2)."
-                exit 0
-              fi
-            fi
-
             sleep 2
           done
-
           echo "API did not become ready in time."
           docker ps || true
           docker logs mk_api --tail 200 || true
@@ -218,7 +185,7 @@ jobs:
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           EMAIL="mk-ci-$(date +%s)-${RANDOM}@example.com"
           PASSWORD="Str0ngPass!123"
@@ -237,7 +204,6 @@ jobs:
             exit 1
           fi
 
-          # Verify email (OpenAPI indicates 200 with empty body)
           curl -fsS -o /dev/null \
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
@@ -291,14 +257,16 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         run: |
           docker ps || true
-          docker logs mk_api --tail 300 || true
-          docker logs mk_worker --tail 300 || true
-          docker logs mk_postgres --tail 300 || true
+          docker compose ps || true
+          docker compose logs --no-color --tail 300 postgres || true
+          docker compose logs --no-color --tail 300 api || true
+          docker compose logs --no-color --tail 300 worker || true
 
       - name: Stop backend
         if: always()
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: ${{ steps.paths.outputs.backend_dir }}
         run: |
           docker compose down -v || true
