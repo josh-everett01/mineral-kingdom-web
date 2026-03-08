@@ -1,25 +1,52 @@
 import { test, expect } from "@playwright/test";
 
+test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
+
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {
-  const email = process.env.E2E_EMAIL;
-  const password = process.env.E2E_PASSWORD;
-
-  test.skip(!email || !password, "E2E_EMAIL and E2E_PASSWORD must be set");
-
-  // At this point they are still typed as possibly undefined,
-  // so rebind with non-null assertions (safe because of the skip above)
-  const e = email!;
-  const p = password!;
+  const email = `auth-${Date.now()}@example.com`;
+  const password = "Password123!";
 
   await page.context().clearCookies();
 
+  // Protected route should redirect to login
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login(\?|$)/);
-
   await expect(page.getByTestId("login-title")).toBeVisible();
 
-  await page.getByTestId("login-email").fill(e);
-  await page.getByTestId("login-password").fill(p);
+  // Register a fresh user
+  await page.goto("/register");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+
+  const registerResponsePromise = page.waitForResponse((resp) => {
+    return resp.url().includes("/api/bff/auth/register") && resp.request().method() === "POST";
+  });
+
+  await page.getByRole("button", { name: /create account/i }).click();
+
+  const registerResp = await registerResponsePromise;
+
+  if (!registerResp.ok()) {
+    const status = registerResp.status();
+    const bodyText = await registerResp.text().catch(() => "<unable to read body>");
+    throw new Error(`Register failed: HTTP ${status}\nBody:\n${bodyText}`);
+  }
+
+  await expect(page.getByText("Check your email", { exact: true })).toBeVisible({ timeout: 10_000 });
+
+  const token = ((await page.locator("code").textContent()) ?? "").trim();
+  expect(token).toBeTruthy();
+
+  // Verify the new account so login is allowed
+  await page.goto(`/verify-email?token=${encodeURIComponent(token)}`);
+  await expect(page.getByTestId("verify-email-success")).toBeVisible({ timeout: 10_000 });
+
+  // Log in with the newly created account
+  await page.goto("/login");
+  await expect(page.getByTestId("login-title")).toBeVisible();
+
+  await page.getByTestId("login-email").fill(email);
+  await page.getByTestId("login-password").fill(password);
 
   const loginResponsePromise = page.waitForResponse((resp) => {
     return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST";
