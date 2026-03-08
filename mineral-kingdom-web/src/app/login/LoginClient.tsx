@@ -1,54 +1,54 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Container } from "@/components/site/Container";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Container } from "@/components/site/Container"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export default function LoginClient() {
-  const router = useRouter();
-  const search = useSearchParams();
-  const next = search.get("next") ?? "/account";
+  const router = useRouter()
+  const search = useSearchParams()
+  const next = search.get("next") ?? "/account"
 
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
 
     try {
       const res = await fetch("/api/bff/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password }),
-      });
+      })
 
-      const data = (await res.json()) as { ok: boolean; message?: string };
+      const data = (await res.json()) as { ok: boolean; message?: string }
 
       if (!res.ok || !data.ok) {
-        const msg = data.message ?? "Login failed";
-        setError(msg);
-        toast.error(msg);
-        return;
+        const msg = data.message ?? "Login failed"
+        setError(msg)
+        toast.error(msg)
+        return
       }
 
-      toast.success("Welcome back");
-      router.push(next);
-      router.refresh();
+      toast.success("Welcome back")
+      window.location.assign(next)
+      return
     } catch {
-      const msg = "Login failed";
-      setError(msg);
-      toast.error(msg);
+      const msg = "Login failed"
+      setError(msg)
+      toast.error(msg)
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
   }
 
@@ -104,5 +104,5 @@ export default function LoginClient() {
         </CardContent>
       </Card>
     </Container>
-  );
+  )
 }

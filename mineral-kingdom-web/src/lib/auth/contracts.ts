@@ -12,3 +12,10 @@ export type VerifyEmailRequest =
 export type VerifyEmailResponse = {
   ok: true;
 };
+
+export type ResendVerificationRequest =
+  NonNullable<paths["/api/auth/resend-verification"]["post"]["requestBody"]>["content"]["application/json"];
+
+export type ResendVerificationResponse = {
+  ok: true;
+};
