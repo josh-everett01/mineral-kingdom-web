@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: full-stack-e2e-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -15,13 +15,22 @@ jobs:
     timeout-minutes: 25
 
     env:
+      # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
-      ASPNETCORE_ENVIRONMENT: Testing
 
     steps:
+      # --------------------
+      # Checkout frontend repo (this repo)
+      # --------------------
       - name: Checkout frontend
         uses: actions/checkout@v4
 
+      # --------------------
+      # Checkout backend repo into ./backend
+      # Backend repo layout (from your logs):
+      #   backend/mineral-kingdom-api/docker-compose.yml
+      #   backend/mineral-kingdom-api/.env.example
+      # --------------------
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
@@ -29,20 +38,17 @@ jobs:
           path: backend
           fetch-depth: 1
 
-      - name: Debug backend folder layout
+      - name: Backend folder layout (debug)
         run: |
           set -euxo pipefail
           ls -lah
           ls -lah backend
           ls -lah backend/mineral-kingdom-api
-          test -f backend/mineral-kingdom-api/docker-compose.yml
-          test -f backend/mineral-kingdom-api/.env.example
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
+      # --------------------
+      # Prepare backend .env (compose references env_file: .env)
+      # IMPORTANT: ensure ALL required JWT vars exist (issuer/audience/signing key)
+      # --------------------
       - name: Create backend .env from example
         working-directory: backend/mineral-kingdom-api
         run: |
@@ -52,89 +58,80 @@ jobs:
             cp .env.example .env
           fi
 
-          if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
-            sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
-          else
-            echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
-          fi
-
-          if grep -q '^MK_JWT__SIGNING_KEY=' .env; then
-            sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
-          else
-            echo 'MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
-          fi
-
-      - name: Start Postgres (docker compose)
-        working-directory: backend/mineral-kingdom-api
-        run: |
-          set -euxo pipefail
-          docker compose up -d postgres
-          docker compose ps
-          docker ps
-
-      - name: Wait for Postgres to be healthy
-        run: |
-          set -euxo pipefail
-          for i in {1..60}; do
-            if docker inspect --format='{{json .State.Health.Status}}' mk_postgres 2>/dev/null | grep -q '"healthy"'; then
-              exit 0
+          ensure_env () {
+            key="$1"
+            val="$2"
+            if grep -q "^${key}=" .env; then
+              sed -i "s|^${key}=.*|${key}=${val}|" .env
+            else
+              echo "${key}=${val}" >> .env
             fi
-            sleep 2
-          done
-          docker logs mk_postgres --tail 200 || true
-          exit 1
+          }
 
-      - name: Apply database migrations
-        working-directory: backend/mineral-kingdom-api/MineralKingdom
-        env:
-          ASPNETCORE_ENVIRONMENT: Testing
-          MK_DB__HOST: localhost
-          MK_DB__PORT: "5432"
-          MK_DB__NAME: mk
-          MK_DB__USER: mk
-          MK_DB__PASSWORD: mk_dev_pw
-          MK_JWT__ISSUER: mineral-kingdom
-          MK_JWT__AUDIENCE: mineral-kingdom-web
-          MK_JWT__SIGNING_KEY: CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890
-        run: |
-          set -euxo pipefail
-          dotnet restore MineralKingdom.sln
-          dotnet tool install -g dotnet-ef
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-          dotnet ef database update \
-            --project MineralKingdom.Infrastructure \
-            --startup-project MineralKingdom.Api
+          # Force Testing env inside containers
+          ensure_env "ASPNETCORE_ENVIRONMENT" "Testing"
 
-      - name: Start backend (api + worker)
+          # These are REQUIRED for login/token issuance (fixes "MK_JWT config is missing")
+          ensure_env "MK_JWT__ISSUER" "mineral-kingdom"
+          ensure_env "MK_JWT__AUDIENCE" "mineral-kingdom-web"
+          ensure_env "MK_JWT__SIGNING_KEY" "CI_DEV_ONLY_LONG_RANDOM_STRING_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+          echo "---- .env (sanity) ----"
+          grep -E '^(ASPNETCORE_ENVIRONMENT|MK_JWT__ISSUER|MK_JWT__AUDIENCE|MK_JWT__SIGNING_KEY|MK_DB__)=' .env || true
+
+      # --------------------
+      # Start backend with docker compose
+      # --------------------
+      - name: Start backend via docker compose
         working-directory: backend/mineral-kingdom-api
         run: |
           set -euxo pipefail
-          docker compose up -d --build api worker
-          docker compose ps
+          docker compose up -d --build postgres api worker
           docker ps
 
+      # --------------------
+      # Wait for API readiness
+      # In Testing env, swagger can be 404; probe a real route instead.
+      # --------------------
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
+          echo "Waiting for API (POST /api/auth/register should return non-000 once routing is live)..."
+
           for i in {1..60}; do
             code="$(curl -s -o /dev/null -w "%{http_code}" \
               -X POST "http://localhost:8080/api/auth/register" \
               -H "content-type: application/json" \
               -d '{}' || true)"
-            if [ "$code" != "000" ] && [ "$code" != "404" ] && [ "${code:0:1}" != "5" ]; then
+
+            echo "Attempt $i: HTTP $code"
+
+            if [ "$code" != "000" ]; then
+              echo "API is responding (HTTP $code)."
               exit 0
             fi
+
             sleep 2
           done
+
+          echo "API did not become ready in time."
+          docker ps || true
           docker logs mk_api --tail 200 || true
           exit 1
 
+      # --------------------
+      # Seed a verified user for auth e2e
+      # (Testing env returns verificationToken on register in your backend)
+      # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         run: |
           set -euxo pipefail
+
           EMAIL="mk-ci-$(date +%s)-${RANDOM}@example.com"
           PASSWORD="Str0ngPass!123"
+
+          echo "Creating user: $EMAIL"
 
           register_json="$(curl -fsS \
             -X POST "http://localhost:8080/api/auth/register" \
@@ -143,10 +140,12 @@ jobs:
 
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
           if [ -z "$TOKEN" ]; then
+            echo "Register response did not include verificationToken:"
             echo "$register_json"
             exit 1
           fi
 
+          # verify-email is 200 with no body (per your OpenAPI snippet)
           curl -fsS -o /dev/null \
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
@@ -155,6 +154,9 @@ jobs:
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
+      # --------------------
+      # Frontend install/build/lint + Playwright
+      # --------------------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -181,10 +183,9 @@ jobs:
       - name: E2E
         working-directory: mineral-kingdom-web
         env:
+          API_BASE_URL: http://localhost:8080
           E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
-          API_BASE_URL: http://localhost:8080
-          ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e
 
       - name: Upload Playwright report (always)
@@ -197,10 +198,11 @@ jobs:
 
       - name: Dump backend logs on failure
         if: failure()
-        working-directory: backend/mineral-kingdom-api
         run: |
-          docker compose ps || true
-          docker compose logs --no-color --tail 200 postgres api worker || true
+          docker ps || true
+          docker logs mk_api --tail 200 || true
+          docker logs mk_worker --tail 200 || true
+          docker logs mk_postgres --tail 200 || true
 
       - name: Stop backend
         if: always()
