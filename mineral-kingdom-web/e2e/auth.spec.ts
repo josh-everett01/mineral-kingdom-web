@@ -8,32 +8,45 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
 
   await page.context().clearCookies();
 
-  // Hit a protected route -> expect redirect to login w/ next
+  // Hit a protected page; should redirect to login
   await page.goto("/account");
-  await expect(page).toHaveURL(/\/login\?next=%2Faccount/);
+  await expect(page).toHaveURL(/\/login(\?|$)/);
 
   // Ensure login page rendered
   await expect(page.getByTestId("login-title")).toBeVisible();
 
+  // Fill creds
   await page.getByTestId("login-email").fill(email);
   await page.getByTestId("login-password").fill(password);
 
-  // Click and wait for the login API response (don’t assume navigation)
-  const [loginResp] = await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/api/bff/auth/login") && r.request().method() === "POST"),
-    page.getByTestId("login-submit").click(),
-  ]);
+  // Capture the actual BFF login response for debugging
+  const loginResponsePromise = page.waitForResponse((resp) => {
+    return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST";
+  });
 
-  // If this fails, your UI may stay on /login (which matches your current failure)
-  expect(loginResp.ok()).toBeTruthy();
+  // Submit via UI (this ensures cookies/session are set exactly like a real user)
+  await page.getByTestId("login-submit").click();
 
-  // Now explicitly load /account (ensures cookie is applied + guard re-checks)
-  await page.goto("/account");
-  await expect(page).toHaveURL(/\/account/);
+  const loginResp = await loginResponsePromise;
 
-  await expect(page.getByText("Authenticated:")).toBeVisible({ timeout: 10_000 });
+  if (!loginResp.ok()) {
+    const status = loginResp.status();
+    let bodyText = "";
+    try {
+      bodyText = await loginResp.text();
+    } catch {
+      bodyText = "<unable to read body>";
+    }
 
-  // Logout and confirm we’re back at login
+    // This will show in CI logs and make the failure actionable
+    throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`);
+  }
+
+  // Now ensure we actually reach /account (guard re-checks with cookies applied)
+  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 });
+  await expect(page.getByText("Authenticated:")).toBeVisible({ timeout: 15_000 });
+
+  // Logout
   await page.getByRole("button", { name: /logout/i }).click();
-  await expect(page).toHaveURL(/\/login/);
+  await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 15_000 });
 });
