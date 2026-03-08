@@ -4,7 +4,11 @@ on:
   pull_request:
     branches: [ main ]
   push:
-    branches: [ main ]
+    branches: [ "**" ]  # run on pushes to feature branches too
+
+concurrency:
+  group: full-stack-e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -14,8 +18,7 @@ jobs:
     env:
       # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
-
-      # Ensure backend returns VerificationToken in RegisterResponse (Testing enables this)
+      # Keep backend in Testing so dev-only behaviors can be enabled
       ASPNETCORE_ENVIRONMENT: Testing
 
     steps:
@@ -27,9 +30,11 @@ jobs:
 
       # --------------------
       # Checkout backend repo into ./mineral-kingdom-api
-      # NOTE: backend repo itself contains a nested folder: mineral-kingdom-api/
-      # So compose + .env.example live at:
-      #   mineral-kingdom-api/mineral-kingdom-api/docker-compose.yml
+      # Backend repo layout (observed from your logs):
+      #   mineral-kingdom-api/
+      #     mineral-kingdom-api/
+      #       docker-compose.yml
+      #       .env.example
       # --------------------
       - name: Checkout backend
         uses: actions/checkout@v4
@@ -57,7 +62,7 @@ jobs:
             cp .env.example .env
           fi
 
-          # Force Testing env inside containers (also set at job level, but keep .env consistent)
+          # Force Testing env inside containers
           if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
             sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
           else
@@ -65,7 +70,9 @@ jobs:
           fi
 
           # Ensure JWT signing key exists for token issuance in tests
-          if ! grep -q '^MK_JWT__SIGNING_KEY=' .env; then
+          if grep -q '^MK_JWT__SIGNING_KEY=' .env; then
+            sed -i 's/^MK_JWT__SIGNING_KEY=.*/MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
+          else
             echo 'MK_JWT__SIGNING_KEY=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890' >> .env
           fi
 
@@ -80,17 +87,17 @@ jobs:
         run: |
           set -euxo pipefail
           docker compose up -d --build postgres api worker
-          docker ps
+          docker compose ps
 
       # --------------------
       # Wait for API readiness
-      # Swagger is Development-only, so in Testing it 404s.
-      # Instead we probe a real endpoint and accept "not-404" as "routes are up".
+      # Swagger may be disabled in Testing -> don't rely on /swagger.
+      # We probe an actual endpoint and accept "not 000 and not 404".
       # --------------------
       - name: Wait for backend API to be ready
         run: |
           set -euxo pipefail
-          echo "Waiting for API (POST /api/auth/register should return 4xx once routing is live)..."
+          echo "Waiting for API (POST /api/auth/register should return a non-404 once routing is live)..."
 
           for i in {1..60}; do
             code="$(curl -s -o /dev/null -w "%{http_code}" \
@@ -100,7 +107,6 @@ jobs:
 
             echo "Attempt $i: HTTP $code"
 
-            # When API is live, we expect 400/409/422/etc (anything except 000/404)
             if [ "$code" != "000" ] && [ "$code" != "404" ]; then
               echo "API is ready (got HTTP $code)."
               exit 0
@@ -111,12 +117,11 @@ jobs:
 
           echo "API did not become ready in time."
           docker ps || true
-          docker logs mk_api --tail 200 || true
           exit 1
 
       # --------------------
-      # Create a verified user for auth e2e
-      # Backend in Testing returns verificationToken on register.
+      # Create a verified user for auth e2e (register + verify)
+      # In Testing, backend should include verificationToken in RegisterResponse.
       # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
@@ -128,29 +133,32 @@ jobs:
 
           echo "Creating user: $EMAIL"
 
-          # Register (expect 201 Created; capture token)
           register_json="$(curl -fsS \
             -X POST "http://localhost:8080/api/auth/register" \
             -H "content-type: application/json" \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
 
-          echo "$register_json" | python3 - <<'PY'
-import json,sys
-obj=json.load(sys.stdin)
-tok=obj.get("verificationToken")
-if not tok:
-  raise SystemExit("verificationToken missing from register response")
-print(tok)
-PY
-          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["verificationToken"])')"
+          echo "Register response: $register_json"
 
-          # Verify email (NoContent 204 on success)
-          curl -fsS -o /dev/null \
+          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
+          if [ -z "$TOKEN" ]; then
+            echo "verificationToken missing from register response (Testing env may not be returning it)."
+            echo "Failing because auth e2e needs a verified account."
+            exit 1
+          fi
+
+          # Verify email: OpenAPI says 200 with no content
+          verify_code="$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
-            -d "{\"token\":\"$TOKEN\"}"
+            -d "{\"token\":\"$TOKEN\"}" || true)"
 
-          # Export outputs for later steps
+          echo "Verify status: $verify_code"
+          if [ "$verify_code" != "200" ]; then
+            echo "Verify-email failed with HTTP $verify_code"
+            exit 1
+          fi
+
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
@@ -183,11 +191,8 @@ PY
       - name: E2E
         working-directory: mineral-kingdom-web
         env:
-          # Let the auth.spec.ts run with a known-good verified user
           E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
-
-          # Ensure Next.js BFF points at backend during tests
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e
@@ -204,10 +209,10 @@ PY
         if: failure()
         working-directory: mineral-kingdom-api/mineral-kingdom-api
         run: |
-          docker ps || true
-          docker logs mk_api --tail 200 || true
-          docker logs mk_worker --tail 200 || true
-          docker logs mk_postgres --tail 200 || true
+          docker compose ps || true
+          docker compose logs --no-color --tail 250 api || true
+          docker compose logs --no-color --tail 250 worker || true
+          docker compose logs --no-color --tail 250 postgres || true
 
       - name: Stop backend
         if: always()
