@@ -17,7 +17,7 @@ jobs:
     env:
       # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
-      # Ensure backend uses Testing behavior (token surfacing etc.)
+      # Ensure backend uses Testing behavior
       ASPNETCORE_ENVIRONMENT: Testing
       # Enable E2E specs that require backend
       E2E_BACKEND: "1"
@@ -40,8 +40,7 @@ jobs:
           fetch-depth: 1
 
       # --------------------
-      # Resolve backend root folder (handles nested repo layout)
-      # Exports BACKEND_DIR for subsequent steps.
+      # Resolve backend root folder
       # --------------------
       - name: Resolve backend directory
         shell: bash
@@ -67,9 +66,7 @@ jobs:
           echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
 
       # --------------------
-      # Prepare backend .env (compose uses env_file: .env)
-      # IMPORTANT:
-      #   Backend expects MK_JWT:SigningKey (=> env var MK_JWT__SigningKey)
+      # Prepare backend .env
       # --------------------
       - name: Create backend .env from example (CI-safe)
         shell: bash
@@ -81,23 +78,24 @@ jobs:
             cp .env.example .env
           fi
 
-          # Force Testing in containers
           if grep -q '^ASPNETCORE_ENVIRONMENT=' .env; then
             sed -i 's/^ASPNETCORE_ENVIRONMENT=.*/ASPNETCORE_ENVIRONMENT=Testing/' .env
           else
             echo 'ASPNETCORE_ENVIRONMENT=Testing' >> .env
           fi
 
-          # Ensure required JWT keys exist with correct names
-          if ! grep -q '^MK_JWT__Issuer=' .env; then
+          if grep -q '^MK_JWT__Issuer=' .env; then
+            sed -i 's/^MK_JWT__Issuer=.*/MK_JWT__Issuer=mineral-kingdom/' .env
+          else
             echo 'MK_JWT__Issuer=mineral-kingdom' >> .env
           fi
 
-          if ! grep -q '^MK_JWT__Audience=' .env; then
+          if grep -q '^MK_JWT__Audience=' .env; then
+            sed -i 's/^MK_JWT__Audience=.*/MK_JWT__Audience=mineral-kingdom-web/' .env
+          else
             echo 'MK_JWT__Audience=mineral-kingdom-web' >> .env
           fi
 
-          # Always set a non-placeholder signing key using the correct key name
           if grep -q '^MK_JWT__SigningKey=' .env; then
             sed -i 's/^MK_JWT__SigningKey=.*/MK_JWT__SigningKey=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890/' .env
           else
@@ -134,7 +132,7 @@ jobs:
           exit 1
 
       # --------------------
-      # Apply EF migrations (prevents "relation users does not exist")
+      # Apply EF migrations
       # --------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -195,7 +193,7 @@ jobs:
           exit 1
 
       # --------------------
-      # Seed verified E2E user (register + verify)
+      # Seed verified E2E user
       # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
@@ -224,6 +222,43 @@ jobs:
             -X POST "http://localhost:8080/api/auth/verify-email" \
             -H "content-type: application/json" \
             -d "{\"token\":\"$TOKEN\"}"
+
+          echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
+
+      # --------------------
+      # Seed verified admin E2E user
+      # --------------------
+      - name: Seed verified admin E2E user
+        id: seed_admin
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EMAIL="mk-admin-ci-$(date +%s)-${RANDOM}@example.com"
+          PASSWORD="Str0ngPass!123"
+
+          echo "Creating admin fixture user: $EMAIL"
+
+          register_json="$(curl -fsS \
+            -X POST "http://localhost:8080/api/auth/register" \
+            -H "content-type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+
+          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
+          if [ -z "$TOKEN" ]; then
+            echo "Register response did not include verificationToken. Response was:"
+            echo "$register_json"
+            exit 1
+          fi
+
+          curl -fsS -o /dev/null \
+            -X POST "http://localhost:8080/api/auth/verify-email" \
+            -H "content-type: application/json" \
+            -d "{\"token\":\"$TOKEN\"}"
+
+          docker exec mk_postgres psql -U mk -d mk -c \
+            "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
@@ -260,6 +295,8 @@ jobs:
           E2E_BACKEND: "1"
           E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
+          E2E_ADMIN_EMAIL: ${{ steps.seed_admin.outputs.email }}
+          E2E_ADMIN_PASSWORD: ${{ steps.seed_admin.outputs.password }}
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e

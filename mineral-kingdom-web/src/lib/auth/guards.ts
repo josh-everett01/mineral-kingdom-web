@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getCurrentSession, hasAnyRole, type AppSession } from "@/lib/auth/session";
 
 function buildLoginRedirect(targetPath: string) {
@@ -23,8 +23,7 @@ export async function requireRole(
   const session = await requireAuth(targetPath);
 
   if (!hasAnyRole(session, allowedRoles)) {
-    // Temporary forbidden behavior until FE-1.3.2 introduces dedicated 403 UX
-    notFound();
+    redirect("/403");
   }
 
   return session;

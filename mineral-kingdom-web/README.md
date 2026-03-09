@@ -173,6 +173,17 @@ The suite also includes narrower specs for:
 
 The password reset E2E flow uses a deterministic dev-token strategy in Testing mode. No real email delivery is required.
 
+## Admin allow-path E2E fixture
+
+The forbidden-path admin test runs by default using a normal registered USER.
+
+An optional admin allow-path test can also run when seeded admin credentials are available:
+
+```bash
+E2E_ADMIN_EMAIL=staff@example.com
+E2E_ADMIN_PASSWORD=StrongPassword123!
+```
+
 ### How it works
 - The backend runs in `Testing`
 - The password reset request BFF route surfaces `resetToken` when available from the backend in dev/testing
