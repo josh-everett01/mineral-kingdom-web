@@ -1,15 +1,26 @@
-import { defineConfig } from "@playwright/test";
-
-const PORT = Number(process.env.PORT ?? 3005);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  use: { baseURL },
-  webServer: {
-    command: `npm run dev -- -p ${PORT}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+  fullyParallel: true,
+  retries: process.env.CI ? 2 : 0,
+  reporter: "html",
+
+  use: {
+    baseURL: "http://localhost:3005",
+    trace: "on-first-retry",
   },
+
+  webServer: {
+    command: "npm run dev -- --hostname 127.0.0.1 --port 3005",
+    url: "http://127.0.0.1:3005",
+    reuseExistingServer: !process.env.CI,
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
 });

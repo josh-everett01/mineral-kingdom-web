@@ -32,11 +32,21 @@ export async function POST(req: NextRequest) {
     return Response.json(err, { status: 400 });
   }
 
+  const testRateLimitKey = req.headers.get("x-test-ratelimit-key");
+
+  const upstreamHeaders: Record<string, string> = {
+    "content-type": "application/json",
+  };
+
+  if (testRateLimitKey) {
+    upstreamHeaders["X-Test-RateLimit-Key"] = testRateLimitKey;
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: upstreamHeaders,
       body: JSON.stringify({ email }),
       cache: "no-store",
     });

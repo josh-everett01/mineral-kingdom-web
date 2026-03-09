@@ -7,10 +7,15 @@ type RegisterResponse = {
 };
 
 test("register -> verify -> login happy path", async ({ page }) => {
+  await page.context().setExtraHTTPHeaders({
+    "X-Test-RateLimit-Key": `register-verify-login-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
+  });
+
   const email = `register-verify-login-${Date.now()}@example.com`;
   const password = "Password123!";
 
-  // Register
   await page.goto("/register");
 
   await page.getByLabel("Email").fill(email);
@@ -40,23 +45,31 @@ test("register -> verify -> login happy path", async ({ page }) => {
   const token = registerData.verificationToken?.trim() ?? "";
   expect(token).toBeTruthy();
 
-  // Verify
+  const verifyResponsePromise = page.waitForResponse((resp) => {
+    return resp.url().includes("/api/bff/auth/verify-email") && resp.request().method() === "POST";
+  });
+
   await page.goto(`/verify-email?token=${encodeURIComponent(token)}`);
 
-  await expect(page.getByTestId("verify-email-success")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("Email verified")).toBeVisible();
+  const verifyResp = await verifyResponsePromise;
 
-  // Login
+  if (!verifyResp.ok()) {
+    const status = verifyResp.status();
+    const bodyText = await verifyResp.text().catch(() => "<unable to read body>");
+    throw new Error(`Verify failed: HTTP ${status}\nBody:\n${bodyText}`);
+  }
+
+  await expect(page.getByText("Email verified")).toBeVisible({ timeout: 10_000 });
+
   await page.goto("/login");
   await expect(page.getByTestId("login-title")).toBeVisible();
-
-  await page.getByTestId("login-email").fill(email);
-  await page.getByTestId("login-password").fill(password);
 
   const loginResponsePromise = page.waitForResponse((resp) => {
     return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST";
   });
 
+  await page.getByTestId("login-email").fill(email);
+  await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
 
   const loginResp = await loginResponsePromise;
