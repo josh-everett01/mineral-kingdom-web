@@ -15,23 +15,14 @@ jobs:
     timeout-minutes: 30
 
     env:
-      # Next.js BFF route handlers use this to reach the backend API
       API_BASE_URL: http://localhost:8080
-      # Ensure backend uses Testing behavior
       ASPNETCORE_ENVIRONMENT: Testing
-      # Enable E2E specs that require backend
       E2E_BACKEND: "1"
 
     steps:
-      # --------------------
-      # Checkout frontend repo (this repo)
-      # --------------------
       - name: Checkout frontend
         uses: actions/checkout@v4
 
-      # --------------------
-      # Checkout backend repo into ./mineral-kingdom-api
-      # --------------------
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
@@ -39,9 +30,6 @@ jobs:
           path: mineral-kingdom-api
           fetch-depth: 1
 
-      # --------------------
-      # Resolve backend root folder
-      # --------------------
       - name: Resolve backend directory
         shell: bash
         run: |
@@ -65,9 +53,6 @@ jobs:
           echo "Resolved backend dir: $BACKEND_DIR"
           echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
 
-      # --------------------
-      # Prepare backend .env
-      # --------------------
       - name: Create backend .env from example (CI-safe)
         shell: bash
         run: |
@@ -105,9 +90,6 @@ jobs:
           echo "---- backend .env sanity ----"
           grep -E '^(ASPNETCORE_ENVIRONMENT|MK_DB__|MK_JWT__)=' .env || true
 
-      # --------------------
-      # Start postgres only
-      # --------------------
       - name: Start postgres
         shell: bash
         run: |
@@ -131,9 +113,6 @@ jobs:
           docker logs mk_postgres --tail 200 || true
           exit 1
 
-      # --------------------
-      # Apply EF migrations
-      # --------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -162,9 +141,6 @@ jobs:
             --project MineralKingdom/MineralKingdom.Infrastructure/MineralKingdom.Infrastructure.csproj \
             --startup-project MineralKingdom/MineralKingdom.Api/MineralKingdom.Api.csproj
 
-      # --------------------
-      # Start api + worker after schema exists
-      # --------------------
       - name: Start api + worker
         shell: bash
         run: |
@@ -192,9 +168,6 @@ jobs:
           docker logs mk_api --tail 250 || true
           exit 1
 
-      # --------------------
-      # Seed verified E2E user
-      # --------------------
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         shell: bash
@@ -226,9 +199,6 @@ jobs:
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
-      # --------------------
-      # Seed verified admin E2E user
-      # --------------------
       - name: Seed verified admin E2E user
         id: seed_admin
         shell: bash
@@ -263,9 +233,40 @@ jobs:
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
-      # --------------------
-      # Frontend install/build/lint + Playwright
-      # --------------------
+      - name: Seed verified staff E2E user
+        id: seed_staff
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EMAIL="mk-staff-ci-$(date +%s)-${RANDOM}@example.com"
+          PASSWORD="Str0ngPass!123"
+
+          echo "Creating staff fixture user: $EMAIL"
+
+          register_json="$(curl -fsS \
+            -X POST "http://localhost:8080/api/auth/register" \
+            -H "content-type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+
+          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
+          if [ -z "$TOKEN" ]; then
+            echo "Register response did not include verificationToken. Response was:"
+            echo "$register_json"
+            exit 1
+          fi
+
+          curl -fsS -o /dev/null \
+            -X POST "http://localhost:8080/api/auth/verify-email" \
+            -H "content-type: application/json" \
+            -d "{\"token\":\"$TOKEN\"}"
+
+          docker exec mk_postgres psql -U mk -d mk -c \
+            "UPDATE users SET \"Role\"='STAFF', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+
+          echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -297,6 +298,8 @@ jobs:
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
           E2E_ADMIN_EMAIL: ${{ steps.seed_admin.outputs.email }}
           E2E_ADMIN_PASSWORD: ${{ steps.seed_admin.outputs.password }}
+          E2E_STAFF_EMAIL: ${{ steps.seed_staff.outputs.email }}
+          E2E_STAFF_PASSWORD: ${{ steps.seed_staff.outputs.password }}
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e
