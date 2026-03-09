@@ -2,6 +2,10 @@ import { test, expect } from "@playwright/test";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
+type RegisterResponse = {
+  verificationToken?: string;
+};
+
 test("register -> verify -> login happy path", async ({ page }) => {
   const email = `register-verify-login-${Date.now()}@example.com`;
   const password = "Password123!";
@@ -26,10 +30,14 @@ test("register -> verify -> login happy path", async ({ page }) => {
     throw new Error(`Register failed: HTTP ${status}\nBody:\n${bodyText}`);
   }
 
-  await expect(page.getByText("Check your email", { exact: true })).toBeVisible({ timeout: 10_000 });
+  const registerData = (await registerResp.json()) as RegisterResponse;
+
+  await expect(page.getByText("Check your email", { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
   await expect(page.getByText(email)).toBeVisible();
 
-  const token = ((await page.locator("code").textContent()) ?? "").trim();
+  const token = registerData.verificationToken?.trim() ?? "";
   expect(token).toBeTruthy();
 
   // Verify

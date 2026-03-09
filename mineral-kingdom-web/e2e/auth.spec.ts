@@ -2,6 +2,10 @@ import { test, expect } from "@playwright/test";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
+type RegisterResponse = {
+  verificationToken?: string;
+};
+
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {
   const email = `auth-${Date.now()}@example.com`;
   const password = "Password123!";
@@ -32,9 +36,13 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
     throw new Error(`Register failed: HTTP ${status}\nBody:\n${bodyText}`);
   }
 
-  await expect(page.getByText("Check your email", { exact: true })).toBeVisible({ timeout: 10_000 });
+  const registerData = (await registerResp.json()) as RegisterResponse;
 
-  const token = ((await page.locator("code").textContent()) ?? "").trim();
+  await expect(page.getByText("Check your email", { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  const token = registerData.verificationToken?.trim() ?? "";
   expect(token).toBeTruthy();
 
   // Verify the new account so login is allowed
