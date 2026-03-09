@@ -169,6 +169,26 @@ The suite also includes narrower specs for:
 - authenticated redirect/login/logout behavior
 - BFF/cart/SSE smoke coverage
 
+## Password reset E2E
+
+The password reset E2E flow uses a deterministic dev-token strategy in Testing mode. No real email delivery is required.
+
+### How it works
+- The backend runs in `Testing`
+- The password reset request BFF route surfaces `resetToken` when available from the backend in dev/testing
+- Playwright captures that token from the BFF response
+- The test opens `/password-reset/confirm?token=...`
+- The test submits a new password and then logs in with the updated password
+
+### Local setup
+When running frontend E2E against the local Docker backend, use backend `.env` values such as:
+
+```env
+ASPNETCORE_ENVIRONMENT=Testing
+MK_JWT__Issuer=mineral-kingdom
+MK_JWT__Audience=mineral-kingdom-web
+MK_JWT__SigningKey=CI_DEV_ONLY_CHANGE_ME_LONG_RANDOM_STRING_1234567890
+
 ### Token strategy
 
 E2E tests do **not** rely on real email delivery.
