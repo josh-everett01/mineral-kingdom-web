@@ -7,7 +7,12 @@ const REFRESH_COOKIE = "mk_refresh";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/account")) {
+  const isProtected =
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/admin");
+
+  if (isProtected) {
     const hasAccess = req.cookies.get(ACCESS_COOKIE)?.value;
     const hasRefresh = req.cookies.get(REFRESH_COOKIE)?.value;
 
@@ -23,5 +28,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/account/:path*"],
+  matcher: ["/account/:path*", "/dashboard/:path*", "/admin/:path*"],
 };
