@@ -7,17 +7,19 @@ type RegisterResponse = {
 };
 
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {
+  await page.context().setExtraHTTPHeaders({
+    "X-Test-RateLimit-Key": `auth-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  });
+
   const email = `auth-${Date.now()}@example.com`;
   const password = "Password123!";
 
   await page.context().clearCookies();
 
-  // Protected route should redirect to login
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login(\?|$)/);
   await expect(page.getByTestId("login-title")).toBeVisible();
 
-  // Register a fresh user
   await page.goto("/register");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -45,21 +47,18 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
   const token = registerData.verificationToken?.trim() ?? "";
   expect(token).toBeTruthy();
 
-  // Verify the new account so login is allowed
   await page.goto(`/verify-email?token=${encodeURIComponent(token)}`);
-  await expect(page.getByTestId("verify-email-success")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Email verified")).toBeVisible({ timeout: 10_000 });
 
-  // Log in with the newly created account
   await page.goto("/login");
   await expect(page.getByTestId("login-title")).toBeVisible();
-
-  await page.getByTestId("login-email").fill(email);
-  await page.getByTestId("login-password").fill(password);
 
   const loginResponsePromise = page.waitForResponse((resp) => {
     return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST";
   });
 
+  await page.getByTestId("login-email").fill(email);
+  await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
 
   const loginResp = await loginResponsePromise;

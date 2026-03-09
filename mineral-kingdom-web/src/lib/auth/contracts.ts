@@ -27,4 +27,14 @@ export type PasswordResetRequestRequest =
 
 export type PasswordResetRequestResponse = {
   ok: true;
+  resetToken?: string;
+};
+
+export type PasswordResetConfirmRequest =
+  NonNullable<
+    paths["/api/auth/password-reset/confirm"]["post"]["requestBody"]
+  >["content"]["application/json"];
+
+export type PasswordResetConfirmResponse = {
+  ok: true;
 };

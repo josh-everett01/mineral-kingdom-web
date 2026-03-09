@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { toProxyError } from "@/lib/api/proxyError";
+import type { RegisterRequest, RegisterResponse } from "@/lib/auth/contracts";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
 
@@ -11,44 +12,52 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-function mapRegisterError(status: number, body: unknown) {
-  // backend seems to return: { error: "EMAIL_ALREADY_IN_USE" }
-  if (typeof body === "object" && body !== null) {
-    const rec = body as Record<string, unknown>;
-    const err = typeof rec.error === "string" ? rec.error : undefined;
+export async function POST(req: NextRequest) {
+  const json = (await req.json().catch(() => null)) as RegisterRequest | null;
+  const email = typeof json?.email === "string" ? json.email.trim() : "";
+  const password = typeof json?.password === "string" ? json.password : "";
 
-    if (err === "EMAIL_ALREADY_IN_USE") {
-      return toProxyError(
-        status,
-        { code: err, message: "Email already in use. Try signing in.", details: body },
-        "Email already in use."
-      );
-    }
+  if (!email || !password) {
+    const err = toProxyError(
+      400,
+      {
+        code: "INVALID_INPUT",
+        message: "Email and password are required.",
+      },
+      "Email and password are required."
+    );
+
+    return Response.json(err, { status: 400 });
   }
 
-  return toProxyError(status, body, `Upstream request failed (${status})`);
-}
+  const testRateLimitKey = req.headers.get("x-test-ratelimit-key");
 
-export async function POST(req: NextRequest) {
-  const json = await req.json().catch(() => null);
+  const upstreamHeaders: Record<string, string> = {
+    "content-type": "application/json",
+  };
+
+  if (testRateLimitKey) {
+    upstreamHeaders["X-Test-RateLimit-Key"] = testRateLimitKey;
+  }
 
   let upstream: Response;
   try {
     upstream = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(json),
+      headers: upstreamHeaders,
+      body: JSON.stringify({ email, password }),
       cache: "no-store",
     });
   } catch (e) {
-    // IMPORTANT: don’t crash the Next.js server in CI if API isn’t running
-    const message =
-      e instanceof Error ? e.message : "Upstream fetch failed";
     const err = toProxyError(
       503,
-      { code: "UPSTREAM_UNAVAILABLE", message, details: e },
+      {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: e instanceof Error ? e.message : "Upstream fetch failed",
+      },
       "Auth service unavailable"
     );
+
     return Response.json(err, { status: 503 });
   }
 
@@ -56,12 +65,16 @@ export async function POST(req: NextRequest) {
   const body = safeJsonParse(text);
 
   if (!upstream.ok) {
-    const err = mapRegisterError(upstream.status, body);
+    const err = toProxyError(upstream.status, body, `Upstream request failed (${upstream.status})`);
     return Response.json(err, { status: upstream.status });
   }
 
-  return new Response(text, {
-    status: 200,
-    headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
-  });
+  const upstreamData =
+    body && typeof body === "object" ? (body as Partial<RegisterResponse>) : null;
+
+  const response: RegisterResponse = {
+    ...(upstreamData ?? {}),
+  } as RegisterResponse;
+
+  return Response.json(response, { status: 200 });
 }
