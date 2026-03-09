@@ -11,7 +11,7 @@ export default async function AdminPage() {
     <Container className="py-10">
       <Card className="max-w-3xl">
         <CardHeader>
-          <CardTitle>Admin</CardTitle>
+          <CardTitle data-testid="admin-page-title">Admin</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-6">

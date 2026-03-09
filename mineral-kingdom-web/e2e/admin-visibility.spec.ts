@@ -55,7 +55,7 @@ test("OWNER sees shared admin action and OWNER-only action", async ({ page }) =>
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
 
-  await expect(page.getByText("Admin")).toBeVisible();
+  await expect(page.getByTestId("admin-page-title")).toBeVisible();
   await expect(page.getByTestId("admin-edit-listings-action")).toBeVisible();
   await expect(page.getByTestId("admin-owner-only-action")).toBeVisible();
 });
