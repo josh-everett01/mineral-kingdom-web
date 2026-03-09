@@ -19,3 +19,12 @@ export type ResendVerificationRequest =
 export type ResendVerificationResponse = {
   ok: true;
 };
+
+export type PasswordResetRequestRequest =
+  NonNullable<
+    paths["/api/auth/password-reset/request"]["post"]["requestBody"]
+  >["content"]["application/json"];
+
+export type PasswordResetRequestResponse = {
+  ok: true;
+};
