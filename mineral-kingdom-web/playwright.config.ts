@@ -5,6 +5,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
+  globalSetup: "./playwright.global-setup.ts",
 
   use: {
     baseURL: "http://localhost:3005",
