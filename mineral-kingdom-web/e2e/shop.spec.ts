@@ -65,3 +65,39 @@ test("homepage listing cards use canonical listing urls when data is present", a
   expect(href).toBeTruthy();
   expect(href).toMatch(/^\/listing\/.+-[0-9a-fA-F-]{36}$/);
 });
+
+test("store-backed listing detail shows pricing and add-to-cart affordance", async ({ page }) => {
+  await page.goto("/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+
+  await expect(page.getByTestId("listing-detail-page")).toBeVisible();
+  await expect(page.getByTestId("listing-detail-title")).toContainText("Rainbow Fluorite Tower");
+  await expect(page.getByTestId("listing-store-offer")).toBeVisible();
+  await expect(page.getByTestId("listing-store-offer-price")).toContainText("$160.00");
+  await expect(page.getByTestId("listing-add-to-cart")).toBeVisible();
+
+  await expect(page.getByTestId("listing-detail-mineral")).toContainText("Smoke Fluorite 12-1");
+  await expect(page.getByTestId("listing-detail-locality")).toContainText("Berbes, Asturias, Spain");
+  await expect(page.getByTestId("listing-detail-size-class")).toContainText("CABINET");
+  await expect(page.getByTestId("listing-detail-fluorescent")).toContainText("Yes");
+});
+
+test("auction-backed listing detail shows auction widget and no add-to-cart affordance", async ({ page }) => {
+  await page.goto("/listing/arkansas-quartz-cluster-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1");
+
+  await expect(page.getByTestId("listing-detail-page")).toBeVisible();
+  await expect(page.getByTestId("listing-detail-title")).toContainText("Arkansas Quartz Cluster");
+  await expect(page.getByTestId("listing-auction-widget")).toBeVisible();
+  await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$112.00");
+  await expect(page.getByTestId("listing-auction-status")).toContainText("LIVE");
+  await expect(page.getByTestId("listing-add-to-cart")).toHaveCount(0);
+
+  await expect(page.getByTestId("listing-detail-mineral")).toContainText("Smoke Quartz 12-1");
+  await expect(page.getByTestId("listing-detail-locality")).toContainText("Mount Ida, Arkansas, USA");
+  await expect(page.getByTestId("listing-detail-size-class")).toContainText("MINIATURE");
+});
+
+test("malformed canonical listing route returns not found", async ({ page }) => {
+  await page.goto("/listing/not-a-valid-guid");
+
+  await expect(page.getByRole("heading", { name: /404|not found/i })).toBeVisible();
+});
