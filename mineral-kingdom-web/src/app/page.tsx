@@ -1,62 +1,33 @@
-// src/app/page.tsx
-import Link from "next/link";
-import { Container } from "@/components/site/Container";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Container } from "@/components/site/Container"
+import { HomeSection } from "@/components/home/HomeSection"
+import { fetchHomeSections } from "@/lib/home/getHomeSections"
 
-// S9-2 compile-time proof: OpenAPI generated types
-import type { components } from "@/lib/api/generated/openapi";
-type AnySchema = components["schemas"][keyof components["schemas"]];
-const _compileOnly: AnySchema | null = null;
-void _compileOnly;
+export default async function HomePage() {
+  const sections = await fetchHomeSections()
 
-export default function Home() {
   return (
-    <Container className="py-10">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Mineral Kingdom</h1>
-        <p className="text-muted-foreground">
-          Fixed-price store + auctions. This is the foundation shell.
+    <Container className="space-y-10 py-10">
+      <section className="space-y-3">
+        <h1 className="text-4xl font-bold tracking-tight">Mineral Kingdom</h1>
+        <p className="max-w-2xl text-muted-foreground">
+          Discover featured minerals, browse newly added pieces, and watch auctions that are ending soon.
         </p>
-      </div>
+      </section>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Shop</CardTitle>
-            <CardDescription>Browse fixed-price listings.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="secondary">
-              <Link href="/shop">Go to Shop</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Auctions</CardTitle>
-            <CardDescription>Watch live auctions and bid (members).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild variant="secondary">
-              <Link href="/auctions">Go to Auctions</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>Login and manage your dashboard.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link href="/login">Login</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      {sections ? (
+        <>
+          <HomeSection section={sections.featuredListings} kind="listing" />
+          <HomeSection section={sections.endingSoonAuctions} kind="auction" />
+          <HomeSection section={sections.newArrivals} kind="listing" />
+        </>
+      ) : (
+        <section
+          data-testid="home-sections-fallback"
+          className="rounded-lg border p-6 text-sm text-muted-foreground"
+        >
+          Homepage sections are temporarily unavailable.
+        </section>
+      )}
     </Container>
-  );
+  )
 }
