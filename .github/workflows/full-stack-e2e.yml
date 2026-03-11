@@ -167,7 +167,16 @@ jobs:
           docker ps || true
           docker logs mk_api --tail 250 || true
           exit 1
+            
+      - name: Seed deterministic E2E catalog fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
 
+          curl -fsS \
+          -X POST "http://localhost:8080/api/testing/e2e/seed" \
+          -H "content-type: application/json"
+      
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         shell: bash
