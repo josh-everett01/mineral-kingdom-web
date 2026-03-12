@@ -91,6 +91,40 @@ test("auction-backed listing detail shows auction widget and no add-to-cart affo
   await expect(page.getByTestId("listing-detail-size-class")).toContainText("MINIATURE");
 });
 
+test("mineral category page filters listings appropriately and uses the correct title", async ({ page }) => {
+  await page.goto("/shop/mineral/Smoke%20Fluorite%20E2E");
+
+  await expect(page.getByTestId("shop-mineral-page")).toBeVisible();
+  await expect(page).toHaveTitle(/Smoke Fluorite E2E Specimens \| Mineral Kingdom/i);
+  await expect(page.getByRole("heading", { name: "Smoke Fluorite E2E Specimens" })).toBeVisible();
+
+  const cards = page.getByTestId("shop-listing-card");
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByTestId("shop-listing-card-mineral").first()).toContainText("Smoke Fluorite E2E");
+
+  const href = await page.getByTestId("shop-listing-card-link").first().getAttribute("href");
+  expect(href).toBeTruthy();
+  expect(href).toMatch(/^\/listing\/.+-[0-9a-fA-F-]{36}$/);
+});
+
+test("size category page filters listings appropriately and uses the correct title", async ({ page }) => {
+  await page.goto("/shop/size/CABINET");
+
+  await expect(page.getByTestId("shop-size-page")).toBeVisible();
+  await expect(page).toHaveTitle(/Cabinet Specimens \| Mineral Kingdom/i);
+  await expect(page.getByRole("heading", { name: "Cabinet Specimens" })).toBeVisible();
+
+  const cards = page.getByTestId("shop-listing-card");
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByTestId("shop-listing-card-size").first()).toContainText("CABINET");
+});
+
+test("invalid size category route returns not found", async ({ page }) => {
+  await page.goto("/shop/size/not-a-real-size-class");
+
+  await expect(page.getByRole("heading", { name: /404|not found/i })).toBeVisible();
+});
+
 test("malformed canonical listing route returns not found", async ({ page }) => {
   await page.goto("/listing/not-a-valid-guid");
 
