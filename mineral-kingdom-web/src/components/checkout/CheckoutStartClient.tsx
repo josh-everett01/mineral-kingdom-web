@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 type CheckoutStartResponse = {
   cartId: string
@@ -28,7 +28,7 @@ export function CheckoutStartClient({
   const [isExpired, setIsExpired] = useState(false)
   const intervalRef = useRef<number | null>(null)
 
-  const formattedExpiry = useMemo(() => {
+  const formattedExpiry = (() => {
     if (!checkout?.expiresAt) return null
 
     const date = new Date(checkout.expiresAt)
@@ -41,7 +41,7 @@ export function CheckoutStartClient({
       hour: "numeric",
       minute: "2-digit",
     }).format(date)
-  }, [checkout?.expiresAt])
+  })()
 
   useEffect(() => {
     if (!checkout || isExpired) {
