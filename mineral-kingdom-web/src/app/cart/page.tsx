@@ -82,14 +82,13 @@ export default async function CartPage() {
               </div>
             </dl>
 
-            <button
-              type="button"
-              className="mt-6 w-full rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white opacity-60"
-              disabled
-              data-testid="cart-checkout-button"
+            <Link
+              href="/checkout"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
+              data-testid="cart-checkout-link"
             >
-              Checkout coming next
-            </button>
+              Proceed to checkout
+            </Link>
           </aside>
         </section>
       )}
