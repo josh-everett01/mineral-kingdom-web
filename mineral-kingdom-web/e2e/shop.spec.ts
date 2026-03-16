@@ -82,7 +82,7 @@ test("auction-backed listing detail shows auction widget and no add-to-cart affo
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-detail-title")).toContainText("Arkansas Quartz Cluster");
   await expect(page.getByTestId("listing-auction-widget")).toBeVisible();
-  await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$95.00");
+  await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$112.00");
   await expect(page.getByTestId("listing-auction-status")).toContainText("LIVE");
   await expect(page.getByTestId("listing-add-to-cart")).toHaveCount(0);
 
