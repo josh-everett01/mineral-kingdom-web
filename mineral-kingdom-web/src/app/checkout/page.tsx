@@ -16,8 +16,8 @@ export default async function CheckoutPage({ searchParams }: Props) {
   const { cartId, holdId, expiresAt, error } = await searchParams
 
   const hasAuthCookie =
-    Boolean(cookieStore.get("mk_access_token")?.value) ||
-    Boolean(cookieStore.get("__Secure-mk_access_token")?.value)
+    Boolean(cookieStore.get("mk_access")?.value) ||
+    Boolean(cookieStore.get("__Secure-mk_access")?.value)
 
   const initialCheckout =
     cartId && holdId && expiresAt

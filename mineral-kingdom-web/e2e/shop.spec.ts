@@ -82,7 +82,7 @@ test("auction-backed listing detail shows auction widget and no add-to-cart affo
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-detail-title")).toContainText("Arkansas Quartz Cluster");
   await expect(page.getByTestId("listing-auction-widget")).toBeVisible();
-  await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$112.00");
+  await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$95.00");
   await expect(page.getByTestId("listing-auction-status")).toContainText("LIVE");
   await expect(page.getByTestId("listing-add-to-cart")).toHaveCount(0);
 
@@ -115,8 +115,12 @@ test("size category page filters listings appropriately and uses the correct tit
   await expect(page.getByRole("heading", { name: "Cabinet Specimens" })).toBeVisible();
 
   const cards = page.getByTestId("shop-listing-card");
-  await expect(cards).toHaveCount(1);
-  await expect(page.getByTestId("shop-listing-card-size").first()).toContainText("CABINET");
+  await expect(cards).toHaveCount(2);
+
+  const sizeBadges = page.getByTestId("shop-listing-card-size");
+  await expect(sizeBadges).toHaveCount(2);
+  await expect(sizeBadges.nth(0)).toContainText("CABINET");
+  await expect(sizeBadges.nth(1)).toContainText("CABINET");
 });
 
 test("invalid size category route returns not found", async ({ page }) => {

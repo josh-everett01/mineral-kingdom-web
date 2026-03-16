@@ -16,6 +16,8 @@ type Props = {
   initialError?: string | null
 }
 
+const CHECKOUT_HOLD_STORAGE_KEY = "mk_checkout_hold"
+
 export function CheckoutStartClient({
   initialEmail,
   isAuthenticated,
@@ -44,7 +46,29 @@ export function CheckoutStartClient({
   })()
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+
+    if (checkout && !isExpired) {
+      window.sessionStorage.setItem(
+        CHECKOUT_HOLD_STORAGE_KEY,
+        JSON.stringify({
+          cartId: checkout.cartId,
+          holdId: checkout.holdId,
+          expiresAt: checkout.expiresAt,
+        }),
+      )
+      return
+    }
+
+    window.sessionStorage.removeItem(CHECKOUT_HOLD_STORAGE_KEY)
+  }, [checkout, isExpired])
+
+  useEffect(() => {
     if (!checkout || isExpired) {
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
       return
     }
 
@@ -69,12 +93,14 @@ export function CheckoutStartClient({
         }
 
         const data = (await res.json()) as { expiresAt?: string | null }
-        if (data.expiresAt) {
+        const nextExpiresAt = data.expiresAt
+
+        if (typeof nextExpiresAt === "string" && nextExpiresAt.length > 0) {
           setCheckout((current) =>
             current
               ? {
                 ...current,
-                expiresAt: data.expiresAt!,
+                expiresAt: nextExpiresAt,
               }
               : current,
           )
@@ -92,6 +118,7 @@ export function CheckoutStartClient({
     return () => {
       if (intervalRef.current !== null) {
         window.clearInterval(intervalRef.current)
+        intervalRef.current = null
       }
     }
   }, [checkout, isExpired])
@@ -106,7 +133,7 @@ export function CheckoutStartClient({
           Secure your checkout hold
         </h1>
         <p className="max-w-2xl text-sm text-stone-600 sm:text-base">
-          We’ll create a temporary checkout hold before payment so availability can be
+          We&apos;ll create a temporary checkout hold before payment so availability can be
           confirmed safely.
         </p>
       </section>
@@ -132,7 +159,7 @@ export function CheckoutStartClient({
                 data-testid="checkout-guest-email"
               />
               <p className="text-xs text-stone-500">
-                We’ll use this to identify your checkout session and send updates later.
+                We&apos;ll use this to identify your checkout session and send updates later.
               </p>
             </div>
           ) : (
@@ -218,6 +245,24 @@ export function CheckoutStartClient({
             Keep this page open while you continue checkout. We&apos;ll maintain the hold while you
             remain active.
           </p>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/checkout/pay?holdId=${encodeURIComponent(checkout.holdId)}`}
+              className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
+              data-testid="checkout-continue-to-payment"
+            >
+              Continue to payment
+            </Link>
+
+            <Link
+              href="/cart"
+              className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100"
+              data-testid="checkout-back-to-cart"
+            >
+              Back to cart
+            </Link>
+          </div>
         </section>
       )}
     </div>
