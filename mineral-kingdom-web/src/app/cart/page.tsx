@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { CartLineItem } from "@/components/cart/CartLineItem"
-import { formatMoney } from "@/lib/cart/cartTypes"
+import { CartNoticeDismissButton } from "@/components/cart/CartNoticeDismissButton"
+import { CartNoticesToastClient } from "@/components/cart/CartNoticesToastClient"
+import { formatCurrency } from '@/lib/format/currency'
 import { fetchCart } from "@/lib/cart/getCart"
 
 export default async function CartPage() {
@@ -21,6 +23,8 @@ export default async function CartPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8" data-testid="cart-page">
+      <CartNoticesToastClient notices={cart.notices} />
+
       <section className="space-y-3">
         <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
           Cart
@@ -41,6 +45,32 @@ export default async function CartPage() {
               <li key={warning}>{warning}</li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {cart.notices.length > 0 ? (
+        <section
+          className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 shadow-sm"
+          data-testid="cart-notices"
+        >
+          {cart.notices.map((notice) => (
+            <div
+              key={notice.id}
+              className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-4 sm:flex-row sm:items-start sm:justify-between"
+              data-testid="cart-notice"
+            >
+              <div className="space-y-1">
+                <p className="text-sm font-semibold uppercase tracking-wide text-amber-700">
+                  Cart update
+                </p>
+                <p className="text-sm text-amber-950" data-testid="cart-notice-message">
+                  {notice.message}
+                </p>
+              </div>
+
+              <CartNoticeDismissButton noticeId={notice.id} />
+            </div>
+          ))}
         </section>
       ) : null}
 
@@ -78,7 +108,7 @@ export default async function CartPage() {
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-stone-100 pt-3 text-base font-semibold text-stone-900">
                 <dt>Subtotal</dt>
-                <dd data-testid="cart-subtotal">{formatMoney(cart.subtotalCents) ?? "—"}</dd>
+                <dd data-testid="cart-subtotal">{formatCurrency(cart.subtotalCents) ?? "—"}</dd>
               </div>
             </dl>
 

@@ -2,15 +2,44 @@ import { test, expect } from "@playwright/test";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
-async function addCurrentListingToCart(page: import("@playwright/test").Page) {
-  const addResponse = page.waitForResponse((response) => {
-    return response.url().includes("/api/bff/cart") && response.request().method() === "PUT";
-  });
+async function waitForCartToContainLine(page: import("@playwright/test").Page) {
+  await expect
+    .poll(
+      async () => {
+        const cookies = await page.context().cookies();
+        const mkCartCookie = cookies.find((c) => c.name === "mk_cart_id");
+        if (!mkCartCookie) return 0;
 
+        const cartRes = await page.request.get("http://localhost:3005/api/bff/cart", {
+          headers: {
+            cookie: `mk_cart_id=${mkCartCookie.value}`,
+          },
+        });
+
+        if (!cartRes.ok()) return 0;
+
+        const body = (await cartRes.json()) as {
+          lines?: Array<unknown>;
+        };
+
+        return body.lines?.length ?? 0;
+      },
+      {
+        timeout: 15000,
+        intervals: [250, 500, 1000],
+      },
+    )
+    .toBe(1);
+}
+
+async function addCurrentListingToCart(page: import("@playwright/test").Page) {
   await page.getByTestId("listing-add-to-cart").click();
 
-  const response = await addResponse;
-  expect(response.ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
+    timeout: 15000,
+  });
+
+  await waitForCartToContainLine(page);
 }
 
 test("guest can proceed from cart to checkout and start a hold", async ({ page }) => {

@@ -1,3 +1,13 @@
+export type CartNoticeDto = {
+  id: string
+  type: string
+  message: string
+  offerId?: string | null
+  listingId?: string | null
+  createdAt: string
+  dismissedAt?: string | null
+}
+
 export type CartLineDto = {
   offerId: string
   listingId: string
@@ -17,14 +27,6 @@ export type CartDto = {
   status: string
   subtotalCents: number
   warnings: string[]
+  notices: CartNoticeDto[]
   lines: CartLineDto[]
-}
-
-export function formatMoney(cents?: number | null): string | null {
-  if (typeof cents !== "number") return null
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(cents / 100)
 }
