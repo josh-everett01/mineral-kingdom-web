@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Container } from "@/components/site/Container"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
 export default function LoginClient() {
-  const router = useRouter()
   const search = useSearchParams()
   const next = search.get("next") ?? "/account"
 

@@ -19,6 +19,17 @@ function buildCheckoutUrl(params: Record<string, string | null | undefined>) {
   return query ? `/checkout?${query}` : "/checkout"
 }
 
+function mapCheckoutStartError(message?: string | null) {
+  switch (message) {
+    case "EMAIL_MISMATCH":
+      return "This checkout is already associated with another email. Choose “Not my email?” to start over."
+    case "EMAIL_REQUIRED":
+      return "Email is required for guest checkout."
+    default:
+      return message ?? "We couldn't start checkout right now."
+  }
+}
+
 export async function startCheckoutAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim()
 
@@ -68,7 +79,7 @@ export async function startCheckoutAction(formData: FormData) {
 
     redirect(
       buildCheckoutUrl({
-        error: body?.message ?? body?.error ?? "We couldn't start checkout right now.",
+        error: mapCheckoutStartError(body?.message ?? body?.error ?? null),
       }),
     )
   }

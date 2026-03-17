@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 type Props = {
   initialHoldId?: string | null
@@ -14,13 +14,64 @@ type PaymentInitiationResponse = {
   checkoutUrl?: string | null
 }
 
+type ActiveCheckoutResponse = {
+  active: boolean
+  cartId: string
+  holdId?: string | null
+  expiresAt?: string | null
+  guestEmail?: string | null
+  status?: string | null
+  canExtend?: boolean
+  extensionCount?: number
+  maxExtensions?: number
+}
+
+type CheckoutHeartbeatResponse = {
+  holdId: string
+  expiresAt: string
+  canExtend: boolean
+  extensionCount: number
+  maxExtensions: number
+}
+
+type ExtendCheckoutResponse = {
+  holdId: string
+  expiresAt: string
+  canExtend: boolean
+  extensionCount: number
+  maxExtensions: number
+}
+
 const CHECKOUT_HOLD_STORAGE_KEY = "mk_checkout_hold"
 const CHECKOUT_PAYMENT_STORAGE_KEY = "mk_checkout_payment_id"
+
+function formatCountdown(expiresAt?: string | null, nowMs?: number) {
+  if (!expiresAt) return null
+
+  const target = new Date(expiresAt).getTime()
+  const now = nowMs ?? Date.now()
+  const diffMs = Math.max(target - now, 0)
+
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+}
 
 export function CheckoutPayClient({ initialHoldId }: Props) {
   const [selectedProvider, setSelectedProvider] = useState<"stripe" | "paypal">("stripe")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isExtending, setIsExtending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [extensionMessage, setExtensionMessage] = useState<string | null>(null)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
+  const [canExtend, setCanExtend] = useState(false)
+  const [extensionCount, setExtensionCount] = useState(0)
+  const [maxExtensions, setMaxExtensions] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const intervalRef = useRef<number | null>(null)
+  const countdownIntervalRef = useRef<number | null>(null)
 
   const holdId = useMemo(() => {
     if (initialHoldId) return initialHoldId
@@ -36,6 +87,8 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
       return null
     }
   }, [initialHoldId])
+
+  const countdownLabel = holdId && expiresAt ? formatCountdown(expiresAt, nowMs) : null
 
   useEffect(() => {
     if (typeof window === "undefined" || !holdId) return
@@ -66,6 +119,150 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
       )
     }
   }, [holdId])
+
+  useEffect(() => {
+    if (!holdId) return
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/bff/checkout/active", {
+          method: "GET",
+          cache: "no-store",
+        })
+
+        if (!res.ok) return
+        const body = (await res.json()) as ActiveCheckoutResponse
+
+        if (!body.active || !body.holdId || body.holdId !== holdId) return
+
+        setExpiresAt(body.expiresAt ?? null)
+        setCanExtend(Boolean(body.canExtend))
+        setExtensionCount(body.extensionCount ?? 0)
+        setMaxExtensions(body.maxExtensions ?? 0)
+      } catch {
+        // best effort only
+      }
+    })()
+  }, [holdId])
+
+  useEffect(() => {
+    if (!holdId || !expiresAt) {
+      if (countdownIntervalRef.current !== null) {
+        window.clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
+      return
+    }
+
+    const updateNow = () => {
+      setNowMs(Date.now())
+    }
+
+    updateNow()
+    countdownIntervalRef.current = window.setInterval(updateNow, 1000)
+
+    return () => {
+      if (countdownIntervalRef.current !== null) {
+        window.clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
+    }
+  }, [holdId, expiresAt])
+
+  useEffect(() => {
+    if (!holdId) {
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      return
+    }
+
+    async function sendHeartbeat() {
+      try {
+        const res = await fetch("/api/bff/checkout/heartbeat", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            holdId,
+          }),
+        })
+
+        if (!res.ok) {
+          setError("Your checkout hold expired. Return to checkout to start again.")
+          return
+        }
+
+        const data = (await res.json()) as CheckoutHeartbeatResponse
+        setExpiresAt(data.expiresAt)
+        setCanExtend(Boolean(data.canExtend))
+        setExtensionCount(data.extensionCount ?? 0)
+        setMaxExtensions(data.maxExtensions ?? 0)
+      } catch {
+        setError("We couldn't verify your checkout reservation.")
+      }
+    }
+
+    intervalRef.current = window.setInterval(() => {
+      void sendHeartbeat()
+    }, 30_000)
+
+    return () => {
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [holdId])
+
+  async function handleExtendReservation() {
+    if (!holdId || !canExtend || isExtending) return
+
+    setIsExtending(true)
+    setExtensionMessage(null)
+    setError(null)
+
+    try {
+      const res = await fetch("/api/bff/checkout/extend", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          holdId,
+        }),
+        cache: "no-store",
+      })
+
+      const body = (await res.json().catch(() => null)) as
+        | ExtendCheckoutResponse
+        | { message?: string; error?: string }
+        | null
+
+      if (!res.ok || !body || !("holdId" in body)) {
+        setExtensionMessage(
+          (body && "message" in body && body.message) ||
+          (body && "error" in body && body.error) ||
+          "We couldn't extend your reservation.",
+        )
+        setIsExtending(false)
+        return
+      }
+
+      setExpiresAt(body.expiresAt)
+      setCanExtend(Boolean(body.canExtend))
+      setExtensionCount(body.extensionCount ?? 0)
+      setMaxExtensions(body.maxExtensions ?? 0)
+      setNowMs(Date.now())
+      setExtensionMessage("Reservation extended.")
+      setIsExtending(false)
+    } catch {
+      setExtensionMessage("We couldn't extend your reservation.")
+      setIsExtending(false)
+    }
+  }
 
   async function handleStartPayment() {
     if (!holdId || isSubmitting) return
@@ -162,7 +359,38 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
           <dt className="font-medium">Selected provider</dt>
           <dd data-testid="checkout-pay-provider">{selectedProvider}</dd>
         </div>
+        <div>
+          <dt className="font-medium">Reservation expires in</dt>
+          <dd data-testid="checkout-pay-countdown">{countdownLabel ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="font-medium">Extensions used</dt>
+          <dd data-testid="checkout-pay-extension-count">
+            {extensionCount} / {maxExtensions}
+          </dd>
+        </div>
       </dl>
+
+      {canExtend ? (
+        <button
+          type="button"
+          onClick={() => void handleExtendReservation()}
+          disabled={isExtending}
+          className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-900 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+          data-testid="checkout-pay-extend-reservation"
+        >
+          {isExtending ? "Extending..." : "Extend reservation"}
+        </button>
+      ) : null}
+
+      {extensionMessage ? (
+        <div
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+          data-testid="checkout-pay-extension-message"
+        >
+          {extensionMessage}
+        </div>
+      ) : null}
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium text-stone-900">Payment method</legend>

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
 test("shop browse page loads successfully", async ({ page }) => {
-  await page.goto("/shop");
+  await page.goto("/shop", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("shop-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Browse listings" })).toBeVisible();
@@ -17,7 +17,7 @@ test("shop browse page loads successfully", async ({ page }) => {
 });
 
 test("shop filters update the url", async ({ page }) => {
-  await page.goto("/shop");
+  await page.goto("/shop", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("shop-page")).toBeVisible();
 
@@ -29,7 +29,7 @@ test("shop filters update the url", async ({ page }) => {
 });
 
 test("shop listing cards navigate to canonical listing urls", async ({ page }) => {
-  await page.goto("/shop");
+  await page.goto("/shop", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("shop-page")).toBeVisible();
 
@@ -47,7 +47,7 @@ test("shop listing cards navigate to canonical listing urls", async ({ page }) =
 });
 
 test("homepage listing cards use canonical listing urls when data is present", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("heading", { name: "Mineral Kingdom" })).toBeVisible();
 
@@ -62,13 +62,16 @@ test("homepage listing cards use canonical listing urls when data is present", a
 });
 
 test("store-backed listing detail shows pricing and add-to-cart affordance", async ({ page }) => {
-  await page.goto("/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1");
+  await page.goto("/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", {
+    waitUntil: "domcontentloaded",
+  });
 
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-detail-title")).toContainText("Rainbow Fluorite Tower");
   await expect(page.getByTestId("listing-store-offer")).toBeVisible();
   await expect(page.getByTestId("listing-store-offer-price")).toContainText("$160.00");
   await expect(page.getByTestId("listing-add-to-cart")).toBeVisible();
+  await expect(page.getByTestId("listing-buy-now")).toBeVisible();
 
   await expect(page.getByTestId("listing-detail-mineral")).toContainText("Smoke Fluorite E2E");
   await expect(page.getByTestId("listing-detail-locality")).toContainText("Berbes, Asturias, Spain");
@@ -77,7 +80,9 @@ test("store-backed listing detail shows pricing and add-to-cart affordance", asy
 });
 
 test("auction-backed listing detail shows auction widget and no add-to-cart affordance", async ({ page }) => {
-  await page.goto("/listing/arkansas-quartz-cluster-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1");
+  await page.goto("/listing/arkansas-quartz-cluster-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1", {
+    waitUntil: "domcontentloaded",
+  });
 
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-detail-title")).toContainText("Arkansas Quartz Cluster");
@@ -85,6 +90,7 @@ test("auction-backed listing detail shows auction widget and no add-to-cart affo
   await expect(page.getByTestId("listing-auction-current-bid")).toContainText("$112.00");
   await expect(page.getByTestId("listing-auction-status")).toContainText("LIVE");
   await expect(page.getByTestId("listing-add-to-cart")).toHaveCount(0);
+  await expect(page.getByTestId("listing-buy-now")).toHaveCount(0);
 
   await expect(page.getByTestId("listing-detail-mineral")).toContainText("Smoke Quartz E2E");
   await expect(page.getByTestId("listing-detail-locality")).toContainText("Mount Ida, Arkansas, USA");
@@ -92,7 +98,7 @@ test("auction-backed listing detail shows auction widget and no add-to-cart affo
 });
 
 test("mineral category page filters listings appropriately and uses the correct title", async ({ page }) => {
-  await page.goto("/shop/mineral/Smoke%20Fluorite%20E2E");
+  await page.goto("/shop/mineral/Smoke%20Fluorite%20E2E", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("shop-mineral-page")).toBeVisible();
   await expect(page).toHaveTitle(/Smoke Fluorite E2E Specimens \| Mineral Kingdom/i);
@@ -108,7 +114,7 @@ test("mineral category page filters listings appropriately and uses the correct 
 });
 
 test("size category page filters listings appropriately and uses the correct title", async ({ page }) => {
-  await page.goto("/shop/size/CABINET");
+  await page.goto("/shop/size/CABINET", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("shop-size-page")).toBeVisible();
   await expect(page).toHaveTitle(/Cabinet Specimens \| Mineral Kingdom/i);
@@ -124,13 +130,13 @@ test("size category page filters listings appropriately and uses the correct tit
 });
 
 test("invalid size category route returns not found", async ({ page }) => {
-  await page.goto("/shop/size/not-a-real-size-class");
+  await page.goto("/shop/size/not-a-real-size-class", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("heading", { name: /404|not found/i })).toBeVisible();
 });
 
 test("malformed canonical listing route returns not found", async ({ page }) => {
-  await page.goto("/listing/not-a-valid-guid");
+  await page.goto("/listing/not-a-valid-guid", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("heading", { name: /404|not found/i })).toBeVisible();
 });

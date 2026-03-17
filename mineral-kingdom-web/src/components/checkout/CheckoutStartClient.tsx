@@ -9,6 +9,34 @@ type CheckoutStartResponse = {
   expiresAt: string
 }
 
+type ActiveCheckoutResponse = {
+  active: boolean
+  cartId: string
+  holdId?: string | null
+  expiresAt?: string | null
+  guestEmail?: string | null
+  status?: string | null
+  canExtend?: boolean
+  extensionCount?: number
+  maxExtensions?: number
+}
+
+type CheckoutHeartbeatResponse = {
+  holdId: string
+  expiresAt: string
+  canExtend: boolean
+  extensionCount: number
+  maxExtensions: number
+}
+
+type ExtendCheckoutResponse = {
+  holdId: string
+  expiresAt: string
+  canExtend: boolean
+  extensionCount: number
+  maxExtensions: number
+}
+
 type Props = {
   initialEmail?: string | null
   isAuthenticated: boolean
@@ -16,7 +44,19 @@ type Props = {
   initialError?: string | null
 }
 
-const CHECKOUT_HOLD_STORAGE_KEY = "mk_checkout_hold"
+function formatCountdown(expiresAt?: string | null, nowMs?: number) {
+  if (!expiresAt) return null
+
+  const target = new Date(expiresAt).getTime()
+  const now = nowMs ?? Date.now()
+  const diffMs = Math.max(target - now, 0)
+
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+}
 
 export function CheckoutStartClient({
   initialEmail,
@@ -26,9 +66,19 @@ export function CheckoutStartClient({
 }: Props) {
   const [email, setEmail] = useState(initialEmail ?? "")
   const [checkout, setCheckout] = useState<CheckoutStartResponse | null>(initialCheckout ?? null)
+  const [associatedEmail, setAssociatedEmail] = useState<string | null>(null)
   const [heartbeatError, setHeartbeatError] = useState<string | null>(null)
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null)
+  const [extensionMessage, setExtensionMessage] = useState<string | null>(null)
   const [isExpired, setIsExpired] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [isExtending, setIsExtending] = useState(false)
+  const [canExtend, setCanExtend] = useState(false)
+  const [extensionCount, setExtensionCount] = useState(0)
+  const [maxExtensions, setMaxExtensions] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const intervalRef = useRef<number | null>(null)
+  const countdownIntervalRef = useRef<number | null>(null)
 
   const formattedExpiry = (() => {
     if (!checkout?.expiresAt) return null
@@ -45,22 +95,102 @@ export function CheckoutStartClient({
     }).format(date)
   })()
 
-  useEffect(() => {
-    if (typeof window === "undefined") return
+  const countdownLabel = checkout && !isExpired
+    ? formatCountdown(checkout.expiresAt, nowMs)
+    : null
 
-    if (checkout && !isExpired) {
-      window.sessionStorage.setItem(
-        CHECKOUT_HOLD_STORAGE_KEY,
-        JSON.stringify({
-          cartId: checkout.cartId,
-          holdId: checkout.holdId,
-          expiresAt: checkout.expiresAt,
-        }),
-      )
+  useEffect(() => {
+    if (checkout && !associatedEmail) {
+      void (async () => {
+        try {
+          const res = await fetch("/api/bff/checkout/active", {
+            method: "GET",
+            cache: "no-store",
+          })
+
+          if (!res.ok) return
+          const body = (await res.json()) as ActiveCheckoutResponse
+
+          if (!body.active) return
+
+          if (body.guestEmail) {
+            setAssociatedEmail(body.guestEmail)
+            setEmail(body.guestEmail)
+          }
+
+          setCanExtend(Boolean(body.canExtend))
+          setExtensionCount(body.extensionCount ?? 0)
+          setMaxExtensions(body.maxExtensions ?? 0)
+        } catch {
+          // best effort only
+        }
+      })()
+
       return
     }
 
-    window.sessionStorage.removeItem(CHECKOUT_HOLD_STORAGE_KEY)
+    if (checkout) return
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/bff/checkout/active", {
+          method: "GET",
+          cache: "no-store",
+        })
+
+        if (!res.ok) return
+        const body = (await res.json()) as ActiveCheckoutResponse
+
+        if (!body.active || !body.holdId || !body.expiresAt) return
+
+        setCheckout({
+          cartId: body.cartId,
+          holdId: body.holdId,
+          expiresAt: body.expiresAt,
+        })
+
+        if (body.guestEmail) {
+          setAssociatedEmail(body.guestEmail)
+          setEmail(body.guestEmail)
+        }
+
+        setCanExtend(Boolean(body.canExtend))
+        setExtensionCount(body.extensionCount ?? 0)
+        setMaxExtensions(body.maxExtensions ?? 0)
+      } catch {
+        // best effort only
+      }
+    })()
+  }, [associatedEmail, checkout])
+
+  useEffect(() => {
+    if (!checkout || isExpired) {
+      if (countdownIntervalRef.current !== null) {
+        window.clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
+      return
+    }
+
+    const updateNow = () => {
+      const nextNow = Date.now()
+      setNowMs(nextNow)
+
+      const next = formatCountdown(checkout.expiresAt, nextNow)
+      if (next === "00:00") {
+        setIsExpired(true)
+      }
+    }
+
+    updateNow()
+    countdownIntervalRef.current = window.setInterval(updateNow, 1000)
+
+    return () => {
+      if (countdownIntervalRef.current !== null) {
+        window.clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
+    }
   }, [checkout, isExpired])
 
   useEffect(() => {
@@ -92,19 +222,22 @@ export function CheckoutStartClient({
           return
         }
 
-        const data = (await res.json()) as { expiresAt?: string | null }
-        const nextExpiresAt = data.expiresAt
+        const data = (await res.json()) as CheckoutHeartbeatResponse
 
-        if (typeof nextExpiresAt === "string" && nextExpiresAt.length > 0) {
+        if (typeof data.expiresAt === "string" && data.expiresAt.length > 0) {
           setCheckout((current) =>
             current
               ? {
                 ...current,
-                expiresAt: nextExpiresAt,
+                expiresAt: data.expiresAt,
               }
               : current,
           )
         }
+
+        setCanExtend(Boolean(data.canExtend))
+        setExtensionCount(data.extensionCount ?? 0)
+        setMaxExtensions(data.maxExtensions ?? 0)
       } catch {
         setIsExpired(true)
         setHeartbeatError("Your checkout hold expired. Items are no longer reserved.")
@@ -122,6 +255,96 @@ export function CheckoutStartClient({
       }
     }
   }, [checkout, isExpired])
+
+  async function handleResetCheckout() {
+    if (isResetting) return
+
+    setIsResetting(true)
+    setRecoveryMessage(null)
+    setHeartbeatError(null)
+    setExtensionMessage(null)
+
+    try {
+      const res = await fetch("/api/bff/checkout/reset", {
+        method: "POST",
+        cache: "no-store",
+      })
+
+      if (!res.ok) {
+        setRecoveryMessage("We couldn't reset the current checkout session right now.")
+        setIsResetting(false)
+        return
+      }
+
+      setCheckout(null)
+      setAssociatedEmail(null)
+      setEmail("")
+      setIsExpired(false)
+      setNowMs(Date.now())
+      setCanExtend(false)
+      setExtensionCount(0)
+      setMaxExtensions(0)
+      setRecoveryMessage("Checkout session reset. Enter a different email to continue.")
+      setIsResetting(false)
+    } catch {
+      setRecoveryMessage("We couldn't reset the current checkout session right now.")
+      setIsResetting(false)
+    }
+  }
+
+  async function handleExtendReservation() {
+    if (!checkout || isExtending || !canExtend) return
+
+    setIsExtending(true)
+    setExtensionMessage(null)
+    setHeartbeatError(null)
+
+    try {
+      const res = await fetch("/api/bff/checkout/extend", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          holdId: checkout.holdId,
+        }),
+        cache: "no-store",
+      })
+
+      const body = (await res.json().catch(() => null)) as
+        | ExtendCheckoutResponse
+        | { message?: string; error?: string }
+        | null
+
+      if (!res.ok || !body || !("holdId" in body)) {
+        setExtensionMessage(
+          (body && "message" in body && body.message) ||
+          (body && "error" in body && body.error) ||
+          "We couldn't extend your reservation.",
+        )
+        setIsExtending(false)
+        return
+      }
+
+      setCheckout((current) =>
+        current
+          ? {
+            ...current,
+            expiresAt: body.expiresAt,
+          }
+          : current,
+      )
+      setCanExtend(Boolean(body.canExtend))
+      setExtensionCount(body.extensionCount ?? 0)
+      setMaxExtensions(body.maxExtensions ?? 0)
+      setNowMs(Date.now())
+      setExtensionMessage("Reservation extended.")
+      setIsExtending(false)
+    } catch {
+      setExtensionMessage("We couldn't extend your reservation.")
+      setIsExtending(false)
+    }
+  }
 
   return (
     <div className="space-y-6" data-testid="checkout-page">
@@ -174,6 +397,15 @@ export function CheckoutStartClient({
               data-testid="checkout-start-error"
             >
               {initialError}
+            </div>
+          ) : null}
+
+          {recoveryMessage ? (
+            <div
+              className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+              data-testid="checkout-reset-success"
+            >
+              {recoveryMessage}
             </div>
           ) : null}
 
@@ -239,12 +471,72 @@ export function CheckoutStartClient({
               <dt className="font-medium">Expires at</dt>
               <dd data-testid="checkout-expires-at">{formattedExpiry ?? checkout.expiresAt}</dd>
             </div>
+            <div>
+              <dt className="font-medium">Reservation expires in</dt>
+              <dd data-testid="checkout-countdown">{countdownLabel ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Extensions used</dt>
+              <dd data-testid="checkout-extension-count">
+                {extensionCount} / {maxExtensions}
+              </dd>
+            </div>
+            {associatedEmail ? (
+              <div>
+                <dt className="font-medium">Checkout reserved for</dt>
+                <dd data-testid="checkout-associated-email">{associatedEmail}</dd>
+              </div>
+            ) : null}
           </dl>
 
           <p className="text-sm text-emerald-900" data-testid="checkout-hold-message">
-            Keep this page open while you continue checkout. We&apos;ll maintain the hold while you
-            remain active.
+            Your reservation remains active until the countdown ends. You can extend it near expiry,
+            subject to limits.
           </p>
+
+          {canExtend ? (
+            <button
+              type="button"
+              onClick={() => void handleExtendReservation()}
+              disabled={isExtending}
+              className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              data-testid="checkout-extend-reservation"
+            >
+              {isExtending ? "Extending..." : "Extend reservation"}
+            </button>
+          ) : null}
+
+          {extensionMessage ? (
+            <div
+              className="rounded-xl border border-emerald-200 bg-white p-3 text-sm text-emerald-900"
+              data-testid="checkout-extension-message"
+            >
+              {extensionMessage}
+            </div>
+          ) : null}
+
+          {!isAuthenticated && associatedEmail ? (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => void handleResetCheckout()}
+                disabled={isResetting}
+                className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                data-testid="checkout-reset-email"
+              >
+                {isResetting ? "Resetting..." : "Not my email? Start over"}
+              </button>
+
+              {recoveryMessage ? (
+                <div
+                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+                  data-testid="checkout-reset-message"
+                >
+                  {recoveryMessage}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-3">
             <Link

@@ -13,15 +13,11 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-async function buildHeaders(contentType?: string): Promise<Headers> {
+async function buildHeaders(): Promise<Headers> {
   const cookieStore = await cookies()
   const headers = new Headers({
-    Accept: "application/json",
+    "content-type": "application/json",
   })
-
-  if (contentType) {
-    headers.set("content-type", contentType)
-  }
 
   const cartId = cookieStore.get(CART_COOKIE_NAME)?.value
   if (cartId) {
@@ -31,7 +27,7 @@ async function buildHeaders(contentType?: string): Promise<Headers> {
   return headers
 }
 
-function persistCartIdFromUpstream(upstream: Response, response: NextResponse) {
+async function persistCartIdFromUpstream(upstream: Response, response: NextResponse) {
   const cartId = upstream.headers.get("X-Cart-Id")
   if (!cartId) return
 
@@ -43,12 +39,12 @@ function persistCartIdFromUpstream(upstream: Response, response: NextResponse) {
   })
 }
 
-export async function GET() {
+export async function POST() {
   let upstream: Response
 
   try {
-    upstream = await fetch(`${API_BASE_URL}/api/cart`, {
-      method: "GET",
+    upstream = await fetch(`${API_BASE_URL}/api/checkout/reset`, {
+      method: "POST",
       headers: await buildHeaders(),
       cache: "no-store",
     })
@@ -59,7 +55,7 @@ export async function GET() {
         code: "UPSTREAM_UNAVAILABLE",
         message: e instanceof Error ? e.message : "Upstream fetch failed",
       },
-      "Cart service unavailable",
+      "Checkout service unavailable",
     )
 
     return NextResponse.json(err, { status: 503 })
@@ -86,56 +82,6 @@ export async function GET() {
     },
   })
 
-  persistCartIdFromUpstream(upstream, response)
-  return response
-}
-
-export async function PUT(request: Request) {
-  const bodyText = await request.text().catch(() => "")
-
-  let upstream: Response
-
-  try {
-    upstream = await fetch(`${API_BASE_URL}/api/cart/lines`, {
-      method: "PUT",
-      headers: await buildHeaders("application/json"),
-      body: bodyText,
-      cache: "no-store",
-    })
-  } catch (e) {
-    const err = toProxyError(
-      503,
-      {
-        code: "UPSTREAM_UNAVAILABLE",
-        message: e instanceof Error ? e.message : "Upstream fetch failed",
-      },
-      "Cart service unavailable",
-    )
-
-    return NextResponse.json(err, { status: 503 })
-  }
-
-  const text = await upstream.text().catch(() => "")
-  const body = safeJsonParse(text)
-
-  if (!upstream.ok) {
-    const err = toProxyError(
-      upstream.status,
-      body,
-      `Upstream request failed (${upstream.status})`,
-    )
-
-    return NextResponse.json(err, { status: upstream.status })
-  }
-
-  const response = new NextResponse(text, {
-    status: upstream.status,
-    headers: {
-      "content-type": upstream.headers.get("content-type") ?? "application/json",
-      "cache-control": "no-store",
-    },
-  })
-
-  persistCartIdFromUpstream(upstream, response)
+  await persistCartIdFromUpstream(upstream, response)
   return response
 }

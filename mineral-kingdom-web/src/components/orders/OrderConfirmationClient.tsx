@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 
 type Props = {
   orderId: string
@@ -29,6 +30,7 @@ function formatMoney(cents?: number | null, currencyCode?: string | null) {
 }
 
 export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
+  const router = useRouter()
   const [order, setOrder] = useState<OrderConfirmationDto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paymentId] = useState<string | null>(() => {
@@ -36,6 +38,8 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
     if (typeof window === "undefined") return null
     return window.sessionStorage.getItem(`mk_order_payment_${orderId}`)
   })
+
+  const hasReconciledCartRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -87,6 +91,33 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
       }
     }
   }, [orderId, paymentId])
+
+  useEffect(() => {
+    if (!order?.id || hasReconciledCartRef.current) return
+
+    const isConfirmedSuccess =
+      order.status === "READY_TO_FULFILL" ||
+      order.paymentStatus === "SUCCEEDED" ||
+      order.isConfirmed === true
+
+    if (!isConfirmedSuccess) return
+
+    hasReconciledCartRef.current = true
+
+    void (async () => {
+      try {
+        await fetch("/api/bff/cart", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        })
+      } catch {
+        // best-effort only; order page should still work
+      } finally {
+        router.refresh()
+      }
+    })()
+  }, [order, router])
 
   const total = formatMoney(order?.totalCents, order?.currencyCode)
 
