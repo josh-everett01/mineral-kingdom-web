@@ -1,6 +1,6 @@
-import { request, type FullConfig } from "@playwright/test";
+import { request } from "@playwright/test";
 
-export default async function globalSetup(_config: FullConfig) {
+export default async function globalSetup() {
   if (!process.env.E2E_BACKEND) {
     return;
   }

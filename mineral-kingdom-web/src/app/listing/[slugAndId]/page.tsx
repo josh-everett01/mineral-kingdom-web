@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { ListingPurchaseActions } from "@/components/listings/ListingPurchaseActions"
 import { fetchListingDetail, formatDateTime, formatMoney } from "@/lib/listings/getListingDetail"
 
 type Props = {
@@ -155,17 +156,7 @@ export default async function ListingDetailPage({ params }: Props) {
                 ) : null}
               </div>
 
-              <form action="/api/bff/cart/items" method="post" className="space-y-3">
-                <input type="hidden" name="offerId" value={storeOffer.offerId} />
-                <input type="hidden" name="quantity" value="1" />
-                <button
-                  type="submit"
-                  className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-stone-700"
-                  data-testid="listing-add-to-cart"
-                >
-                  Add to cart
-                </button>
-              </form>
+              <ListingPurchaseActions offerId={storeOffer.offerId} />
             </section>
           ) : null}
 

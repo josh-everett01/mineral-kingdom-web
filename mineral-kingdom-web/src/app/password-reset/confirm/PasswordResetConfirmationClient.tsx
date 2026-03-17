@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 
 import { Container } from "@/components/site/Container"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,7 +31,6 @@ function getErrorMessage(body: unknown, fallback: string) {
 }
 
 export default function PasswordResetConfirmClient() {
-  const router = useRouter()
   const search = useSearchParams()
   const token = search.get("token")?.trim() ?? ""
   const tokenErrorMessage = "This password reset link is missing, invalid, or expired."

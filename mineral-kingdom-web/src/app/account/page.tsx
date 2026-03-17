@@ -1,14 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { Container } from "@/components/site/Container"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth/useAuth"
 
 export default function AccountPage() {
-  const router = useRouter()
   const { me, isLoading, logout } = useAuth()
 
   async function onLogout() {
