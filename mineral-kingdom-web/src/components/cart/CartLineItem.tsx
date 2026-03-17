@@ -1,6 +1,7 @@
 import Link from "next/link"
-import { formatMoney, type CartLineDto } from "@/lib/cart/cartTypes"
+import { type CartLineDto } from "@/lib/cart/cartTypes"
 import { removeCartLineAction } from "@/app/cart/actions"
+import { formatCurrency } from '@/lib/format/currency'
 
 type Props = {
   line: CartLineDto
@@ -40,10 +41,10 @@ export function CartLineItem({ line }: Props) {
         <div className="space-y-1 text-sm text-stone-600">
           <p data-testid="cart-line-quantity">Quantity: {line.quantity}</p>
           <p data-testid="cart-line-unit-price">
-            Price: {formatMoney(line.effectivePriceCents) ?? "—"}
+            Price: {formatCurrency(line.effectivePriceCents) ?? "—"}
             {line.effectivePriceCents < line.priceCents ? (
               <span className="ml-2 text-stone-500 line-through">
-                {formatMoney(line.priceCents)}
+                {formatCurrency(line.priceCents)}
               </span>
             ) : null}
           </p>
