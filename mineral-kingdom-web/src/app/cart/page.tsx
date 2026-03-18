@@ -2,6 +2,7 @@ import Link from "next/link"
 import { CartLineItem } from "@/components/cart/CartLineItem"
 import { CartNoticeDismissButton } from "@/components/cart/CartNoticeDismissButton"
 import { CartNoticesToastClient } from "@/components/cart/CartNoticesToastClient"
+import { CartRealtimeClient } from "@/components/cart/CartRealtimeClient"
 import { formatCurrency } from '@/lib/format/currency'
 import { fetchCart } from "@/lib/cart/getCart"
 
@@ -23,6 +24,7 @@ export default async function CartPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8" data-testid="cart-page">
+      <CartRealtimeClient cartId={cart.cartId} />
       <CartNoticesToastClient notices={cart.notices} />
 
       <section className="space-y-3">
