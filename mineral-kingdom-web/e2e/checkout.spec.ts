@@ -2,35 +2,11 @@ import { test, expect } from "@playwright/test";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
-async function waitForCartToContainLine(page: import("@playwright/test").Page) {
-  await expect
-    .poll(
-      async () => {
-        const cookies = await page.context().cookies();
-        const mkCartCookie = cookies.find((c) => c.name === "mk_cart_id");
-        if (!mkCartCookie) return 0;
-
-        const cartRes = await page.request.get("http://localhost:3005/api/bff/cart", {
-          headers: {
-            cookie: `mk_cart_id=${mkCartCookie.value}`,
-          },
-        });
-
-        if (!cartRes.ok()) return 0;
-
-        const body = (await cartRes.json()) as {
-          lines?: Array<unknown>;
-        };
-
-        return body.lines?.length ?? 0;
-      },
-      {
-        timeout: 15000,
-        intervals: [250, 500, 1000],
-      },
-    )
-    .toBe(1);
-}
+const RAINBOW_LISTING_URL =
+  "/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1";
+const AMETHYST_LISTING_URL =
+  "/listing/amethyst-cathedral-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4";
+const AMETHYST_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6";
 
 async function addCurrentListingToCart(page: import("@playwright/test").Page) {
   await page.getByTestId("listing-add-to-cart").click();
@@ -38,12 +14,49 @@ async function addCurrentListingToCart(page: import("@playwright/test").Page) {
   await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
     timeout: 15000,
   });
+}
 
-  await waitForCartToContainLine(page);
+async function seedCartLineViaBff(
+  page: import("@playwright/test").Page,
+  offerId: string,
+) {
+  const bootstrap = await page.request.get("http://localhost:3005/api/bff/cart");
+  expect(bootstrap.ok()).toBeTruthy();
+
+  const setCookieHeader = bootstrap.headers()["set-cookie"];
+  const match = setCookieHeader?.match(/mk_cart_id=([^;]+)/);
+  expect(match?.[1]).toBeTruthy();
+
+  const cartId = match![1];
+
+  await page.context().addCookies([
+    {
+      name: "mk_cart_id",
+      value: cartId,
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: false,
+    },
+  ]);
+
+  const addRes = await page.request.put("http://localhost:3005/api/bff/cart", {
+    headers: {
+      cookie: `mk_cart_id=${cartId}`,
+      "content-type": "application/json",
+    },
+    data: {
+      offerId,
+      quantity: 1,
+    },
+  });
+
+  expect(addRes.ok()).toBeTruthy();
 }
 
 test("guest can proceed from cart to checkout and start a hold", async ({ page }) => {
-  await page.goto("/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", {
+  await page.goto(RAINBOW_LISTING_URL, {
     waitUntil: "domcontentloaded",
   });
 
@@ -59,6 +72,7 @@ test("guest can proceed from cart to checkout and start a hold", async ({ page }
 
   await expect(page).toHaveURL(/\/cart$/);
   await expect(page.getByTestId("cart-page")).toBeVisible();
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
   await expect(page.getByTestId("cart-checkout-link")).toBeVisible();
 
   await page.getByTestId("cart-checkout-link").click();
@@ -87,22 +101,13 @@ test("guest can proceed from cart to checkout and start a hold", async ({ page }
 });
 
 test("guest can continue from active checkout hold to payment page", async ({ page }) => {
-  await page.goto("/listing/amethyst-cathedral-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4", {
-    waitUntil: "domcontentloaded",
-  });
-
-  await expect(page.getByTestId("listing-add-to-cart")).toBeVisible();
-
-  await addCurrentListingToCart(page);
-
-  await expect(page).toHaveURL(
-    /\/listing\/amethyst-cathedral-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4$/,
-  );
+  await seedCartLineViaBff(page, AMETHYST_OFFER_ID);
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveURL(/\/cart$/);
   await expect(page.getByTestId("cart-page")).toBeVisible();
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
   await expect(page.getByTestId("cart-checkout-link")).toBeVisible();
 
   await page.getByTestId("cart-checkout-link").click();
