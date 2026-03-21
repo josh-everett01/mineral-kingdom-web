@@ -271,7 +271,7 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
     setError(null)
 
     try {
-      const res = await fetch("/api/bff/payments/initiate", {
+      const res = await fetch("/api/bff/payments-initiate", {
         method: "POST",
         headers: {
           "content-type": "application/json",

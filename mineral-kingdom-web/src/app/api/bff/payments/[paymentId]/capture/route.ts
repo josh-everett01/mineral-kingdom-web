@@ -8,17 +8,17 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function POST(_request: NextRequest, context: RouteContext) {
   const { paymentId } = await context.params;
 
   const upstreamUrl = new URL(
-    `/api/payments/${paymentId}/confirmation`,
+    `/api/payments/${paymentId}/capture`,
     API_BASE_URL,
   );
 
   try {
     const upstream = await fetch(upstreamUrl.toString(), {
-      method: "GET",
+      method: "POST",
       headers: {
         Accept: "application/json",
       },
@@ -37,7 +37,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     });
   } catch {
     return NextResponse.json(
-      { message: "Unable to load payment confirmation state." },
+      { message: "Unable to capture PayPal payment." },
       { status: 502 },
     );
   }

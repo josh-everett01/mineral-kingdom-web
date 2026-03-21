@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSse } from "@/lib/sse/useSse"
 
 type Props = {
   orderId: string
@@ -29,6 +30,16 @@ function formatMoney(cents?: number | null, currencyCode?: string | null) {
   }).format(cents / 100)
 }
 
+function isConfirmedOrder(order: OrderConfirmationDto | null) {
+  if (!order) return false
+
+  return (
+    order.status === "READY_TO_FULFILL" ||
+    order.paymentStatus === "SUCCEEDED" ||
+    order.isConfirmed === true
+  )
+}
+
 export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
   const router = useRouter()
   const [order, setOrder] = useState<OrderConfirmationDto | null>(null)
@@ -40,67 +51,66 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
   })
 
   const hasReconciledCartRef = useRef(false)
+  const lastReloadAtRef = useRef<number>(0)
 
-  useEffect(() => {
-    let cancelled = false
-    let intervalId: number | null = null
+  const shouldListenToSse = !isConfirmedOrder(order)
+  const sseUrl = useMemo(
+    () => (shouldListenToSse ? `/api/bff/sse/orders/${orderId}` : null),
+    [orderId, shouldListenToSse],
+  )
 
-    async function poll() {
-      try {
-        const suffix = paymentId ? `?paymentId=${encodeURIComponent(paymentId)}` : ""
-        const res = await fetch(`/api/bff/orders/${orderId}${suffix}`, {
-          cache: "no-store",
-        })
+  const { lastEventAt } = useSse(sseUrl)
 
-        const body = (await res.json().catch(() => null)) as
-          | OrderConfirmationDto
-          | { message?: string; error?: string }
-          | null
+  const loadOrder = useCallback(async () => {
+    try {
+      const suffix = paymentId ? `?paymentId=${encodeURIComponent(paymentId)}` : ""
+      const res = await fetch(`/api/bff/orders/${orderId}${suffix}`, {
+        cache: "no-store",
+      })
 
-        if (!res.ok || !body || !("id" in body)) {
-          if (!cancelled) {
-            setError(
-              (body && "message" in body && body.message) ||
-              (body && "error" in body && body.error) ||
-              "We couldn't load the confirmed order state.",
-            )
-          }
-          return
-        }
+      const body = (await res.json().catch(() => null)) as
+        | OrderConfirmationDto
+        | { message?: string; error?: string }
+        | null
 
-        if (!cancelled) {
-          setOrder(body)
-          setError(null)
-        }
-      } catch {
-        if (!cancelled) {
-          setError("We couldn't load the confirmed order state.")
-        }
+      if (!res.ok || !body || !("id" in body)) {
+        setError(
+          (body && "message" in body && body.message) ||
+          (body && "error" in body && body.error) ||
+          "We couldn't load the confirmed order state.",
+        )
+        return
       }
-    }
 
-    void poll()
-    intervalId = window.setInterval(() => {
-      void poll()
-    }, 4000)
-
-    return () => {
-      cancelled = true
-      if (intervalId !== null) {
-        window.clearInterval(intervalId)
-      }
+      setOrder(body)
+      setError(null)
+    } catch {
+      setError("We couldn't load the confirmed order state.")
     }
   }, [orderId, paymentId])
 
   useEffect(() => {
+    void loadOrder()
+  }, [loadOrder])
+
+  useEffect(() => {
+    if (!lastEventAt) return
+    if (isConfirmedOrder(order)) return
+
+    const now = Date.now()
+    const minReloadGapMs = 2000
+
+    if (now - lastReloadAtRef.current < minReloadGapMs) {
+      return
+    }
+
+    lastReloadAtRef.current = now
+    void loadOrder()
+  }, [lastEventAt, loadOrder, order])
+
+  useEffect(() => {
     if (!order?.id || hasReconciledCartRef.current) return
-
-    const isConfirmedSuccess =
-      order.status === "READY_TO_FULFILL" ||
-      order.paymentStatus === "SUCCEEDED" ||
-      order.isConfirmed === true
-
-    if (!isConfirmedSuccess) return
+    if (!isConfirmedOrder(order)) return
 
     hasReconciledCartRef.current = true
 
@@ -112,7 +122,7 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
           credentials: "same-origin",
         })
       } catch {
-        // best-effort only; order page should still work
+        // best-effort only
       } finally {
         router.refresh()
       }
@@ -141,46 +151,33 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
 
       <dl className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
         <div>
-          <dt className="font-medium">Order ID</dt>
-          <dd data-testid="order-confirmation-order-id">{orderId}</dd>
+          <dt className="font-medium text-stone-500">Order number</dt>
+          <dd data-testid="order-confirmation-number">{order?.orderNumber ?? "—"}</dd>
         </div>
         <div>
-          <dt className="font-medium">Order number</dt>
-          <dd data-testid="order-confirmation-order-number">
-            {order?.orderNumber ?? "Waiting…"}
-          </dd>
+          <dt className="font-medium text-stone-500">Status</dt>
+          <dd data-testid="order-confirmation-status">{order?.status ?? "—"}</dd>
         </div>
         <div>
-          <dt className="font-medium">Order status</dt>
-          <dd data-testid="order-confirmation-order-status">{order?.status ?? "Waiting…"}</dd>
+          <dt className="font-medium text-stone-500">Payment status</dt>
+          <dd data-testid="order-confirmation-payment-status">{order?.paymentStatus ?? "—"}</dd>
         </div>
         <div>
-          <dt className="font-medium">Payment status</dt>
-          <dd data-testid="order-confirmation-payment-status">
-            {order?.paymentStatus ?? "Waiting…"}
-          </dd>
+          <dt className="font-medium text-stone-500">Provider</dt>
+          <dd data-testid="order-confirmation-provider">{order?.provider ?? "—"}</dd>
         </div>
         <div>
-          <dt className="font-medium">Provider</dt>
-          <dd data-testid="order-confirmation-provider">{order?.provider ?? "Waiting…"}</dd>
+          <dt className="font-medium text-stone-500">Total</dt>
+          <dd data-testid="order-confirmation-total">{total ?? "—"}</dd>
         </div>
         <div>
-          <dt className="font-medium">Total</dt>
-          <dd data-testid="order-confirmation-total">{total ?? "Waiting…"}</dd>
+          <dt className="font-medium text-stone-500">Guest email</dt>
+          <dd data-testid="order-confirmation-guest-email">{order?.guestEmail ?? "—"}</dd>
         </div>
       </dl>
 
-      {order?.guestEmail ? (
-        <p className="text-sm text-stone-600" data-testid="order-confirmation-guest-email">
-          Guest checkout email: {order.guestEmail}
-        </p>
-      ) : null}
-
       {error ? (
-        <div
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-          data-testid="order-confirmation-error"
-        >
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {error}
         </div>
       ) : null}

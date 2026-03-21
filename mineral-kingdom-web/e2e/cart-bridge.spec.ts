@@ -4,25 +4,24 @@ test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1
 
 test.describe.configure({ mode: "serial" });
 
+const FRONTEND_ORIGIN = "http://127.0.0.1:3005";
+const BACKEND_ORIGIN = "http://127.0.0.1:8080";
+const COOKIE_DOMAIN = "127.0.0.1";
+
 const RAINBOW_LISTING_URL =
   "/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1";
 const RAINBOW_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3";
 
 async function reseedBackend(request: import("@playwright/test").APIRequestContext) {
-  const response = await request.post("http://localhost:8080/api/testing/e2e/seed");
+  const response = await request.post(`${BACKEND_ORIGIN}/api/testing/e2e/seed`);
   expect(response.ok()).toBeTruthy();
 }
 
-async function addCurrentListingToCartViaUi(page: import("@playwright/test").Page) {
-  await page.getByTestId("listing-add-to-cart").click();
-
-  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
-    timeout: 15000,
-  });
-}
-
-async function seedCartLineViaBff(page: import("@playwright/test").Page) {
-  const bootstrap = await page.request.get("http://localhost:3005/api/bff/cart");
+async function seedCartLineViaBff(
+  page: import("@playwright/test").Page,
+  offerId: string,
+) {
+  const bootstrap = await page.request.get(`${FRONTEND_ORIGIN}/api/bff/cart`);
   expect(bootstrap.ok()).toBeTruthy();
 
   const setCookieHeader = bootstrap.headers()["set-cookie"];
@@ -35,7 +34,7 @@ async function seedCartLineViaBff(page: import("@playwright/test").Page) {
     {
       name: "mk_cart_id",
       value: cartId,
-      domain: "localhost",
+      domain: COOKIE_DOMAIN,
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
@@ -43,18 +42,20 @@ async function seedCartLineViaBff(page: import("@playwright/test").Page) {
     },
   ]);
 
-  const addRes = await page.request.put("http://localhost:3005/api/bff/cart", {
+  const addLineRes = await page.request.put(`${FRONTEND_ORIGIN}/api/bff/cart`, {
     headers: {
       cookie: `mk_cart_id=${cartId}`,
       "content-type": "application/json",
     },
     data: {
-      offerId: RAINBOW_OFFER_ID,
+      offerId,
       quantity: 1,
     },
   });
 
-  expect(addRes.ok()).toBeTruthy();
+  expect(addLineRes.ok()).toBeTruthy();
+
+  return { cartId };
 }
 
 test.beforeEach(async ({ request }) => {
@@ -69,33 +70,37 @@ test("guest add to cart persists across refresh and shows warning", async ({ pag
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-add-to-cart")).toBeVisible();
 
-  await addCurrentListingToCartViaUi(page);
+  await page.getByTestId("listing-add-to-cart").click();
+
+  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
+    timeout: 15_000,
+  });
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveURL(/\/cart$/);
   await expect(page.getByTestId("cart-page")).toBeVisible();
   await expect(page.getByTestId("cart-warning-banner")).toBeVisible();
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 
   await page.reload();
 
   await expect(page.getByTestId("cart-page")).toBeVisible();
   await expect(page.getByTestId("cart-warning-banner")).toBeVisible();
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 });
 
 test("guest can remove a cart line", async ({ page }) => {
-  await seedCartLineViaBff(page);
+  await seedCartLineViaBff(page, RAINBOW_OFFER_ID);
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveURL(/\/cart$/);
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 
   await page.getByTestId("cart-remove-button").first().click();
 
-  await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("cart-empty-state")).toBeVisible();
 });
 
