@@ -4,38 +4,34 @@ test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1
 
 test.describe.configure({ mode: "serial" });
 
+const FRONTEND_ORIGIN = "http://127.0.0.1:3005";
+const BACKEND_ORIGIN = "http://127.0.0.1:8080";
+const COOKIE_DOMAIN = "127.0.0.1";
+
 const RAINBOW_LISTING_URL =
   "/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1";
 const RAINBOW_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3";
 
 async function reseedBackend(request: import("@playwright/test").APIRequestContext) {
-  const response = await request.post("http://localhost:8080/api/testing/e2e/seed");
+  const response = await request.post(`${BACKEND_ORIGIN}/api/testing/e2e/seed`);
   expect(response.ok()).toBeTruthy();
 }
 
-async function addCurrentListingToCartViaUi(page: import("@playwright/test").Page) {
-  await page.getByTestId("listing-add-to-cart").click();
+async function seedCartLineViaBackend(
+  page: import("@playwright/test").Page,
+  offerId: string,
+) {
+  const getCartRes = await page.request.get(`${BACKEND_ORIGIN}/api/cart`);
+  expect(getCartRes.ok()).toBeTruthy();
 
-  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
-    timeout: 15000,
-  });
-}
-
-async function seedCartLineViaBff(page: import("@playwright/test").Page) {
-  const bootstrap = await page.request.get("http://localhost:3005/api/bff/cart");
-  expect(bootstrap.ok()).toBeTruthy();
-
-  const setCookieHeader = bootstrap.headers()["set-cookie"];
-  const match = setCookieHeader?.match(/mk_cart_id=([^;]+)/);
-  expect(match?.[1]).toBeTruthy();
-
-  const cartId = match![1];
+  const cartId = getCartRes.headers()["x-cart-id"];
+  expect(cartId).toBeTruthy();
 
   await page.context().addCookies([
     {
       name: "mk_cart_id",
-      value: cartId,
-      domain: "localhost",
+      value: cartId!,
+      domain: COOKIE_DOMAIN,
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
@@ -43,18 +39,20 @@ async function seedCartLineViaBff(page: import("@playwright/test").Page) {
     },
   ]);
 
-  const addRes = await page.request.put("http://localhost:3005/api/bff/cart", {
+  const addLineRes = await page.request.put(`${BACKEND_ORIGIN}/api/cart/lines`, {
     headers: {
-      cookie: `mk_cart_id=${cartId}`,
+      "x-cart-id": cartId!,
       "content-type": "application/json",
     },
     data: {
-      offerId: RAINBOW_OFFER_ID,
+      offerId,
       quantity: 1,
     },
   });
 
-  expect(addRes.ok()).toBeTruthy();
+  expect(addLineRes.ok()).toBeTruthy();
+
+  return { cartId: cartId! };
 }
 
 test.beforeEach(async ({ request }) => {
@@ -69,7 +67,11 @@ test("guest add to cart persists across refresh and shows warning", async ({ pag
   await expect(page.getByTestId("listing-detail-page")).toBeVisible();
   await expect(page.getByTestId("listing-add-to-cart")).toBeVisible();
 
-  await addCurrentListingToCartViaUi(page);
+  await page.getByTestId("listing-add-to-cart").click();
+
+  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
+    timeout: 15000,
+  });
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 
@@ -86,7 +88,7 @@ test("guest add to cart persists across refresh and shows warning", async ({ pag
 });
 
 test("guest can remove a cart line", async ({ page }) => {
-  await seedCartLineViaBff(page);
+  await seedCartLineViaBackend(page, RAINBOW_OFFER_ID);
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 

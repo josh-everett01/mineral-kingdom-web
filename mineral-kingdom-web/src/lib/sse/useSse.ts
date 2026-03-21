@@ -4,8 +4,6 @@ import * as React from "react";
 
 type UseSseOptions<TSnapshot> = {
   parseSnapshot?: (data: string) => TSnapshot;
-  initialBackoffMs?: number;
-  maxBackoffMs?: number;
 };
 
 type UseSseResult<TSnapshot> = {
@@ -22,9 +20,13 @@ export function useSse<TSnapshot = unknown>(
 ): UseSseResult<TSnapshot> {
   const {
     parseSnapshot = (d: string) => JSON.parse(d) as TSnapshot,
-    initialBackoffMs = 500,
-    maxBackoffMs = 10_000,
   } = opts;
+
+  const parseSnapshotRef = React.useRef(parseSnapshot);
+
+  React.useEffect(() => {
+    parseSnapshotRef.current = parseSnapshot;
+  }, [parseSnapshot]);
 
   const [connecting, setConnecting] = React.useState(false);
   const [connected, setConnected] = React.useState(false);
@@ -33,81 +35,57 @@ export function useSse<TSnapshot = unknown>(
   const [lastEventAt, setLastEventAt] = React.useState<number | null>(null);
 
   React.useEffect(() => {
-    if (!url) return;
-
-    let es: EventSource | null = null;
-    let cancelled = false;
-
-    let backoff = initialBackoffMs;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const cleanup = () => {
-      if (retryTimer) clearTimeout(retryTimer);
-      retryTimer = null;
-      try {
-        es?.close();
-      } catch {}
-      es = null;
-    };
-
-    const scheduleReconnect = () => {
-      cleanup();
-
-      // we are not connected while waiting to retry
+    if (!url) {
+      setConnecting(false);
       setConnected(false);
-      setConnecting(true);
+      return;
+    }
 
-      retryTimer = setTimeout(() => {
-        backoff = Math.min(maxBackoffMs, Math.floor(backoff * 1.8));
-        connect();
-      }, backoff);
+    let cancelled = false;
+    const es = new EventSource(url);
+
+    setConnecting(true);
+    setConnected(false);
+    setError(null);
+
+    es.onopen = () => {
+      if (cancelled) return;
+      setConnecting(false);
+      setConnected(true);
+      setError(null);
     };
 
-    const connect = () => {
+    const handleSnapshot = (evt: Event) => {
       if (cancelled) return;
 
-      setError(null);
-      setConnecting(true);
+      const data = (evt as MessageEvent).data as string;
 
-      // IMPORTANT: EventSource sends cookies automatically (same-origin),
-      // which is why the BFF can attach Authorization server-side.
-      es = new EventSource(url);
-
-      es.onopen = () => {
-        if (cancelled) return;
-        setConnecting(false);
-        setConnected(true);
-        backoff = initialBackoffMs;
-      };
-
-      es.addEventListener("snapshot", (evt) => {
-        if (cancelled) return;
-        const data = (evt as MessageEvent).data as string;
-
-        try {
-          const parsed = parseSnapshot(data);
-          setSnapshot(parsed);
-          setLastEventAt(Date.now());
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Failed to parse snapshot");
-        }
-      });
-
-      es.onerror = () => {
-        if (cancelled) return;
-        scheduleReconnect();
-      };
+      try {
+        const parsed = parseSnapshotRef.current(data);
+        setSnapshot(parsed);
+        setLastEventAt(Date.now());
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to parse snapshot");
+      }
     };
 
-    connect();
+    es.addEventListener("snapshot", handleSnapshot);
+
+    es.onerror = () => {
+      if (cancelled) return;
+
+      // Native EventSource handles retry/reconnect automatically.
+      setConnected(false);
+      setConnecting(true);
+    };
 
     return () => {
       cancelled = true;
-      setConnecting(false);
-      setConnected(false);
-      cleanup();
+      es.removeEventListener("snapshot", handleSnapshot);
+      es.close();
     };
-  }, [url, initialBackoffMs, maxBackoffMs, parseSnapshot]);
+  }, [url]);
 
   return { connecting, connected, snapshot, error, lastEventAt };
 }

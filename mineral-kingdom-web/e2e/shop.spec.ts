@@ -121,10 +121,10 @@ test("size category page filters listings appropriately and uses the correct tit
   await expect(page.getByRole("heading", { name: "Cabinet Specimens" })).toBeVisible();
 
   const cards = page.getByTestId("shop-listing-card");
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(3);
 
   const sizeBadges = page.getByTestId("shop-listing-card-size");
-  await expect(sizeBadges).toHaveCount(2);
+  await expect(sizeBadges).toHaveCount(3);
   await expect(sizeBadges.nth(0)).toContainText("CABINET");
   await expect(sizeBadges.nth(1)).toContainText("CABINET");
 });
