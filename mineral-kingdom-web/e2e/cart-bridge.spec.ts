@@ -17,20 +17,23 @@ async function reseedBackend(request: import("@playwright/test").APIRequestConte
   expect(response.ok()).toBeTruthy();
 }
 
-async function seedCartLineViaBackend(
+async function seedCartLineViaBff(
   page: import("@playwright/test").Page,
   offerId: string,
 ) {
-  const getCartRes = await page.request.get(`${BACKEND_ORIGIN}/api/cart`);
-  expect(getCartRes.ok()).toBeTruthy();
+  const bootstrap = await page.request.get(`${FRONTEND_ORIGIN}/api/bff/cart`);
+  expect(bootstrap.ok()).toBeTruthy();
 
-  const cartId = getCartRes.headers()["x-cart-id"];
-  expect(cartId).toBeTruthy();
+  const setCookieHeader = bootstrap.headers()["set-cookie"];
+  const match = setCookieHeader?.match(/mk_cart_id=([^;]+)/);
+  expect(match?.[1]).toBeTruthy();
+
+  const cartId = match![1];
 
   await page.context().addCookies([
     {
       name: "mk_cart_id",
-      value: cartId!,
+      value: cartId,
       domain: COOKIE_DOMAIN,
       path: "/",
       httpOnly: true,
@@ -39,9 +42,9 @@ async function seedCartLineViaBackend(
     },
   ]);
 
-  const addLineRes = await page.request.put(`${BACKEND_ORIGIN}/api/cart/lines`, {
+  const addLineRes = await page.request.put(`${FRONTEND_ORIGIN}/api/bff/cart`, {
     headers: {
-      "x-cart-id": cartId!,
+      cookie: `mk_cart_id=${cartId}`,
       "content-type": "application/json",
     },
     data: {
@@ -52,7 +55,7 @@ async function seedCartLineViaBackend(
 
   expect(addLineRes.ok()).toBeTruthy();
 
-  return { cartId: cartId! };
+  return { cartId };
 }
 
 test.beforeEach(async ({ request }) => {
@@ -70,7 +73,7 @@ test("guest add to cart persists across refresh and shows warning", async ({ pag
   await page.getByTestId("listing-add-to-cart").click();
 
   await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
-    timeout: 15000,
+    timeout: 15_000,
   });
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
@@ -78,26 +81,26 @@ test("guest add to cart persists across refresh and shows warning", async ({ pag
   await expect(page).toHaveURL(/\/cart$/);
   await expect(page.getByTestId("cart-page")).toBeVisible();
   await expect(page.getByTestId("cart-warning-banner")).toBeVisible();
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 
   await page.reload();
 
   await expect(page.getByTestId("cart-page")).toBeVisible();
   await expect(page.getByTestId("cart-warning-banner")).toBeVisible();
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 });
 
 test("guest can remove a cart line", async ({ page }) => {
-  await seedCartLineViaBackend(page, RAINBOW_OFFER_ID);
+  await seedCartLineViaBff(page, RAINBOW_OFFER_ID);
 
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
 
   await expect(page).toHaveURL(/\/cart$/);
-  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 });
 
   await page.getByTestId("cart-remove-button").first().click();
 
-  await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("cart-empty-state")).toBeVisible();
 });
 

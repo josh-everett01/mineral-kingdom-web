@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./e2e",
@@ -29,11 +29,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
-      name: "chromium-isolated-checkout-return",
+      name: "chromium-backend-serialized",
       testMatch: ["**/checkout-return-confirmation.spec.ts"],
-      workers: 1,
       fullyParallel: false,
+      workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-});
+})
