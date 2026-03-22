@@ -33,5 +33,7 @@ test("auction browse cards navigate to auction detail route", async ({ page }) =
 
   await expect(page).toHaveURL(/\/auctions\/[0-9a-fA-F-]{36}$/)
   await expect(page.getByTestId("auction-detail-page")).toBeVisible()
-  await expect(page.getByTestId("auction-detail-id")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-title")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-status")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-summary")).toBeVisible()
 })
