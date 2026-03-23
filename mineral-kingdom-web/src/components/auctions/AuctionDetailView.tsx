@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { AuctionBidPanel } from "@/components/auctions/AuctionBidPanel"
 import {
@@ -9,6 +9,7 @@ import {
   formatEndsAt,
   formatMoney,
 } from "@/lib/auctions/getAuctionDetail"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 type Props = {
   data: AuctionDetailDto
@@ -20,12 +21,12 @@ export function AuctionDetailView({ data }: Props) {
 
   const primaryMedia = detail.media.find((m) => m.isPrimary) ?? detail.media[0] ?? null
 
-  async function refreshDetail() {
+  const refreshDetail = useCallback(async () => {
     const refreshed = await fetchAuctionDetailClient(detail.auctionId)
     if (refreshed) {
       setDetail(refreshed)
     }
-  }
+  }, [detail.auctionId])
 
   const authFingerprint = useMemo(() => {
     return JSON.stringify({
@@ -37,8 +38,22 @@ export function AuctionDetailView({ data }: Props) {
 
   useEffect(() => {
     if (isLoading) return
-    void refreshDetail()
-  }, [isLoading, authFingerprint])
+
+    let cancelled = false
+
+    async function syncDetailForAuthChange() {
+      const refreshed = await fetchAuctionDetailClient(detail.auctionId)
+      if (!cancelled && refreshed) {
+        setDetail(refreshed)
+      }
+    }
+
+    void syncDetailForAuthChange()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLoading, authFingerprint, detail.auctionId])
 
   const showParticipationBanner =
     me.isAuthenticated && detail.hasCurrentUserBid === true
@@ -80,12 +95,14 @@ export function AuctionDetailView({ data }: Props) {
             className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
             data-testid="auction-detail-media"
           >
-            <div className="aspect-square bg-stone-100">
+            <div className="relative aspect-square bg-stone-100">
               {primaryMedia ? (
-                <img
+                <Image
                   src={primaryMedia.url}
                   alt={detail.title}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 1024px) 50vw, 100vw"
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-stone-500">
@@ -123,6 +140,7 @@ export function AuctionDetailView({ data }: Props) {
                   {formatMoney(detail.currentPriceCents) ?? "—"}
                 </dd>
               </div>
+
               <div>
                 <dt className="font-medium text-stone-500">Ends</dt>
                 <dd className="mt-1" data-testid="auction-detail-closing-time">
