@@ -17,6 +17,9 @@ export type AuctionDetailDto = {
   closingTimeUtc: string
   minimumNextBidCents: number
   media: AuctionDetailMediaDto[]
+  isCurrentUserLeading?: boolean | null
+  hasCurrentUserBid?: boolean | null
+  currentUserMaxBidCents?: number | null
 }
 
 export type AuctionDetailResult =
@@ -57,6 +60,24 @@ export async function fetchAuctionDetail(auctionId: string): Promise<AuctionDeta
 
   const data = (await res.json()) as AuctionDetailDto
   return { kind: "ok", data }
+}
+
+export async function fetchAuctionDetailClient(
+  auctionId: string,
+): Promise<AuctionDetailDto | null> {
+  const res = await fetch(`/api/bff/auctions/${encodeURIComponent(auctionId)}`, {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+    },
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    return null
+  }
+
+  return (await res.json()) as AuctionDetailDto
 }
 
 export function formatMoney(cents?: number | null): string | null {

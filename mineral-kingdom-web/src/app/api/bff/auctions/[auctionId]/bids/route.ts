@@ -20,7 +20,7 @@ function contentType(res: Response) {
   return (res.headers.get("content-type") ?? "").toLowerCase()
 }
 
-async function readBody(res: Response): Promise<unknown> {
+async function readBodyForError(res: Response): Promise<unknown> {
   const ct = contentType(res)
 
   if (ct.includes("application/json")) {
@@ -38,29 +38,51 @@ async function readBody(res: Response): Promise<unknown> {
   }
 }
 
-async function forwardOnce(auctionId: string, accessToken: string | null) {
+async function forwardOnce(
+  upstreamUrl: string,
+  accessToken: string | null,
+  bodyText: string,
+) {
   const headers = new Headers()
+  headers.set("content-type", "application/json")
   headers.set("accept", "application/json")
 
   if (accessToken) {
     headers.set("authorization", `Bearer ${accessToken}`)
   }
 
-  return fetch(`${API_BASE_URL}/api/auctions/${encodeURIComponent(auctionId)}/detail`, {
-    method: "GET",
+  return fetch(upstreamUrl, {
+    method: "POST",
     headers,
+    body: bodyText,
     cache: "no-store",
   })
 }
 
-export async function GET(_req: NextRequest, context: RouteContext) {
+export async function POST(req: NextRequest, context: RouteContext) {
   const { auctionId } = await context.params
+  const upstreamUrl = `${API_BASE_URL}/api/auctions/${encodeURIComponent(auctionId)}/bids`
 
-  let access = await getAccessToken()
-  let upstream: Response
+  let bodyText = ""
 
   try {
-    upstream = await forwardOnce(auctionId, access)
+    bodyText = await req.text()
+  } catch {
+    return NextResponse.json(
+      {
+        status: 400,
+        code: "INVALID_BODY",
+        message: "Request body could not be read.",
+      },
+      { status: 400 },
+    )
+  }
+
+  let access = await getAccessToken()
+  let res: Response
+
+  try {
+    res = await forwardOnce(upstreamUrl, access, bodyText)
   } catch (e) {
     const err = toProxyError(
       503,
@@ -68,13 +90,13 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         code: "UPSTREAM_UNAVAILABLE",
         message: e instanceof Error ? e.message : "Upstream fetch failed",
       },
-      "Auction detail service unavailable",
+      "Auction bidding service unavailable",
     )
 
     return NextResponse.json(err, { status: 503 })
   }
 
-  if (upstream.status === 401) {
+  if (res.status === 401) {
     const refresh = await getRefreshToken()
 
     if (refresh) {
@@ -82,40 +104,40 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         const tokens = await apiRefresh(refresh)
         await setAuthCookies(tokens)
         access = tokens.access_token
-        upstream = await forwardOnce(auctionId, access)
+        res = await forwardOnce(upstreamUrl, access, bodyText)
       } catch {
         await clearAuthCookies()
       }
     }
   }
 
-  if (!upstream.ok) {
-    const body = await readBody(upstream)
+  if (!res.ok) {
+    const body = await readBodyForError(res)
     const err = toProxyError(
-      upstream.status,
+      res.status,
       body,
-      `Upstream request failed (${upstream.status})`,
+      `Upstream request failed (${res.status})`,
     )
 
-    return NextResponse.json(err, { status: upstream.status })
+    return NextResponse.json(err, { status: res.status })
   }
 
-  const ct = contentType(upstream)
+  const ct = contentType(res)
 
   if (ct.includes("application/json")) {
-    const json = await upstream.json()
+    const json = await res.json()
     return NextResponse.json(json, {
-      status: upstream.status,
+      status: res.status,
       headers: {
         "cache-control": "no-store",
       },
     })
   }
 
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
+  return new NextResponse(res.body, {
+    status: res.status,
     headers: {
-      "content-type": upstream.headers.get("content-type") ?? "application/json",
+      "content-type": res.headers.get("content-type") ?? "application/json",
       "cache-control": "no-store",
     },
   })
