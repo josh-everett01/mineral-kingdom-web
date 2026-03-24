@@ -23,7 +23,7 @@ export function useAuctionRealtime(
   auctionId: string | null,
 ): UseAuctionRealtimeResult {
   const [connected, setConnected] = useState(false)
-  const [connecting, setConnecting] = useState(false)
+  const [connecting, setConnecting] = useState(() => Boolean(auctionId))
   const [lastEventAt, setLastEventAt] = useState<number | null>(null)
   const [latestSnapshot, setLatestSnapshot] = useState<AuctionRealtimeSnapshot | null>(null)
 
@@ -36,9 +36,6 @@ export function useAuctionRealtime(
 
   useEffect(() => {
     if (!sseUrl) return
-
-    setConnecting(true)
-    setConnected(false)
 
     const es = new EventSource(sseUrl)
     eventSourceRef.current = es
@@ -71,14 +68,12 @@ export function useAuctionRealtime(
 
     es.onerror = () => {
       setConnected(false)
-      setConnecting(false)
+      setConnecting(true)
     }
 
     return () => {
       es.close()
       eventSourceRef.current = null
-      setConnected(false)
-      setConnecting(false)
     }
   }, [sseUrl])
 

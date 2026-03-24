@@ -152,7 +152,18 @@ export function AuctionDetailView({ data }: Props) {
 
   useEffect(() => {
     if (!lastEventAt) return
-    void refreshDetail()
+
+    let cancelled = false
+    const timerId = window.setTimeout(() => {
+      if (!cancelled) {
+        void refreshDetail()
+      }
+    }, 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timerId)
+    }
   }, [lastEventAt, refreshDetail])
 
   const memberDetailMissing =
