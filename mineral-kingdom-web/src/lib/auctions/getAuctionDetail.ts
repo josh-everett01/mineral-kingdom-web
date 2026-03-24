@@ -25,7 +25,19 @@ export type AuctionDetailDto = {
 export type AuctionDetailResult =
   | { kind: "ok"; data: AuctionDetailDto }
   | { kind: "not-found" }
-  | { kind: "error" }
+  | { kind: "auth-expired"; message: string }
+  | { kind: "error"; message: string }
+
+function getMessage(body: unknown, fallback: string) {
+  if (body && typeof body === "object" && "message" in body) {
+    const message = (body as { message?: unknown }).message
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message
+    }
+  }
+
+  return fallback
+}
 
 async function getAppOrigin(): Promise<string> {
   const { headers } = await import("next/headers")
@@ -50,34 +62,80 @@ export async function fetchAuctionDetail(auctionId: string): Promise<AuctionDeta
     cache: "no-store",
   })
 
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    body = null
+  }
+
   if (res.status === 404) {
     return { kind: "not-found" }
   }
 
-  if (!res.ok) {
-    return { kind: "error" }
+  if (res.status === 401) {
+    return {
+      kind: "auth-expired",
+      message: getMessage(body, "Your session expired. Please sign in again."),
+    }
   }
 
-  const data = (await res.json()) as AuctionDetailDto
-  return { kind: "ok", data }
+  if (!res.ok) {
+    return {
+      kind: "error",
+      message: getMessage(body, "We couldn’t load this auction right now."),
+    }
+  }
+
+  return { kind: "ok", data: body as AuctionDetailDto }
 }
 
 export async function fetchAuctionDetailClient(
   auctionId: string,
-): Promise<AuctionDetailDto | null> {
-  const res = await fetch(`/api/bff/auctions/${encodeURIComponent(auctionId)}`, {
-    method: "GET",
-    headers: {
-      accept: "application/json",
-    },
-    cache: "no-store",
-  })
+): Promise<AuctionDetailResult> {
+  let res: Response
 
-  if (!res.ok) {
-    return null
+  try {
+    res = await fetch(`/api/bff/auctions/${encodeURIComponent(auctionId)}`, {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+      },
+      cache: "no-store",
+    })
+  } catch {
+    return {
+      kind: "error",
+      message: "We couldn’t load this auction right now.",
+    }
   }
 
-  return (await res.json()) as AuctionDetailDto
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    body = null
+  }
+
+  if (res.status === 404) {
+    return { kind: "not-found" }
+  }
+
+  if (res.status === 401) {
+    return {
+      kind: "auth-expired",
+      message: getMessage(body, "Your session expired. Please sign in again."),
+    }
+  }
+
+  if (!res.ok) {
+    return {
+      kind: "error",
+      message: getMessage(body, `Auction detail request failed (${res.status}).`),
+    }
+  }
+
+  return { kind: "ok", data: body as AuctionDetailDto }
 }
 
 export function formatMoney(cents?: number | null): string | null {
