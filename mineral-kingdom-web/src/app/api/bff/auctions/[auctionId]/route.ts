@@ -56,7 +56,11 @@ async function forwardOnce(auctionId: string, accessToken: string | null) {
 export async function GET(_req: NextRequest, context: RouteContext) {
   const { auctionId } = await context.params
 
-  let access = await getAccessToken()
+  const initialAccess = await getAccessToken()
+  const refresh = await getRefreshToken()
+  const startedAuthenticated = Boolean(initialAccess || refresh)
+
+  let access = initialAccess
   let upstream: Response
 
   try {
@@ -75,8 +79,6 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   }
 
   if (upstream.status === 401) {
-    const refresh = await getRefreshToken()
-
     if (refresh) {
       try {
         const tokens = await apiRefresh(refresh)
@@ -85,7 +87,27 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         upstream = await forwardOnce(auctionId, access)
       } catch {
         await clearAuthCookies()
+
+        if (startedAuthenticated) {
+          return NextResponse.json(
+            {
+              status: 401,
+              code: "AUTH_EXPIRED",
+              message: "Your session expired. Please sign in again.",
+            },
+            { status: 401 },
+          )
+        }
       }
+    } else if (startedAuthenticated) {
+      return NextResponse.json(
+        {
+          status: 401,
+          code: "AUTH_EXPIRED",
+          message: "Your session expired. Please sign in again.",
+        },
+        { status: 401 },
+      )
     }
   }
 

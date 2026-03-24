@@ -1,108 +1,72 @@
-export type PlaceBidRequest = {
+export type PlaceBidInput = {
   maxBidCents: number
-  mode: "IMMEDIATE"
-}
-
-export type PlaceBidResponse = {
-  currentPriceCents: number
-  leaderUserId?: string | null
-  hasReserve: boolean
-  reserveMet: boolean
+  mode: "IMMEDIATE" | "DELAYED"
 }
 
 export type PlaceBidResult =
-  | { kind: "ok"; data: PlaceBidResponse }
-  | { kind: "auth"; message: string }
-  | { kind: "forbidden"; message: string }
-  | { kind: "validation"; message: string }
+  | { kind: "ok"; data: unknown }
+  | { kind: "auth-expired"; message: string }
   | { kind: "error"; message: string }
 
-function getErrorCode(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null
-
-  const maybePayload = payload as {
-    error?: unknown
-    code?: unknown
-    details?: { error?: unknown; code?: unknown } | null
-  }
-
-  if (typeof maybePayload.error === "string") return maybePayload.error
-  if (typeof maybePayload.code === "string") return maybePayload.code
-  if (typeof maybePayload.details?.error === "string") return maybePayload.details.error
-  if (typeof maybePayload.details?.code === "string") return maybePayload.details.code
-
-  return null
-}
-
-function mapBidError(status: number, payload: unknown): PlaceBidResult {
-  const code = getErrorCode(payload)
-
-  if (status === 401) {
-    return {
-      kind: "auth",
-      message: "You must be signed in to place a bid.",
+function getMessage(body: unknown, fallback: string) {
+  if (body && typeof body === "object" && "message" in body) {
+    const message = (body as { message?: unknown }).message
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message
     }
   }
 
-  if (status === 403) {
-    return {
-      kind: "forbidden",
-      message: "You must verify your email before bidding.",
-    }
-  }
-
-  switch (code) {
-    case "BID_TOO_LOW":
-      return {
-        kind: "validation",
-        message: "Your bid is too low. Enter at least the minimum next bid.",
-      }
-    case "NOT_WHOLE_DOLLARS":
-      return {
-        kind: "validation",
-        message: "Bids must be entered in whole-dollar amounts.",
-      }
-    case "INVALID_BID":
-      return {
-        kind: "validation",
-        message: "Enter a valid bid amount.",
-      }
-    case "AUCTION_NOT_BIDDABLE":
-    case "AUCTION_CLOSING_WINDOW_EXPIRED":
-      return {
-        kind: "validation",
-        message: "This auction is no longer accepting bids.",
-      }
-    default:
-      return {
-        kind: "error",
-        message: "We couldn’t place your bid right now.",
-      }
-  }
+  return fallback
 }
 
 export async function placeBid(
   auctionId: string,
-  request: PlaceBidRequest,
+  input: PlaceBidInput,
 ): Promise<PlaceBidResult> {
-  const res = await fetch(`/api/bff/auctions/${encodeURIComponent(auctionId)}/bids`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify(request),
-    cache: "no-store",
-  })
+  let res: Response
 
-  const payload = await res.json().catch(() => null)
+  try {
+    res = await fetch(`/api/bff/auctions/${encodeURIComponent(auctionId)}/bids`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify(input),
+    })
+  } catch {
+    return {
+      kind: "error",
+      message: "We couldn’t place your bid right now.",
+    }
+  }
 
-  if (!res.ok) {
-    return mapBidError(res.status, payload)
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    body = null
+  }
+
+  if (res.ok) {
+    return {
+      kind: "ok",
+      data: body,
+    }
+  }
+
+  if (res.status === 401) {
+    return {
+      kind: "auth-expired",
+      message: getMessage(
+        body,
+        "Your session expired. Please sign in again before placing your max bid.",
+      ),
+    }
   }
 
   return {
-    kind: "ok",
-    data: payload as PlaceBidResponse,
+    kind: "error",
+    message: getMessage(body, `Bid request failed (${res.status}).`),
   }
 }

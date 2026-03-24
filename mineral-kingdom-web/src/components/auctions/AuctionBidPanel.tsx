@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { placeBid } from "@/lib/auctions/placeBid"
 import { formatMoney } from "@/lib/auctions/getAuctionDetail"
 
@@ -19,6 +20,8 @@ export function AuctionBidPanel({
   isAuthenticated,
   onBidPlaced,
 }: Props) {
+  const router = useRouter()
+
   const [bidDollars, setBidDollars] = useState(() =>
     Math.ceil(minimumNextBidCents / 100).toString(),
   )
@@ -26,6 +29,7 @@ export function AuctionBidPanel({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   const parsedBidCents = useMemo(() => {
     const parsed = Number.parseInt(bidDollars, 10)
@@ -53,6 +57,7 @@ export function AuctionBidPanel({
 
     setError(null)
     setSuccess(null)
+    setSessionExpired(false)
     setIsConfirmOpen(true)
   }
 
@@ -66,12 +71,19 @@ export function AuctionBidPanel({
     setIsSubmitting(true)
     setError(null)
     setSuccess(null)
+    setSessionExpired(false)
 
     try {
       const result = await placeBid(auctionId, {
         maxBidCents: parsedBidCents,
         mode: "IMMEDIATE",
       })
+
+      if (result.kind === "auth-expired") {
+        setSessionExpired(true)
+        setError(result.message)
+        return
+      }
 
       if (result.kind !== "ok") {
         setError(result.message)
@@ -88,6 +100,11 @@ export function AuctionBidPanel({
       setIsSubmitting(false)
       setIsConfirmOpen(false)
     }
+  }
+
+  function goToLogin() {
+    const returnTo = encodeURIComponent(`/auctions/${auctionId}`)
+    router.push(`/login?returnTo=${returnTo}`)
   }
 
   if (!isAuthenticated) {
@@ -165,7 +182,27 @@ export function AuctionBidPanel({
             </div>
           ) : null}
 
-          {error ? (
+          {sessionExpired ? (
+            <div
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900"
+              data-testid="auction-detail-bid-auth-expired"
+            >
+              <p className="font-medium text-amber-950">Your session expired</p>
+              <p className="mt-1">
+                Please sign in again before placing your max bid. We’ll bring you back to this auction.
+              </p>
+              <button
+                type="button"
+                onClick={goToLogin}
+                className="mt-3 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+                data-testid="auction-detail-bid-sign-in-again"
+              >
+                Sign in again
+              </button>
+            </div>
+          ) : null}
+
+          {!sessionExpired && error ? (
             <div
               className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
               data-testid="auction-detail-bid-error"
@@ -188,10 +225,7 @@ export function AuctionBidPanel({
             <h3 className="text-lg font-semibold text-stone-900">Confirm max bid</h3>
             <p className="mt-2 text-sm leading-6 text-stone-700">
               You are about to submit a max bid of{" "}
-              <span className="font-semibold">
-                {formatMoney(parsedBidCents) ?? "—"}
-              </span>
-              .
+              <span className="font-semibold">{formatMoney(parsedBidCents) ?? "—"}</span>.
             </p>
             <p className="mt-2 text-sm leading-6 text-stone-600">
               We’ll bid only as much as needed, up to your maximum.

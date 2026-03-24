@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { AuctionBidPanel } from "@/components/auctions/AuctionBidPanel"
 import {
@@ -9,24 +10,109 @@ import {
   formatEndsAt,
   formatMoney,
 } from "@/lib/auctions/getAuctionDetail"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useAuctionRealtime } from "@/lib/auctions/useAuctionRealtime"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 type Props = {
   data: AuctionDetailDto
 }
 
+type ActivityItem = {
+  id: string
+  message: string
+  createdAt: number
+}
+
 export function AuctionDetailView({ data }: Props) {
+  const router = useRouter()
   const { me, isLoading } = useAuthContext()
   const [detail, setDetail] = useState(data)
+  const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [sessionExpired, setSessionExpired] = useState(false)
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState(
+    "Your session expired. Please sign in again.",
+  )
 
   const primaryMedia = detail.media.find((m) => m.isPrimary) ?? detail.media[0] ?? null
+  const activityIdRef = useRef(0)
+
+  const lastPublicStateRef = useRef({
+    currentPriceCents: data.currentPriceCents,
+    reserveMet: data.reserveMet ?? null,
+    status: data.status,
+    closingTimeUtc: data.closingTimeUtc,
+    minimumNextBidCents: data.minimumNextBidCents,
+  })
+
+  const { connected, connecting, lastEventAt } = useAuctionRealtime(detail.auctionId)
+
+  function nextActivityId(prefix: string) {
+    activityIdRef.current += 1
+    return `${prefix}-${Date.now()}-${activityIdRef.current}`
+  }
+
+  const applyDetailWithActivity = useCallback((nextDetail: AuctionDetailDto) => {
+    const previous = lastPublicStateRef.current
+    const nextActivity: ActivityItem[] = []
+
+    if (nextDetail.currentPriceCents > previous.currentPriceCents) {
+      nextActivity.push({
+        id: nextActivityId("price"),
+        message: `Current bid increased to ${formatMoney(nextDetail.currentPriceCents) ?? "—"}.`,
+        createdAt: Date.now(),
+      })
+    }
+
+    if ((previous.reserveMet ?? false) === false && nextDetail.reserveMet === true) {
+      nextActivity.push({
+        id: nextActivityId("reserve"),
+        message: "Reserve met.",
+        createdAt: Date.now(),
+      })
+    }
+
+    if (
+      typeof nextDetail.status === "string" &&
+      nextDetail.status.length > 0 &&
+      nextDetail.status !== previous.status
+    ) {
+      nextActivity.push({
+        id: nextActivityId("status"),
+        message: `Auction status changed to ${nextDetail.status}.`,
+        createdAt: Date.now(),
+      })
+    }
+
+    if (nextActivity.length > 0) {
+      setActivity((prev) => [...nextActivity, ...prev].slice(0, 8))
+    }
+
+    setDetail(nextDetail)
+
+    lastPublicStateRef.current = {
+      currentPriceCents: nextDetail.currentPriceCents,
+      reserveMet: nextDetail.reserveMet ?? null,
+      status: nextDetail.status,
+      closingTimeUtc: nextDetail.closingTimeUtc,
+      minimumNextBidCents: nextDetail.minimumNextBidCents,
+    }
+  }, [])
 
   const refreshDetail = useCallback(async () => {
     const refreshed = await fetchAuctionDetailClient(detail.auctionId)
-    if (refreshed) {
-      setDetail(refreshed)
+
+    if (refreshed.kind === "ok") {
+      setSessionExpired(false)
+      applyDetailWithActivity(refreshed.data)
+      return
     }
-  }, [detail.auctionId])
+
+    if (refreshed.kind === "auth-expired") {
+      setSessionExpired(true)
+      setSessionExpiredMessage(refreshed.message)
+      return
+    }
+  }, [applyDetailWithActivity, detail.auctionId])
 
   const authFingerprint = useMemo(() => {
     return JSON.stringify({
@@ -43,8 +129,17 @@ export function AuctionDetailView({ data }: Props) {
 
     async function syncDetailForAuthChange() {
       const refreshed = await fetchAuctionDetailClient(detail.auctionId)
-      if (!cancelled && refreshed) {
-        setDetail(refreshed)
+      if (cancelled) return
+
+      if (refreshed.kind === "ok") {
+        setSessionExpired(false)
+        applyDetailWithActivity(refreshed.data)
+        return
+      }
+
+      if (refreshed.kind === "auth-expired") {
+        setSessionExpired(true)
+        setSessionExpiredMessage(refreshed.message)
       }
     }
 
@@ -53,16 +148,45 @@ export function AuctionDetailView({ data }: Props) {
     return () => {
       cancelled = true
     }
-  }, [isLoading, authFingerprint, detail.auctionId])
+  }, [applyDetailWithActivity, authFingerprint, detail.auctionId, isLoading])
+
+  useEffect(() => {
+    if (!lastEventAt) return
+
+    let cancelled = false
+    const timerId = window.setTimeout(() => {
+      if (!cancelled) {
+        void refreshDetail()
+      }
+    }, 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timerId)
+    }
+  }, [lastEventAt, refreshDetail])
+
+  const memberDetailMissing =
+    me.isAuthenticated &&
+    detail.hasCurrentUserBid == null &&
+    detail.isCurrentUserLeading == null &&
+    detail.currentUserMaxBidCents == null
+
+  const authMismatch = sessionExpired || memberDetailMissing
 
   const showParticipationBanner =
-    me.isAuthenticated && detail.hasCurrentUserBid === true
+    !authMismatch && me.isAuthenticated && detail.hasCurrentUserBid === true
 
   const showLeadingState =
     showParticipationBanner && detail.isCurrentUserLeading === true
 
   const showOutbidState =
     showParticipationBanner && detail.isCurrentUserLeading === false
+
+  function goToLogin() {
+    const returnTo = encodeURIComponent(`/auctions/${detail.auctionId}`)
+    router.push(`/login?returnTo=${returnTo}`)
+  }
 
   return (
     <main
@@ -121,6 +245,33 @@ export function AuctionDetailView({ data }: Props) {
               {detail.description?.trim() || "No description available."}
             </p>
           </section>
+
+          <section
+            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+            data-testid="auction-detail-activity"
+          >
+            <h2 className="text-lg font-semibold text-stone-900">Recent bid activity</h2>
+
+            {activity.length === 0 ? (
+              <p
+                className="mt-3 text-sm text-stone-600"
+                data-testid="auction-detail-activity-empty"
+              >
+                Live auction activity will appear here as bidding changes.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-3" data-testid="auction-detail-activity-list">
+                {activity.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-700"
+                  >
+                    {item.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
         <div className="space-y-4">
@@ -164,9 +315,38 @@ export function AuctionDetailView({ data }: Props) {
                 </div>
               ) : null}
             </dl>
+
+            <div
+              className="mt-4 text-xs text-stone-500"
+              data-testid="auction-detail-live-status"
+            >
+              {connected
+                ? "Live auction updates connected."
+                : connecting
+                  ? "Connecting to live auction updates…"
+                  : "Live updates temporarily disconnected."}
+            </div>
           </section>
 
-          {showLeadingState ? (
+          {authMismatch ? (
+            <section
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
+              data-testid="auction-detail-session-expired"
+            >
+              <h2 className="text-lg font-semibold text-amber-950">Your session expired</h2>
+              <p className="mt-2 text-sm leading-6 text-amber-900">
+                {sessionExpiredMessage}
+              </p>
+              <button
+                type="button"
+                onClick={goToLogin}
+                className="mt-4 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+                data-testid="auction-detail-sign-in-again"
+              >
+                Sign in again
+              </button>
+            </section>
+          ) : showLeadingState ? (
             <section
               className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
               data-testid="auction-detail-leading-state"
@@ -185,9 +365,7 @@ export function AuctionDetailView({ data }: Props) {
                 </p>
               ) : null}
             </section>
-          ) : null}
-
-          {showOutbidState ? (
+          ) : showOutbidState ? (
             <section
               className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
               data-testid="auction-detail-outbid-state"
@@ -215,7 +393,7 @@ export function AuctionDetailView({ data }: Props) {
             >
               <p className="text-sm text-stone-600">Loading member bidding options…</p>
             </section>
-          ) : me.isAuthenticated && me.emailVerified === false ? (
+          ) : authMismatch ? null : me.isAuthenticated && me.emailVerified === false ? (
             <section
               className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
               data-testid="auction-detail-bidding-unverified"

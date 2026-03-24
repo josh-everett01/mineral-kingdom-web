@@ -266,4 +266,81 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
   await expect(page.getByTestId("auction-detail-bid-success")).toBeVisible()
   await expect(page.getByTestId("auction-detail-leading-state")).toBeVisible()
   await expect(page.getByTestId("auction-detail-current-max-bid")).toContainText("$160.00")
+  await expect(page.getByTestId("auction-detail-activity")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-activity-list")).toBeVisible()
+  await expect(page.getByText(/current bid increased to \$160\.00/i)).toBeVisible()
+})
+
+test("expired member detail shows sign-in-again panel and hides bid form", async ({ page }) => {
+  await page.route("**/api/bff/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        isAuthenticated: true,
+        emailVerified: true,
+        user: {
+          id: "55555555-5555-5555-5555-555555555555",
+          email: "expired@example.com",
+        },
+        roles: [],
+      }),
+    })
+  })
+
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: 401,
+        code: "AUTH_EXPIRED",
+        message: "Your session expired. Please sign in again.",
+      }),
+    })
+  })
+
+  await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
+
+  await expect(page.getByTestId("auction-detail-session-expired")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Your session expired" }),
+  ).toBeVisible()
+  await expect(page.getByTestId("auction-detail-sign-in-again")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-bidding-panel")).toHaveCount(0)
+})
+
+test("sign in again uses returnTo auction param", async ({ page }) => {
+  await page.route("**/api/bff/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        isAuthenticated: true,
+        emailVerified: true,
+        user: {
+          id: "66666666-6666-6666-6666-666666666666",
+          email: "expired@example.com",
+        },
+        roles: [],
+      }),
+    })
+  })
+
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: 401,
+        code: "AUTH_EXPIRED",
+        message: "Your session expired. Please sign in again.",
+      }),
+    })
+  })
+
+  await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
+
+  await page.getByTestId("auction-detail-sign-in-again").click()
+  await expect(page).toHaveURL(new RegExp(`/login\\?returnTo=%2Fauctions%2F${AUCTION_ID}`))
 })

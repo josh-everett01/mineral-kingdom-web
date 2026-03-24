@@ -9,9 +9,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
+function getSafeRedirectTarget(value: string | null | undefined) {
+  if (!value) return "/account"
+  if (!value.startsWith("/")) return "/account"
+  if (value.startsWith("//")) return "/account"
+  return value
+}
+
 export default function LoginClient() {
   const search = useSearchParams()
-  const next = search.get("next") ?? "/account"
+  const redirectTarget = getSafeRedirectTarget(
+    search.get("returnTo") ?? search.get("next"),
+  )
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -40,7 +49,7 @@ export default function LoginClient() {
       }
 
       toast.success("Welcome back")
-      window.location.assign(next)
+      window.location.assign(redirectTarget)
       return
     } catch {
       const msg = "Login failed"

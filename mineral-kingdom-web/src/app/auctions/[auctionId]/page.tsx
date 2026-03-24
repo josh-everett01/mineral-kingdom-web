@@ -26,7 +26,20 @@ export default async function AuctionDetailPage({ params }: Props) {
           className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800"
           data-testid="auction-detail-error-state"
         >
-          We couldn&apos;t load this auction right now.
+          {result.message}
+        </div>
+      </main>
+    )
+  }
+
+  if (result.kind === "auth-expired") {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        <div
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900"
+          data-testid="auction-detail-auth-expired-state"
+        >
+          {result.message}
         </div>
       </main>
     )
