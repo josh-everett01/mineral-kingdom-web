@@ -110,7 +110,6 @@ export function AuctionDetailView({ data }: Props) {
     if (refreshed.kind === "auth-expired") {
       setSessionExpired(true)
       setSessionExpiredMessage(refreshed.message)
-      return
     }
   }, [applyDetailWithActivity, detail.auctionId])
 
@@ -166,22 +165,27 @@ export function AuctionDetailView({ data }: Props) {
     }
   }, [lastEventAt, refreshDetail])
 
-  const memberDetailMissing =
-    me.isAuthenticated &&
-    detail.hasCurrentUserBid == null &&
-    detail.isCurrentUserLeading == null &&
-    detail.currentUserMaxBidCents == null
+  const authMismatch = sessionExpired
+  const currentUserBidState = detail.currentUserBidState ?? null
+  const delayedBidStatus = detail.currentUserDelayedBidStatus ?? "NONE"
 
-  const authMismatch = sessionExpired || memberDetailMissing
+  const showLeadingState = !authMismatch && currentUserBidState === "LEADING"
+  const showOutbidState = !authMismatch && currentUserBidState === "OUTBID"
 
-  const showParticipationBanner =
-    !authMismatch && me.isAuthenticated && detail.hasCurrentUserBid === true
+  const showDelayedScheduledState =
+    !authMismatch &&
+    detail.hasPendingDelayedBid === true &&
+    delayedBidStatus === "SCHEDULED"
 
-  const showLeadingState =
-    showParticipationBanner && detail.isCurrentUserLeading === true
+  const showDelayedMootState =
+    !authMismatch &&
+    detail.hasPendingDelayedBid === true &&
+    delayedBidStatus === "MOOT"
 
-  const showOutbidState =
-    showParticipationBanner && detail.isCurrentUserLeading === false
+  const showDelayedActivatedState =
+    !authMismatch &&
+    detail.hasPendingDelayedBid === true &&
+    delayedBidStatus === "ACTIVATED"
 
   function goToLogin() {
     const returnTo = encodeURIComponent(`/auctions/${detail.auctionId}`)
@@ -346,7 +350,9 @@ export function AuctionDetailView({ data }: Props) {
                 Sign in again
               </button>
             </section>
-          ) : showLeadingState ? (
+          ) : null}
+
+          {!authMismatch && showLeadingState ? (
             <section
               className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
               data-testid="auction-detail-leading-state"
@@ -365,7 +371,9 @@ export function AuctionDetailView({ data }: Props) {
                 </p>
               ) : null}
             </section>
-          ) : showOutbidState ? (
+          ) : null}
+
+          {!authMismatch && showOutbidState ? (
             <section
               className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
               data-testid="auction-detail-outbid-state"
@@ -381,6 +389,84 @@ export function AuctionDetailView({ data }: Props) {
                   data-testid="auction-detail-current-max-bid"
                 >
                   Your current max bid: {formatMoney(detail.currentUserMaxBidCents)}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {!authMismatch && showDelayedScheduledState ? (
+            <section
+              className="rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm"
+              data-testid="auction-detail-delayed-scheduled-state"
+            >
+              <h2 className="text-lg font-semibold text-sky-900">Your delayed bid is scheduled</h2>
+              <p className="mt-2 text-sm leading-6 text-sky-800">
+                Immediate max bids are active now. Your delayed bid is saved now and will activate
+                when the auction enters closing.
+              </p>
+              {detail.currentUserDelayedBidCents != null ? (
+                <p
+                  className="mt-3 text-sm font-medium text-sky-900"
+                  data-testid="auction-detail-delayed-bid-amount"
+                >
+                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
+                </p>
+              ) : null}
+              <p className="mt-3 text-sm leading-6 text-sky-800">
+                You may keep one delayed bid per auction. You may also place immediate bids while
+                your delayed bid remains scheduled.
+              </p>
+              <p className="mt-1 text-sm leading-6 text-sky-800">
+                Submitting a new delayed bid replaces your previous delayed bid, and you may cancel
+                it before it activates.
+              </p>
+            </section>
+          ) : null}
+
+          {!authMismatch && showDelayedMootState ? (
+            <section
+              className="rounded-2xl border border-orange-200 bg-orange-50 p-6 shadow-sm"
+              data-testid="auction-detail-delayed-moot-state"
+            >
+              <h2 className="text-lg font-semibold text-orange-950">
+                Your delayed bid is no longer needed
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-orange-900">
+                The live auction state has already exceeded or superseded your delayed bid.
+              </p>
+              {detail.currentUserDelayedBidCents != null ? (
+                <p
+                  className="mt-3 text-sm font-medium text-orange-950"
+                  data-testid="auction-detail-delayed-bid-amount"
+                >
+                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
+                </p>
+              ) : null}
+              <p className="mt-3 text-sm leading-6 text-orange-900">
+                You can still place immediate bids now, and you can submit another delayed bid above
+                the current price if the auction is still eligible.
+              </p>
+            </section>
+          ) : null}
+
+          {!authMismatch && showDelayedActivatedState ? (
+            <section
+              className="rounded-2xl border border-violet-200 bg-violet-50 p-6 shadow-sm"
+              data-testid="auction-detail-delayed-activated-state"
+            >
+              <h2 className="text-lg font-semibold text-violet-900">
+                Your delayed bid has activated
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-violet-800">
+                Your delayed bid is now participating in the live auction. Immediate max bids remain
+                active now, and delayed bids activate at closing.
+              </p>
+              {detail.currentUserDelayedBidCents != null ? (
+                <p
+                  className="mt-3 text-sm font-medium text-violet-900"
+                  data-testid="auction-detail-delayed-bid-amount"
+                >
+                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
                 </p>
               ) : null}
             </section>
@@ -409,7 +495,11 @@ export function AuctionDetailView({ data }: Props) {
               minimumNextBidCents={detail.minimumNextBidCents}
               currentPriceCents={detail.currentPriceCents}
               isAuthenticated={me.isAuthenticated}
+              hasPendingDelayedBid={detail.hasPendingDelayedBid}
+              currentUserDelayedBidCents={detail.currentUserDelayedBidCents}
+              currentUserDelayedBidStatus={detail.currentUserDelayedBidStatus}
               onBidPlaced={refreshDetail}
+              onDelayedBidCancelled={refreshDetail}
             />
           )}
         </div>

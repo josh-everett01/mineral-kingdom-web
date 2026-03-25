@@ -20,6 +20,10 @@ export type AuctionDetailDto = {
   isCurrentUserLeading?: boolean | null
   hasCurrentUserBid?: boolean | null
   currentUserMaxBidCents?: number | null
+  currentUserBidState?: "NONE" | "LEADING" | "OUTBID" | null
+  hasPendingDelayedBid?: boolean | null
+  currentUserDelayedBidCents?: number | null
+  currentUserDelayedBidStatus?: "NONE" | "SCHEDULED" | "MOOT" | "ACTIVATED" | null
 }
 
 export type AuctionDetailResult =
