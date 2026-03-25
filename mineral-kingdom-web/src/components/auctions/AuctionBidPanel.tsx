@@ -2,15 +2,21 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { placeBid } from "@/lib/auctions/placeBid"
+import { cancelDelayedBid, placeBid } from "@/lib/auctions/placeBid"
 import { formatMoney } from "@/lib/auctions/getAuctionDetail"
+
+type BidMode = "IMMEDIATE" | "DELAYED"
 
 type Props = {
   auctionId: string
   minimumNextBidCents: number
   currentPriceCents: number
   isAuthenticated: boolean
+  hasPendingDelayedBid?: boolean | null
+  currentUserDelayedBidCents?: number | null
+  currentUserDelayedBidStatus?: "NONE" | "SCHEDULED" | "MOOT" | "ACTIVATED" | null
   onBidPlaced: () => Promise<void> | void
+  onDelayedBidCancelled: () => Promise<void> | void
 }
 
 export function AuctionBidPanel({
@@ -18,14 +24,20 @@ export function AuctionBidPanel({
   minimumNextBidCents,
   currentPriceCents,
   isAuthenticated,
+  hasPendingDelayedBid,
+  currentUserDelayedBidCents,
+  currentUserDelayedBidStatus,
   onBidPlaced,
+  onDelayedBidCancelled,
 }: Props) {
   const router = useRouter()
 
   const [bidDollars, setBidDollars] = useState(() =>
     Math.ceil(minimumNextBidCents / 100).toString(),
   )
+  const [mode, setMode] = useState<BidMode>("IMMEDIATE")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCancellingDelayedBid, setIsCancellingDelayedBid] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -36,6 +48,10 @@ export function AuctionBidPanel({
     if (!Number.isFinite(parsed) || parsed <= 0) return null
     return parsed * 100
   }, [bidDollars])
+
+  const showCancelableDelayedBid =
+    hasPendingDelayedBid === true &&
+    currentUserDelayedBidStatus === "SCHEDULED"
 
   function beginSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -76,7 +92,7 @@ export function AuctionBidPanel({
     try {
       const result = await placeBid(auctionId, {
         maxBidCents: parsedBidCents,
-        mode: "IMMEDIATE",
+        mode,
       })
 
       if (result.kind === "auth-expired") {
@@ -91,8 +107,11 @@ export function AuctionBidPanel({
       }
 
       await onBidPlaced()
+
       setSuccess(
-        "Your max bid was submitted successfully. The visible current bid may stay lower unless other bidders compete.",
+        mode === "DELAYED"
+          ? "Your delayed max bid was submitted successfully."
+          : "Your max bid was submitted successfully. The visible current bid may stay lower unless other bidders compete.",
       )
     } catch {
       setError("We couldn’t place your max bid right now.")
@@ -102,10 +121,47 @@ export function AuctionBidPanel({
     }
   }
 
+  async function handleCancelDelayedBid() {
+    setIsCancellingDelayedBid(true)
+    setError(null)
+    setSuccess(null)
+    setSessionExpired(false)
+
+    try {
+      const result = await cancelDelayedBid(auctionId)
+
+      if (result.kind === "auth-expired") {
+        setSessionExpired(true)
+        setError(result.message)
+        return
+      }
+
+      if (result.kind !== "ok") {
+        setError(result.message)
+        return
+      }
+
+      await onDelayedBidCancelled()
+      setSuccess("Your delayed bid was cancelled successfully.")
+    } catch {
+      setError("We couldn’t cancel your delayed bid right now.")
+    } finally {
+      setIsCancellingDelayedBid(false)
+    }
+  }
+
   function goToLogin() {
     const returnTo = encodeURIComponent(`/auctions/${auctionId}`)
     router.push(`/login?returnTo=${returnTo}`)
   }
+
+  const confirmationTitle =
+    mode === "DELAYED" ? "Confirm delayed max bid" : "Confirm immediate max bid"
+
+  const confirmationBody =
+    mode === "DELAYED"
+      ? "Your delayed bid will be saved now. You may keep one delayed bid per auction, submit immediate bids while it remains scheduled, replace it with a new delayed bid, or cancel it before it activates."
+      : "We’ll bid only as much as needed, up to your maximum."
 
   if (!isAuthenticated) {
     return (
@@ -138,17 +194,112 @@ export function AuctionBidPanel({
           Minimum next bid: {formatMoney(minimumNextBidCents) ?? "—"}
         </p>
 
-        <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-700">
-          <p className="font-medium text-stone-900">How max bidding works</p>
-          <p className="mt-1">
-            All bids are treated as max bids. We’ll bid only as much as needed, up to your maximum.
-          </p>
-          <p className="mt-1">
-            The visible current bid may stay lower than your max bid unless another bidder competes.
-          </p>
-        </div>
+        {showCancelableDelayedBid ? (
+          <div
+            className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm text-sky-900"
+            data-testid="auction-detail-bid-existing-delayed"
+          >
+            <p className="font-medium text-sky-950">
+              You currently have a delayed bid scheduled.
+            </p>
+            <p className="mt-1">
+              Delayed bid amount: {formatMoney(currentUserDelayedBidCents) ?? "—"}
+            </p>
+            <p className="mt-2">
+              You may keep one delayed bid per auction. You can still place immediate bids while
+              this delayed bid remains scheduled.
+            </p>
+            <p className="mt-1">
+              Submitting a new delayed bid replaces your previous delayed bid, and you may cancel it
+              before it activates.
+            </p>
+            <button
+              type="button"
+              onClick={handleCancelDelayedBid}
+              disabled={isCancellingDelayedBid}
+              className="mt-3 inline-flex rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-900 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+              data-testid="auction-detail-cancel-delayed-bid"
+            >
+              {isCancellingDelayedBid ? "Cancelling delayed bid..." : "Cancel delayed bid"}
+            </button>
+          </div>
+        ) : null}
 
         <form className="mt-4 space-y-4" onSubmit={beginSubmit}>
+          <fieldset className="space-y-2">
+            <legend className="block text-sm font-medium text-stone-900">Bid timing</legend>
+            <div className="flex flex-wrap gap-3" data-testid="auction-detail-bid-mode-group">
+              <label className="inline-flex items-center gap-2 text-sm text-stone-900">
+                <input
+                  type="radio"
+                  name="bid-mode"
+                  value="IMMEDIATE"
+                  checked={mode === "IMMEDIATE"}
+                  onChange={() => setMode("IMMEDIATE")}
+                  data-testid="auction-detail-bid-mode-immediate"
+                />
+                Immediate
+              </label>
+
+              <label className="inline-flex items-center gap-2 text-sm text-stone-900">
+                <input
+                  type="radio"
+                  name="bid-mode"
+                  value="DELAYED"
+                  checked={mode === "DELAYED"}
+                  onChange={() => setMode("DELAYED")}
+                  data-testid="auction-detail-bid-mode-delayed"
+                />
+                Delayed
+              </label>
+            </div>
+          </fieldset>
+
+          <div
+            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-700"
+            data-testid="auction-detail-bid-mode-help"
+          >
+            {mode === "DELAYED" ? (
+              <>
+                <p className="font-medium text-stone-900">How delayed max bidding works</p>
+                <p className="mt-1">
+                  Immediate max bids are active now. Delayed max bids are saved now and activate
+                  when the auction enters closing.
+                </p>
+                <p className="mt-1">
+                  Delayed bids must be placed at least 3 hours before close.
+                </p>
+                <p className="mt-1">
+                  You may keep one delayed bid per auction. You may also place immediate bids while
+                  your delayed bid remains scheduled.
+                </p>
+                <p className="mt-1">
+                  Submitting a new delayed bid replaces your previous delayed bid.
+                </p>
+                <p className="mt-1">
+                  You may cancel a delayed bid before it activates.
+                </p>
+                <p className="mt-1">
+                  If the live auction price reaches or exceeds your delayed bid, it may no longer be
+                  needed. You can submit another delayed bid above the current price if the auction
+                  is still eligible.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-stone-900">How max bidding works</p>
+                <p className="mt-1">
+                  Immediate max bids are active right away. We’ll bid only as much as needed, up to
+                  your maximum.
+                </p>
+                <p className="mt-1">
+                  The visible current bid may stay lower than your max bid unless another bidder
+                  competes.
+                </p>
+              </>
+            )}
+          </div>
+
           <div className="space-y-2">
             <label htmlFor="bid-dollars" className="block text-sm font-medium text-stone-900">
               Your max bid (whole dollars)
@@ -189,7 +340,8 @@ export function AuctionBidPanel({
             >
               <p className="font-medium text-amber-950">Your session expired</p>
               <p className="mt-1">
-                Please sign in again before placing your max bid. We’ll bring you back to this auction.
+                Please sign in again before changing your bids. We’ll bring you back to this
+                auction.
               </p>
               <button
                 type="button"
@@ -222,14 +374,12 @@ export function AuctionBidPanel({
             className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl"
             data-testid="auction-detail-bid-confirm-dialog"
           >
-            <h3 className="text-lg font-semibold text-stone-900">Confirm max bid</h3>
+            <h3 className="text-lg font-semibold text-stone-900">{confirmationTitle}</h3>
             <p className="mt-2 text-sm leading-6 text-stone-700">
               You are about to submit a max bid of{" "}
               <span className="font-semibold">{formatMoney(parsedBidCents) ?? "—"}</span>.
             </p>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              We’ll bid only as much as needed, up to your maximum.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-stone-600">{confirmationBody}</p>
 
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
@@ -247,7 +397,11 @@ export function AuctionBidPanel({
                 className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
                 data-testid="auction-detail-bid-confirm-submit"
               >
-                {isSubmitting ? "Submitting..." : "Confirm max bid"}
+                {isSubmitting
+                  ? "Submitting..."
+                  : mode === "DELAYED"
+                    ? "Confirm delayed max bid"
+                    : "Confirm immediate max bid"}
               </button>
             </div>
           </div>
