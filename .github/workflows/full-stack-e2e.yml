@@ -177,6 +177,37 @@ jobs:
           -X POST "http://localhost:8080/api/testing/e2e/seed" \
           -H "content-type: application/json"
       
+
+      - name: Wait for auth upstream to be ready
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Waiting for auth endpoints to stop returning 503..."
+          for i in {1..60}; do
+            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d '{"email":"healthcheck@example.com","password":"Password123!"}' || true)"
+
+            code="$(echo "$http_and_body" | tail -n 1)"
+            body="$(echo "$http_and_body" | head -n -1)"
+
+            echo "Attempt $i: HTTP $code"
+            if [ "$code" != "503" ] && [ "$code" != "000" ]; then
+              echo "Auth upstream responding (not 503)."
+              exit 0
+            fi
+
+            if [ "$i" -eq 60 ]; then
+              echo "Auth upstream still returning 503 after waiting."
+              echo "$body"
+              docker ps || true
+              docker logs mk_api --tail 300 || true
+              docker logs mk_worker --tail 300 || true
+              exit 1
+            fi
+
+            sleep 2
+          done
+
       - name: Seed verified E2E user (register + verify)
         id: seed_user
         shell: bash
@@ -188,10 +219,34 @@ jobs:
 
           echo "Creating user: $EMAIL"
 
-          register_json="$(curl -fsS \
-            -X POST "http://localhost:8080/api/auth/register" \
-            -H "content-type: application/json" \
-            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+          register_json=""
+          for i in {1..10}; do
+            echo "Register attempt $i..."
+            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+
+            body="$(echo "$http_and_body" | head -n -1)"
+            code="$(echo "$http_and_body" | tail -n 1)"
+
+            echo "HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+              register_json="$body"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable register failure. Body:"
+            echo "$body"
+            exit 1
+          done
+
+          if [ -z "$register_json" ]; then
+            echo "Register never succeeded after retries."
+            exit 1
+          fi
 
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
           if [ -z "$TOKEN" ]; then
@@ -200,10 +255,29 @@ jobs:
             exit 1
           fi
 
-          curl -fsS -o /dev/null \
-            -X POST "http://localhost:8080/api/auth/verify-email" \
-            -H "content-type: application/json" \
-            -d "{\"token\":\"$TOKEN\"}"
+          verify_ok=""
+          for i in {1..10}; do
+            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
+
+            echo "Verify attempt $i: HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "204" ]; then
+              verify_ok="1"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable verify failure (HTTP $code)."
+            exit 1
+          done
+
+          if [ -z "$verify_ok" ]; then
+            echo "Verify never succeeded after retries."
+            exit 1
+          fi
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
@@ -219,10 +293,34 @@ jobs:
 
           echo "Creating admin fixture user: $EMAIL"
 
-          register_json="$(curl -fsS \
-            -X POST "http://localhost:8080/api/auth/register" \
-            -H "content-type: application/json" \
-            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+          register_json=""
+          for i in {1..10}; do
+            echo "Register attempt $i..."
+            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+
+            body="$(echo "$http_and_body" | head -n -1)"
+            code="$(echo "$http_and_body" | tail -n 1)"
+
+            echo "HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+              register_json="$body"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable register failure. Body:"
+            echo "$body"
+            exit 1
+          done
+
+          if [ -z "$register_json" ]; then
+            echo "Register never succeeded after retries."
+            exit 1
+          fi
 
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
           if [ -z "$TOKEN" ]; then
@@ -231,13 +329,31 @@ jobs:
             exit 1
           fi
 
-          curl -fsS -o /dev/null \
-            -X POST "http://localhost:8080/api/auth/verify-email" \
-            -H "content-type: application/json" \
-            -d "{\"token\":\"$TOKEN\"}"
+          verify_ok=""
+          for i in {1..10}; do
+            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
 
-          docker exec mk_postgres psql -U mk -d mk -c \
-            "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+            echo "Verify attempt $i: HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "204" ]; then
+              verify_ok="1"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable verify failure (HTTP $code)."
+            exit 1
+          done
+
+          if [ -z "$verify_ok" ]; then
+            echo "Verify never succeeded after retries."
+            exit 1
+          fi
+
+          docker exec mk_postgres psql -U mk -d mk -c             "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
@@ -253,10 +369,34 @@ jobs:
 
           echo "Creating staff fixture user: $EMAIL"
 
-          register_json="$(curl -fsS \
-            -X POST "http://localhost:8080/api/auth/register" \
-            -H "content-type: application/json" \
-            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")"
+          register_json=""
+          for i in {1..10}; do
+            echo "Register attempt $i..."
+            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+
+            body="$(echo "$http_and_body" | head -n -1)"
+            code="$(echo "$http_and_body" | tail -n 1)"
+
+            echo "HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+              register_json="$body"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable register failure. Body:"
+            echo "$body"
+            exit 1
+          done
+
+          if [ -z "$register_json" ]; then
+            echo "Register never succeeded after retries."
+            exit 1
+          fi
 
           TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
           if [ -z "$TOKEN" ]; then
@@ -265,13 +405,31 @@ jobs:
             exit 1
           fi
 
-          curl -fsS -o /dev/null \
-            -X POST "http://localhost:8080/api/auth/verify-email" \
-            -H "content-type: application/json" \
-            -d "{\"token\":\"$TOKEN\"}"
+          verify_ok=""
+          for i in {1..10}; do
+            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
 
-          docker exec mk_postgres psql -U mk -d mk -c \
-            "UPDATE users SET \"Role\"='STAFF', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+            echo "Verify attempt $i: HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "204" ]; then
+              verify_ok="1"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable verify failure (HTTP $code)."
+            exit 1
+          done
+
+          if [ -z "$verify_ok" ]; then
+            echo "Verify never succeeded after retries."
+            exit 1
+          fi
+
+          docker exec mk_postgres psql -U mk -d mk -c             "UPDATE users SET \"Role\"='STAFF', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
