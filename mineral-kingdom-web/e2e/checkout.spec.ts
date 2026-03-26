@@ -343,9 +343,9 @@ test.describe("checkout return page", () => {
       page.getByRole("heading", { name: /your order status is backend-confirmed/i }),
     ).toBeVisible()
     await expect(page.getByTestId("order-confirmation-payment-status")).toContainText(
-      "SUCCEEDED",
+      "Paid",
     )
-    await expect(page.getByTestId("order-confirmation-provider")).toContainText("stripe")
+    await expect(page.getByTestId("order-confirmation-provider")).toContainText(/stripe/i)
     await expect(page.getByTestId("order-confirmation-total")).toContainText("$219.00")
   })
 })

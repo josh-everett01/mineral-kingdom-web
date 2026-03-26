@@ -738,7 +738,7 @@ test("winner pay now CTA navigates to order-owned payment page", async ({ page }
 })
 
 test("submit max bid opens confirmation dialog and refreshes detail after confirm", async ({ page }) => {
-  let detailCallCount = 0
+  let bidSubmitted = false
 
   await page.route("**/api/bff/auth/me", async (route) => {
     await route.fulfill({
@@ -757,9 +757,7 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
   })
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
-    detailCallCount += 1
-
-    if (detailCallCount <= 2) {
+    if (!bidSubmitted) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -834,6 +832,8 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
   })
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}/bids*`, async (route) => {
+    bidSubmitted = true
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
