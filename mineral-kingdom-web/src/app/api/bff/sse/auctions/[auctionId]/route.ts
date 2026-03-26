@@ -1,47 +1,39 @@
-import type { NextRequest } from "next/server";
-import { getAccessToken } from "@/lib/auth/cookies";
+import type { NextRequest } from "next/server"
 
-const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
 
 function sseHeaders() {
   return {
     "Content-Type": "text/event-stream; charset=utf-8",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    // Helps Nginx/Cloudflare avoid buffering (harmless locally)
     "X-Accel-Buffering": "no",
-  } as const;
+  } as const
 }
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ auctionId: string }> }) {
-  const { auctionId } = await ctx.params;
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ auctionId: string }> },
+) {
+  const { auctionId } = await ctx.params
 
-  const access = await getAccessToken();
-  if (!access) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  // Upstream API SSE endpoint
-  const upstreamUrl = `${API_BASE_URL}/api/auctions/${auctionId}/events`;
+  const upstreamUrl = `${API_BASE_URL}/api/auctions/${auctionId}/events`
 
   const upstreamRes = await fetch(upstreamUrl, {
     method: "GET",
     headers: {
-      authorization: `Bearer ${access}`,
       accept: "text/event-stream",
     },
-    // Important: avoid caching proxies
     cache: "no-store",
-  });
+  })
 
   if (!upstreamRes.ok || !upstreamRes.body) {
-    const text = await upstreamRes.text().catch(() => "");
-    return new Response(text || "Upstream SSE failed", { status: upstreamRes.status });
+    const text = await upstreamRes.text().catch(() => "")
+    return new Response(text || "Upstream SSE failed", { status: upstreamRes.status })
   }
 
-  // Pipe the stream straight through
   return new Response(upstreamRes.body, {
     status: 200,
     headers: sseHeaders(),
-  });
+  })
 }

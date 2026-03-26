@@ -1,5 +1,12 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { apiRefresh } from "@/lib/auth/api"
+import {
+  clearAuthCookies,
+  getAccessToken,
+  getRefreshToken,
+  setAuthCookies,
+} from "@/lib/auth/cookies"
 import { toProxyError } from "@/lib/api/proxyError"
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
@@ -13,15 +20,21 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-async function buildHeaders(): Promise<Headers> {
+async function buildHeaders(accessToken?: string | null): Promise<Headers> {
   const cookieStore = await cookies()
+
   const headers = new Headers({
     "content-type": "application/json",
+    accept: "application/json",
   })
 
   const cartId = cookieStore.get(CART_COOKIE_NAME)?.value
   if (cartId) {
     headers.set("X-Cart-Id", cartId)
+  }
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`)
   }
 
   return headers
@@ -39,16 +52,25 @@ async function persistCartIdFromUpstream(upstream: Response, response: NextRespo
   })
 }
 
+async function forwardOnce(bodyText: string, accessToken?: string | null) {
+  return fetch(`${API_BASE_URL}/api/checkout/start`, {
+    method: "POST",
+    headers: await buildHeaders(accessToken),
+    body: bodyText,
+    cache: "no-store",
+  })
+}
+
 export async function POST(req: Request) {
+  const bodyText = await req.text()
+
+  let access = await getAccessToken()
+  const refresh = await getRefreshToken()
+
   let upstream: Response
 
   try {
-    upstream = await fetch(`${API_BASE_URL}/api/checkout/start`, {
-      method: "POST",
-      headers: await buildHeaders(),
-      body: await req.text(),
-      cache: "no-store",
-    })
+    upstream = await forwardOnce(bodyText, access)
   } catch (e) {
     const err = toProxyError(
       503,
@@ -60,6 +82,17 @@ export async function POST(req: Request) {
     )
 
     return NextResponse.json(err, { status: 503 })
+  }
+
+  if (upstream.status === 401 && refresh) {
+    try {
+      const tokens = await apiRefresh(refresh)
+      await setAuthCookies(tokens)
+      access = tokens.access_token
+      upstream = await forwardOnce(bodyText, access)
+    } catch {
+      await clearAuthCookies()
+    }
   }
 
   const text = await upstream.text().catch(() => "")

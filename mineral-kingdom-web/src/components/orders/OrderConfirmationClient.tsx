@@ -16,7 +16,8 @@ type OrderConfirmationDto = {
   totalCents?: number | null
   currencyCode?: string | null
   paymentStatus?: string | null
-  provider?: string | null
+  paymentProvider?: string | null
+  paidAt?: string | null
   guestEmail?: string | null
   isConfirmed?: boolean
 }
@@ -28,6 +29,48 @@ function formatMoney(cents?: number | null, currencyCode?: string | null) {
     style: "currency",
     currency: currencyCode ?? "USD",
   }).format(cents / 100)
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+}
+
+function formatPaymentStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "SUCCEEDED":
+      return "Paid"
+    case "PENDING":
+      return "Pending"
+    case "FAILED":
+      return "Failed"
+    default:
+      return value
+  }
+}
+
+function formatPaymentProvider(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "STRIPE":
+      return "Stripe"
+    case "PAYPAL":
+      return "PayPal"
+    default:
+      return value
+  }
 }
 
 function isConfirmedOrder(order: OrderConfirmationDto | null) {
@@ -130,6 +173,7 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
   }, [order, router])
 
   const total = formatMoney(order?.totalCents, order?.currencyCode)
+  const paidAt = formatDateTime(order?.paidAt)
 
   return (
     <section
@@ -160,11 +204,19 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
         </div>
         <div>
           <dt className="font-medium text-stone-500">Payment status</dt>
-          <dd data-testid="order-confirmation-payment-status">{order?.paymentStatus ?? "—"}</dd>
+          <dd data-testid="order-confirmation-payment-status">
+            {formatPaymentStatus(order?.paymentStatus)}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-stone-500">Provider</dt>
-          <dd data-testid="order-confirmation-provider">{order?.provider ?? "—"}</dd>
+          <dd data-testid="order-confirmation-provider">
+            {formatPaymentProvider(order?.paymentProvider)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-stone-500">Paid at</dt>
+          <dd data-testid="order-confirmation-paid-at">{paidAt ?? "—"}</dd>
         </div>
         <div>
           <dt className="font-medium text-stone-500">Total</dt>
