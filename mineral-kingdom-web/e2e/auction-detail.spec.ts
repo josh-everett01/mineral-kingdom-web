@@ -3,6 +3,55 @@ import { test, expect } from "@playwright/test"
 const AUCTION_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3"
 
 test("auction detail happy path renders public auction information", async ({ page }) => {
+  await page.route("**/api/bff/auth/me", async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        isAuthenticated: false,
+        user: null,
+        roles: [],
+      }),
+    })
+  })
+
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        auctionId: AUCTION_ID,
+        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
+        title: "Arkansas Quartz Cluster",
+        description: "Deterministic E2E auction listing fixture.",
+        status: "LIVE",
+        currentPriceCents: 15500,
+        bidCount: 2,
+        reserveMet: true,
+        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
+        minimumNextBidCents: 16000,
+        media: [
+          {
+            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
+            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
+            isPrimary: true,
+            sortOrder: 0,
+          },
+        ],
+        isCurrentUserLeading: null,
+        hasCurrentUserBid: null,
+        currentUserMaxBidCents: null,
+        currentUserBidState: null,
+        hasPendingDelayedBid: null,
+        currentUserDelayedBidCents: null,
+        currentUserDelayedBidStatus: null,
+        isCurrentUserWinner: null,
+        paymentOrderId: null,
+        paymentVisibilityState: null,
+      }),
+    })
+  })
+
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
   await expect(page.getByTestId("auction-detail-page")).toBeVisible()
@@ -37,7 +86,7 @@ test("guest sees max-bid messaging instead of member status", async ({ page }) =
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -103,7 +152,7 @@ test("signed-in returning leader sees winning banner and current max bid", async
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -165,7 +214,7 @@ test("signed-in returning bidder sees outbid banner and current max bid", async 
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -227,7 +276,7 @@ test("signed-in delayed bidder sees scheduled delayed panel", async ({ page }) =
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -296,7 +345,7 @@ test("signed-in bidder sees moot delayed bid panel when delayed bid is no longer
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -357,7 +406,7 @@ test("signed-in bidder sees activated delayed bid panel", async ({ page }) => {
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -418,7 +467,7 @@ test("winner sees pay now CTA for closed auction awaiting payment", async ({ pag
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -480,7 +529,7 @@ test("non-winner does not see pay now CTA for closed auction", async ({ page }) 
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -541,7 +590,7 @@ test("winner paid sees view order CTA instead of pay now", async ({ page }) => {
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -602,7 +651,7 @@ test("winner pay now CTA navigates to order-owned payment page", async ({ page }
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -707,10 +756,10 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     detailCallCount += 1
 
-    if (detailCallCount === 1) {
+    if (detailCallCount <= 2) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -784,7 +833,7 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}/bids`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}/bids*`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -836,10 +885,10 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     detailCallCount += 1
 
-    if (detailCallCount === 1) {
+    if (detailCallCount <= 2) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -913,7 +962,7 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}/bids`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}/bids*`, async (route) => {
     const request = route.request()
     const body = request.postDataJSON() as { maxBidCents: number; mode: string }
 
@@ -991,10 +1040,10 @@ test("cancel delayed bid refreshes detail", async ({ page }) => {
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     detailCallCount += 1
 
-    if (detailCallCount === 1) {
+    if (detailCallCount <= 2) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1068,7 +1117,7 @@ test("cancel delayed bid refreshes detail", async ({ page }) => {
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}/delayed-bid`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}/delayed-bid*`, async (route) => {
     await route.fulfill({
       status: 204,
       body: "",
@@ -1102,7 +1151,7 @@ test("expired member detail shows sign-in-again panel and hides bid form", async
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 401,
       contentType: "application/json",
@@ -1139,7 +1188,7 @@ test("sign in again uses returnTo auction param", async ({ page }) => {
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     await route.fulfill({
       status: 401,
       contentType: "application/json",

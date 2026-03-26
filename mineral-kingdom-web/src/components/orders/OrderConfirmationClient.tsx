@@ -17,6 +17,7 @@ type OrderConfirmationDto = {
   currencyCode?: string | null
   paymentStatus?: string | null
   paymentProvider?: string | null
+  provider?: string | null
   paidAt?: string | null
   guestEmail?: string | null
   isConfirmed?: boolean
@@ -211,7 +212,7 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
         <div>
           <dt className="font-medium text-stone-500">Provider</dt>
           <dd data-testid="order-confirmation-provider">
-            {formatPaymentProvider(order?.paymentProvider)}
+            {formatPaymentProvider(order?.paymentProvider ?? order?.provider)}
           </dd>
         </div>
         <div>

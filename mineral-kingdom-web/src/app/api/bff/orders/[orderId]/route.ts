@@ -146,7 +146,7 @@ export async function GET(
       totalCents: confirmation.orderTotalCents,
       currencyCode: confirmation.orderCurrencyCode,
       paymentStatus: confirmation.paymentStatus,
-      provider: confirmation.provider,
+      paymentProvider: confirmation.provider,
       guestEmail: confirmation.guestEmail,
       isConfirmed: confirmation.isConfirmed,
     },
