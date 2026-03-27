@@ -23,6 +23,16 @@ type ActivityItem = {
   createdAt: number
 }
 
+function isClosedAuctionStatus(status?: string | null) {
+  if (!status) return false
+
+  return (
+    status === "CLOSED_WAITING_ON_PAYMENT" ||
+    status === "CLOSED_PAID" ||
+    status === "CLOSED_NOT_SOLD"
+  )
+}
+
 export function AuctionDetailView({ data }: Props) {
   const router = useRouter()
   const { me, isLoading } = useAuthContext()
@@ -168,28 +178,59 @@ export function AuctionDetailView({ data }: Props) {
   const authMismatch = sessionExpired
   const currentUserBidState = detail.currentUserBidState ?? null
   const delayedBidStatus = detail.currentUserDelayedBidStatus ?? "NONE"
+  const paymentVisibilityState = detail.paymentVisibilityState ?? "NONE"
+  const closedAuction = isClosedAuctionStatus(detail.status)
 
-  const showLeadingState = !authMismatch && currentUserBidState === "LEADING"
-  const showOutbidState = !authMismatch && currentUserBidState === "OUTBID"
+  const showLeadingState =
+    !authMismatch && !closedAuction && currentUserBidState === "LEADING"
+  const showOutbidState =
+    !authMismatch && !closedAuction && currentUserBidState === "OUTBID"
 
   const showDelayedScheduledState =
     !authMismatch &&
+    !closedAuction &&
     detail.hasPendingDelayedBid === true &&
     delayedBidStatus === "SCHEDULED"
 
   const showDelayedMootState =
     !authMismatch &&
+    !closedAuction &&
     detail.hasPendingDelayedBid === true &&
     delayedBidStatus === "MOOT"
 
   const showDelayedActivatedState =
     !authMismatch &&
+    !closedAuction &&
     detail.hasPendingDelayedBid === true &&
     delayedBidStatus === "ACTIVATED"
+
+  const showWinnerPaymentDueState =
+    !authMismatch &&
+    closedAuction &&
+    detail.isCurrentUserWinner === true &&
+    paymentVisibilityState === "PAYMENT_DUE" &&
+    Boolean(detail.paymentOrderId)
+
+  const showWinnerPaidState =
+    !authMismatch &&
+    closedAuction &&
+    detail.isCurrentUserWinner === true &&
+    paymentVisibilityState === "PAID" &&
+    Boolean(detail.paymentOrderId)
+
+  const showClosedNonWinnerState =
+    !authMismatch &&
+    closedAuction &&
+    !showWinnerPaymentDueState &&
+    !showWinnerPaidState
 
   function goToLogin() {
     const returnTo = encodeURIComponent(`/auctions/${detail.auctionId}`)
     router.push(`/login?returnTo=${returnTo}`)
+  }
+
+  function goToOrder(orderId: string) {
+    router.push(`/orders/${encodeURIComponent(orderId)}`)
   }
 
   return (
@@ -352,6 +393,59 @@ export function AuctionDetailView({ data }: Props) {
             </section>
           ) : null}
 
+          {!authMismatch && showWinnerPaymentDueState ? (
+            <section
+              className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm"
+              data-testid="auction-detail-winner-payment-due"
+            >
+              <h2 className="text-lg font-semibold text-blue-950">You won this auction</h2>
+              <p className="mt-2 text-sm leading-6 text-blue-900">
+                Payment is due for this auction order. Continue to your order to complete payment.
+              </p>
+              <button
+                type="button"
+                onClick={() => goToOrder(detail.paymentOrderId!)}
+                className="mt-4 inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                data-testid="auction-detail-pay-now"
+              >
+                Pay Now
+              </button>
+            </section>
+          ) : null}
+
+          {!authMismatch && showWinnerPaidState ? (
+            <section
+              className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
+              data-testid="auction-detail-winner-paid"
+            >
+              <h2 className="text-lg font-semibold text-green-900">You won this auction</h2>
+              <p className="mt-2 text-sm leading-6 text-green-800">
+                Payment for this auction order has already been completed.
+              </p>
+              <button
+                type="button"
+                onClick={() => goToOrder(detail.paymentOrderId!)}
+                className="mt-4 inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
+                data-testid="auction-detail-view-order"
+              >
+                View Order
+              </button>
+            </section>
+          ) : null}
+
+          {!authMismatch && showClosedNonWinnerState ? (
+            <section
+              className="rounded-2xl border border-stone-200 bg-stone-50 p-6 shadow-sm"
+              data-testid="auction-detail-closed-non-winner"
+            >
+              <h2 className="text-lg font-semibold text-stone-900">This auction has closed</h2>
+              <p className="mt-2 text-sm leading-6 text-stone-700">
+                This auction is no longer accepting bids. Payment actions are available only to the
+                winning member when payment is due.
+              </p>
+            </section>
+          ) : null}
+
           {!authMismatch && showLeadingState ? (
             <section
               className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
@@ -489,7 +583,7 @@ export function AuctionDetailView({ data }: Props) {
                 Your account must have a verified email address before you can place a max bid.
               </p>
             </section>
-          ) : (
+          ) : closedAuction ? null : (
             <AuctionBidPanel
               auctionId={detail.auctionId}
               minimumNextBidCents={detail.minimumNextBidCents}

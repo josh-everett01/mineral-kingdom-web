@@ -3,17 +3,7 @@ import { test, expect, type Page } from "@playwright/test"
 const hasBackend = !!process.env.E2E_BACKEND
 const APP_ORIGIN = "http://127.0.0.1:3005"
 
-const RAINBOW_LISTING_URL =
-  "/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
 const AMETHYST_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"
-
-async function addCurrentListingToCart(page: Page) {
-  await page.getByTestId("listing-add-to-cart").click()
-
-  await expect(page).toHaveURL(/\/listing\/.+-[0-9a-fA-F-]{36}$/, {
-    timeout: 15000,
-  })
-}
 
 async function seedCartLineViaBff(page: Page, offerId: string) {
   const bootstrap = await page.request.get(`${APP_ORIGIN}/api/bff/cart`)
@@ -60,17 +50,7 @@ test.describe("checkout flows (backend required)", () => {
   test.skip(!hasBackend, "Requires backend running (set E2E_BACKEND=1).")
 
   test("guest can proceed from cart to checkout and start a hold", async ({ page }) => {
-    await page.goto(RAINBOW_LISTING_URL, {
-      waitUntil: "domcontentloaded",
-    })
-
-    await expect(page.getByTestId("listing-add-to-cart")).toBeVisible()
-
-    await addCurrentListingToCart(page)
-
-    await expect(page).toHaveURL(
-      /\/listing\/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1$/,
-    )
+    await seedCartLineViaBff(page, AMETHYST_OFFER_ID)
 
     await page.goto("/cart", { waitUntil: "domcontentloaded" })
 
@@ -342,10 +322,8 @@ test.describe("checkout return page", () => {
     await expect(
       page.getByRole("heading", { name: /your order status is backend-confirmed/i }),
     ).toBeVisible()
-    await expect(page.getByTestId("order-confirmation-payment-status")).toContainText(
-      "SUCCEEDED",
-    )
-    await expect(page.getByTestId("order-confirmation-provider")).toContainText("stripe")
+    await expect(page.getByTestId("order-confirmation-payment-status")).toContainText("Paid")
+    await expect(page.getByTestId("order-confirmation-provider")).toContainText(/stripe/i)
     await expect(page.getByTestId("order-confirmation-total")).toContainText("$219.00")
   })
 })

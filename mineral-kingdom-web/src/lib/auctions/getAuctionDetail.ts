@@ -5,6 +5,8 @@ export type AuctionDetailMediaDto = {
   sortOrder: number
 }
 
+export type AuctionDetailPaymentVisibilityState = "NONE" | "PAYMENT_DUE" | "PAID"
+
 export type AuctionDetailDto = {
   auctionId: string
   listingId: string
@@ -24,6 +26,9 @@ export type AuctionDetailDto = {
   hasPendingDelayedBid?: boolean | null
   currentUserDelayedBidCents?: number | null
   currentUserDelayedBidStatus?: "NONE" | "SCHEDULED" | "MOOT" | "ACTIVATED" | null
+  isCurrentUserWinner?: boolean | null
+  paymentOrderId?: string | null
+  paymentVisibilityState?: AuctionDetailPaymentVisibilityState | null
 }
 
 export type AuctionDetailResult =

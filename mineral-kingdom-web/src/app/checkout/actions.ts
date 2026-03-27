@@ -31,21 +31,32 @@ function mapCheckoutStartError(message?: string | null) {
 }
 
 export async function startCheckoutAction(formData: FormData) {
+  const cookieStore = await cookies()
+
+  const accessToken =
+    cookieStore.get("__Secure-mk_access")?.value ??
+    cookieStore.get("mk_access")?.value ??
+    null
+
   const email = String(formData.get("email") ?? "").trim()
 
-  if (!email) {
+  if (!accessToken && !email) {
     redirect(buildCheckoutUrl({ error: "Email is required for guest checkout." }))
   }
 
-  const cookieStore = await cookies()
   const cartId = cookieStore.get(CART_COOKIE_NAME)?.value
 
   const headers = new Headers({
     "content-type": "application/json",
+    accept: "application/json",
   })
 
   if (cartId) {
     headers.set("X-Cart-Id", cartId)
+  }
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`)
   }
 
   let res: Response
@@ -54,12 +65,26 @@ export async function startCheckoutAction(formData: FormData) {
       method: "POST",
       headers,
       body: JSON.stringify({
-        email,
+        email: email || null,
       }),
       cache: "no-store",
     })
   } catch {
     redirect(buildCheckoutUrl({ error: "We couldn't start checkout right now." }))
+  }
+
+  let body: {
+    message?: string
+    error?: string
+    cartId?: string
+    holdId?: string
+    expiresAt?: string
+  } | null = null
+
+  try {
+    body = await res.json()
+  } catch {
+    body = null
   }
 
   const returnedCartId = res.headers.get("X-Cart-Id")
@@ -73,10 +98,6 @@ export async function startCheckoutAction(formData: FormData) {
   }
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as
-      | { message?: string; error?: string }
-      | null
-
     redirect(
       buildCheckoutUrl({
         error: mapCheckoutStartError(body?.message ?? body?.error ?? null),
@@ -84,17 +105,11 @@ export async function startCheckoutAction(formData: FormData) {
     )
   }
 
-  const data = (await res.json()) as {
-    cartId: string
-    holdId: string
-    expiresAt: string
-  }
-
   redirect(
     buildCheckoutUrl({
-      cartId: data.cartId,
-      holdId: data.holdId,
-      expiresAt: data.expiresAt,
+      cartId: body?.cartId ?? null,
+      holdId: body?.holdId ?? null,
+      expiresAt: body?.expiresAt ?? null,
     }),
   )
 }
