@@ -2,11 +2,10 @@ import { NextResponse } from "next/server"
 import { apiRefresh } from "@/lib/auth/api"
 import {
   clearAuthCookies,
-  getAccessToken,
   getRefreshToken,
   setAuthCookies,
 } from "@/lib/auth/cookies"
-import { getAccessTokenExpiresAtEpochSeconds, isJwtExpired } from "@/lib/auth/jwt"
+import { getAccessTokenExpiresAtEpochSeconds } from "@/lib/auth/jwt"
 import { sessionFromAccessToken } from "@/lib/auth/session"
 
 const emptySession = {
@@ -25,23 +24,11 @@ function buildAuthMe(accessToken: string) {
   }
 }
 
-export async function GET() {
-  const access = await getAccessToken()
-
-  if (access && !isJwtExpired(access)) {
-    return NextResponse.json(buildAuthMe(access), {
-      headers: {
-        "cache-control": "no-store",
-      },
-    })
-  }
-
+export async function POST() {
   const refresh = await getRefreshToken()
 
   if (!refresh) {
-    if (access) {
-      await clearAuthCookies()
-    }
+    await clearAuthCookies()
 
     return NextResponse.json(
       {

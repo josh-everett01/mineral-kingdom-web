@@ -1,3 +1,5 @@
+import { emitAuthExpired } from "@/lib/auth/clientSessionEvents"
+
 export type AuctionDetailMediaDto = {
   id: string
   url: string
@@ -131,9 +133,12 @@ export async function fetchAuctionDetailClient(
   }
 
   if (res.status === 401) {
+    const message = getMessage(body, "Your session expired. Please sign in again.")
+    emitAuthExpired(message)
+
     return {
       kind: "auth-expired",
-      message: getMessage(body, "Your session expired. Please sign in again."),
+      message,
     }
   }
 

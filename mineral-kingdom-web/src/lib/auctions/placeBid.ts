@@ -1,3 +1,5 @@
+import { emitAuthExpired } from "@/lib/auth/clientSessionEvents"
+
 export type PlaceBidInput = {
   maxBidCents: number
   mode: "IMMEDIATE" | "DELAYED"
@@ -70,12 +72,15 @@ export async function placeBid(
   }
 
   if (res.status === 401) {
+    const message = getMessage(
+      body,
+      "Your session expired. Please sign in again before placing your max bid.",
+    )
+    emitAuthExpired(message)
+
     return {
       kind: "auth-expired",
-      message: getMessage(
-        body,
-        "Your session expired. Please sign in again before placing your max bid.",
-      ),
+      message,
     }
   }
 
@@ -116,12 +121,15 @@ export async function cancelDelayedBid(
   }
 
   if (res.status === 401) {
+    const message = getMessage(
+      body,
+      "Your session expired. Please sign in again before cancelling your delayed bid.",
+    )
+    emitAuthExpired(message)
+
     return {
       kind: "auth-expired",
-      message: getMessage(
-        body,
-        "Your session expired. Please sign in again before cancelling your delayed bid.",
-      ),
+      message,
     }
   }
 

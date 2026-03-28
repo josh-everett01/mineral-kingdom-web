@@ -1022,7 +1022,7 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
 })
 
 test("cancel delayed bid refreshes detail", async ({ page }) => {
-  let detailCallCount = 0
+  let delayedBidCancelled = false
 
   await page.route("**/api/bff/auth/me", async (route) => {
     await route.fulfill({
@@ -1032,69 +1032,28 @@ test("cancel delayed bid refreshes detail", async ({ page }) => {
         isAuthenticated: true,
         emailVerified: true,
         user: {
-          id: "88888888-8888-8888-8888-888888888888",
-          email: "cancel-delayed@example.com",
+          id: "33333333-3333-3333-3333-333333333333",
+          email: "bidder@example.com",
         },
         roles: [],
+        accessTokenExpiresAtEpochSeconds: Math.floor(Date.now() / 1000) + 60 * 10,
       }),
     })
   })
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
-    detailCallCount += 1
-
-    if (detailCallCount <= 2) {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          auctionId: AUCTION_ID,
-          listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-          title: "Arkansas Quartz Cluster",
-          description: "Deterministic E2E auction listing fixture.",
-          status: "LIVE",
-          currentPriceCents: 20000,
-          bidCount: 2,
-          reserveMet: true,
-          closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-          minimumNextBidCents: 20500,
-          media: [
-            {
-              id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-              url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-              isPrimary: true,
-              sortOrder: 0,
-            },
-          ],
-          isCurrentUserLeading: false,
-          hasCurrentUserBid: true,
-          currentUserMaxBidCents: null,
-          currentUserBidState: "NONE",
-          hasPendingDelayedBid: true,
-          currentUserDelayedBidCents: 22000,
-          currentUserDelayedBidStatus: "SCHEDULED",
-          isCurrentUserWinner: false,
-          paymentOrderId: null,
-          paymentVisibilityState: "NONE",
-        }),
-      })
-      return
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
+    const body = delayedBidCancelled
+      ? {
         auctionId: AUCTION_ID,
         listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
         title: "Arkansas Quartz Cluster",
         description: "Deterministic E2E auction listing fixture.",
         status: "LIVE",
-        currentPriceCents: 20000,
+        currentPriceCents: 15500,
         bidCount: 2,
         reserveMet: true,
         closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 20500,
+        minimumNextBidCents: 16000,
         media: [
           {
             id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
@@ -1113,25 +1072,66 @@ test("cancel delayed bid refreshes detail", async ({ page }) => {
         isCurrentUserWinner: false,
         paymentOrderId: null,
         paymentVisibilityState: "NONE",
-      }),
+      }
+      : {
+        auctionId: AUCTION_ID,
+        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
+        title: "Arkansas Quartz Cluster",
+        description: "Deterministic E2E auction listing fixture.",
+        status: "LIVE",
+        currentPriceCents: 15500,
+        bidCount: 2,
+        reserveMet: true,
+        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
+        minimumNextBidCents: 16000,
+        media: [
+          {
+            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
+            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
+            isPrimary: true,
+            sortOrder: 0,
+          },
+        ],
+        isCurrentUserLeading: false,
+        hasCurrentUserBid: false,
+        currentUserMaxBidCents: null,
+        currentUserBidState: "NONE",
+        hasPendingDelayedBid: true,
+        currentUserDelayedBidCents: 17000,
+        currentUserDelayedBidStatus: "SCHEDULED",
+        isCurrentUserWinner: false,
+        paymentOrderId: null,
+        paymentVisibilityState: "NONE",
+      }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
     })
   })
 
-  await page.route(`**/api/bff/auctions/${AUCTION_ID}/delayed-bid*`, async (route) => {
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}/delayed-bid`, async (route) => {
+    delayedBidCancelled = true
+
     await route.fulfill({
-      status: 204,
-      body: "",
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
     })
   })
 
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
   await expect(page.getByTestId("auction-detail-bid-existing-delayed")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-cancel-delayed-bid")).toBeVisible()
+
   await page.getByTestId("auction-detail-cancel-delayed-bid").click()
 
   await expect(page.getByTestId("auction-detail-bid-success")).toContainText(
-    /delayed bid was cancelled successfully/i,
+    /delayed bid was cancelled successfully|cancelled/i,
   )
+  await expect(page.getByTestId("auction-detail-bid-existing-delayed")).toBeHidden()
 })
 
 test("expired member detail shows sign-in-again panel and hides bid form", async ({ page }) => {

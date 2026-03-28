@@ -1,1 +1,7 @@
-export { useAuthContext as useAuth } from "@/components/auth/AuthProvider";
+"use client"
+
+import { useAuthContext } from "@/components/auth/AuthProvider"
+
+export function useAuth() {
+  return useAuthContext()
+}

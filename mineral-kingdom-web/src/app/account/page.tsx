@@ -1,21 +1,25 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
+import { ProtectedPage } from "@/components/auth/ProtectedPage"
 import { Container } from "@/components/site/Container"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth/useAuth"
 
-export default function AccountPage() {
+function AccountContent() {
   const { me, isLoading, logout } = useAuth()
+  const router = useRouter()
 
   async function onLogout() {
     await logout()
-    window.location.assign("/login")
+    router.replace("/")
+    router.refresh()
   }
 
   return (
-    <Container className="py-10">
+    <>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
         <Button variant="secondary" onClick={onLogout}>
@@ -58,6 +62,16 @@ export default function AccountPage() {
           )}
         </CardContent>
       </Card>
+    </>
+  )
+}
+
+export default function AccountPage() {
+  return (
+    <Container className="py-10">
+      <ProtectedPage>
+        <AccountContent />
+      </ProtectedPage>
     </Container>
   )
 }

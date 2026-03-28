@@ -16,32 +16,31 @@ type OrderPaymentConfirmationResponse = {
   orderCurrencyCode?: string | null
 }
 
+type CaptureOrderPaymentResponse = {
+  paymentId: string
+  provider: string
+  paymentStatus: string
+  providerPaymentId?: string | null
+}
+
 const EARLY_FALLBACK_POLL_WINDOW_MS = 10_000
 const EARLY_FALLBACK_POLL_INTERVAL_MS = 1_500
 const DISCONNECTED_FALLBACK_POLL_INTERVAL_MS = 3_000
+const ORDER_PAYMENT_RETURN_KEY = "mk_order_payment_return_payment_id"
 
 function readStoredOrderPaymentId(): string | null {
   if (typeof window === "undefined") return null
-
-  const keys = Object.keys(window.sessionStorage)
-  const match = keys.find((key) => key.startsWith("mk_order_payment_"))
-  if (!match) return null
-
-  return window.sessionStorage.getItem(match)
+  return window.sessionStorage.getItem(ORDER_PAYMENT_RETURN_KEY)
 }
 
 function writeStoredOrderPaymentId(paymentId: string) {
   if (typeof window === "undefined") return
+  window.sessionStorage.setItem(ORDER_PAYMENT_RETURN_KEY, paymentId)
+}
 
-  const keys = Object.keys(window.sessionStorage)
-  const existingKey = keys.find((key) => key.startsWith("mk_order_payment_"))
-
-  if (existingKey) {
-    window.sessionStorage.setItem(existingKey, paymentId)
-    return
-  }
-
-  window.sessionStorage.setItem(`mk_order_payment_return_fallback`, paymentId)
+function clearStoredOrderPaymentId() {
+  if (typeof window === "undefined") return
+  window.sessionStorage.removeItem(ORDER_PAYMENT_RETURN_KEY)
 }
 
 function isTerminalFailureStatus(status: string | null | undefined) {
@@ -157,10 +156,9 @@ export function OrderPaymentReturnClient() {
   const searchParams = useSearchParams()
 
   const paymentIdFromQuery = searchParams.get("paymentId")
-  const paymentId =
-    paymentIdFromQuery && paymentIdFromQuery.trim().length > 0
-      ? paymentIdFromQuery
-      : readStoredOrderPaymentId()
+
+  const [paymentId, setPaymentId] = useState<string | null>(null)
+  const [hasResolvedPaymentId, setHasResolvedPaymentId] = useState(false)
 
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -171,13 +169,24 @@ export function OrderPaymentReturnClient() {
   const [elapsedMs, setElapsedMs] = useState(0)
 
   const redirectedRef = useRef(false)
-  const startTimeRef = useRef<number>(Date.now())
+  const attemptedPayPalCaptureRef = useRef(false)
+  const startTimeRef = useRef<number>(0)
   const loadInFlightRef = useRef(false)
 
   useEffect(() => {
-    if (paymentIdFromQuery && paymentIdFromQuery.trim().length > 0) {
-      writeStoredOrderPaymentId(paymentIdFromQuery)
+    const resolved =
+      paymentIdFromQuery && paymentIdFromQuery.trim().length > 0
+        ? paymentIdFromQuery
+        : readStoredOrderPaymentId()
+
+    if (resolved && resolved.trim().length > 0) {
+      writeStoredOrderPaymentId(resolved)
+      setPaymentId(resolved)
+    } else {
+      setPaymentId(null)
     }
+
+    setHasResolvedPaymentId(true)
   }, [paymentIdFromQuery])
 
   const sseUrl = useMemo(() => {
@@ -221,9 +230,10 @@ export function OrderPaymentReturnClient() {
     if (redirectedRef.current) return false
     if (isConfirmed) return false
     if (error) return false
+    if (!hasResolvedPaymentId || !paymentId) return false
 
     return isLoading || isPendingStatus(paymentStatus) || paymentStatus === "SUCCEEDED"
-  }, [error, isConfirmed, isLoading, paymentStatus])
+  }, [error, hasResolvedPaymentId, isConfirmed, isLoading, paymentId, paymentStatus])
 
   useEffect(() => {
     if (!shouldWarnBeforeUnload) return
@@ -272,13 +282,62 @@ export function OrderPaymentReturnClient() {
 
       if (body.orderId && body.isConfirmed) {
         redirectedRef.current = true
+        clearStoredOrderPaymentId()
         router.replace(
           `/order-confirmation?orderId=${encodeURIComponent(body.orderId)}&paymentId=${encodeURIComponent(paymentId)}`,
         )
         return
       }
 
-      setMessage(null)
+      const shouldCapturePayPal =
+        !attemptedPayPalCaptureRef.current &&
+        !!body.provider &&
+        body.provider.toUpperCase() === "PAYPAL" &&
+        body.paymentStatus.toUpperCase() === "REDIRECTED"
+
+      if (shouldCapturePayPal) {
+        attemptedPayPalCaptureRef.current = true
+
+        try {
+          const captureRes = await fetch(`/api/bff/order-payments/${paymentId}/capture`, {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          })
+
+          if (!captureRes.ok) {
+            const captureBody = (await captureRes.json().catch(() => null)) as
+              | { message?: string; error?: string }
+              | null
+
+            setError(
+              captureBody?.message ||
+              captureBody?.error ||
+              "We couldn’t capture the PayPal payment right now.",
+            )
+            return
+          }
+
+          const captureBody = (await captureRes.json().catch(() => null)) as
+            | CaptureOrderPaymentResponse
+            | null
+
+          setError(null)
+          setPaymentStatus(captureBody?.paymentStatus ?? body.paymentStatus ?? null)
+          setMessage("We captured your PayPal payment. Finalizing your order now…")
+
+          window.setTimeout(() => {
+            void loadConfirmation()
+          }, 250)
+        } catch {
+          setError("We couldn’t capture the PayPal payment right now.")
+          return
+        }
+      } else {
+        setMessage(null)
+      }
     } catch {
       setError("We couldn’t load payment confirmation right now.")
     } finally {
@@ -288,16 +347,17 @@ export function OrderPaymentReturnClient() {
   }, [paymentId, router])
 
   useEffect(() => {
+    if (!hasResolvedPaymentId || !paymentId) return
     void loadConfirmation()
-  }, [loadConfirmation])
+  }, [hasResolvedPaymentId, loadConfirmation, paymentId])
 
   useEffect(() => {
-    if (!lastEventAt || redirectedRef.current) return
+    if (!lastEventAt || redirectedRef.current || !paymentId) return
     void loadConfirmation()
-  }, [lastEventAt, loadConfirmation])
+  }, [lastEventAt, loadConfirmation, paymentId])
 
   useEffect(() => {
-    if (!paymentId || redirectedRef.current || isConfirmed) return
+    if (!hasResolvedPaymentId || !paymentId || redirectedRef.current || isConfirmed) return
     if (isTerminalFailureStatus(paymentStatus)) return
 
     const withinEarlyWindow = elapsedMs < EARLY_FALLBACK_POLL_WINDOW_MS
@@ -320,11 +380,35 @@ export function OrderPaymentReturnClient() {
   }, [
     connected,
     elapsedMs,
+    hasResolvedPaymentId,
     isConfirmed,
     paymentId,
     paymentStatus,
     loadConfirmation,
   ])
+
+  if (!hasResolvedPaymentId) {
+    return (
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+            We recorded your return from the payment provider
+          </h1>
+          <p className="text-sm text-stone-600" data-testid="order-payment-return-copy">
+            Returning from the payment provider is never treated as proof of payment. We’re locating
+            your payment now.
+          </p>
+        </div>
+
+        <div
+          className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-800 shadow-sm"
+          data-testid="order-payment-return-status-message"
+        >
+          Locating your payment…
+        </div>
+      </div>
+    )
+  }
 
   if (!paymentId) {
     return (
@@ -397,9 +481,7 @@ export function OrderPaymentReturnClient() {
         </div>
       ) : null}
 
-      {isLoading ? (
-        <div className="text-sm text-stone-500">Loading payment status…</div>
-      ) : null}
+      {isLoading ? <div className="text-sm text-stone-500">Loading payment status…</div> : null}
 
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
