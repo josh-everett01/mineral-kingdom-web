@@ -3,10 +3,7 @@ import { CheckoutReturnClient } from "@/components/checkout/CheckoutReturnClient
 
 function CheckoutReturnFallback() {
   return (
-    <section
-      className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-      data-testid="checkout-return-page"
-    >
+    <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
         Checkout Return
       </p>
@@ -22,7 +19,10 @@ function CheckoutReturnFallback() {
 
 export default function CheckoutReturnPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <main
+      className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8"
+      data-testid="checkout-return-page"
+    >
       <Suspense fallback={<CheckoutReturnFallback />}>
         <CheckoutReturnClient />
       </Suspense>
