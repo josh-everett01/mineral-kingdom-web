@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { subscribeToAuthExpired } from "@/lib/auth/clientSessionEvents"
 import type { AuthMe } from "@/lib/auth/types"
 import { SessionExpiryDialog } from "@/components/auth/SessionExpiryDialog"
@@ -56,13 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
-  const queryString = React.useMemo(() => searchParams?.toString() ?? "", [searchParams])
-  const routeKey = React.useMemo(
-    () => (queryString ? `${pathname}?${queryString}` : pathname),
-    [pathname, queryString],
-  )
+  const routeKey = pathname
 
   const warningTimerRef = React.useRef<number | null>(null)
   const expiryTimerRef = React.useRef<number | null>(null)

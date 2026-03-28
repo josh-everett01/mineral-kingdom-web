@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { Suspense } from "react"
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
@@ -21,12 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
-          <Suspense fallback={null}>
-            <AuthProvider>
-              <SiteShell>{children}</SiteShell>
-              <Toaster richColors />
-            </AuthProvider>
-          </Suspense>
+          <AuthProvider>
+            <SiteShell>{children}</SiteShell>
+            <Toaster richColors />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
