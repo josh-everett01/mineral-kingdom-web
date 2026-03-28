@@ -1,31 +1,33 @@
-import { getAccessToken, getRefreshToken, setAuthCookies, clearAuthCookies } from "@/lib/auth/cookies";
-import { apiRefresh } from "@/lib/auth/api";
+import { getAccessToken } from "@/lib/auth/cookies"
 import {
   decodeJwt,
   extractEmail,
   extractEmailVerified,
   extractRoles,
   extractUserId,
-} from "@/lib/auth/jwt";
+  isJwtExpired,
+} from "@/lib/auth/jwt"
 
-export type AppRole = "USER" | "STAFF" | "OWNER" | string;
+export type AppRole = "USER" | "STAFF" | "OWNER" | string
 
 export type AppSession = {
-  isAuthenticated: boolean;
-  user: { id: string | null; email: string | null } | null;
-  roles: AppRole[];
-  emailVerified?: boolean;
-};
+  isAuthenticated: boolean
+  user: { id: string | null; email: string | null } | null
+  roles: AppRole[]
+  emailVerified?: boolean
+}
 
-function buildSession(accessToken: string): AppSession {
-  const payload = decodeJwt(accessToken);
+const emptySession: AppSession = {
+  isAuthenticated: false,
+  user: null,
+  roles: [],
+}
+
+export function sessionFromAccessToken(accessToken: string): AppSession {
+  const payload = decodeJwt(accessToken)
 
   if (!payload) {
-    return {
-      isAuthenticated: false,
-      user: null,
-      roles: [],
-    };
+    return emptySession
   }
 
   return {
@@ -36,41 +38,26 @@ function buildSession(accessToken: string): AppSession {
     },
     roles: extractRoles(payload),
     emailVerified: extractEmailVerified(payload),
-  };
+  }
 }
 
 export async function getCurrentSession(): Promise<AppSession> {
-  const access = await getAccessToken();
-  if (access) {
-    return buildSession(access);
+  const access = await getAccessToken()
+
+  if (!access) {
+    return emptySession
   }
 
-  const refresh = await getRefreshToken();
-  if (!refresh) {
-    return {
-      isAuthenticated: false,
-      user: null,
-      roles: [],
-    };
+  if (isJwtExpired(access)) {
+    return emptySession
   }
 
-  try {
-    const tokens = await apiRefresh(refresh);
-    await setAuthCookies(tokens);
-    return buildSession(tokens.access_token);
-  } catch {
-    await clearAuthCookies();
-    return {
-      isAuthenticated: false,
-      user: null,
-      roles: [],
-    };
-  }
+  return sessionFromAccessToken(access)
 }
 
 export function hasAnyRole(session: AppSession, allowedRoles: readonly string[]): boolean {
-  if (!session.isAuthenticated) return false;
+  if (!session.isAuthenticated) return false
 
-  const granted = new Set(session.roles);
-  return allowedRoles.some((role) => granted.has(role));
+  const granted = new Set(session.roles)
+  return allowedRoles.some((role) => granted.has(role))
 }

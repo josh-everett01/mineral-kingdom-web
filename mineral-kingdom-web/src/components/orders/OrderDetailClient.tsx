@@ -229,7 +229,7 @@ export function OrderDetailClient({ orderId }: Props) {
       }
 
       window.sessionStorage.setItem(
-        `mk_order_payment_${orderId}`,
+        "mk_order_payment_return_payment_id",
         body.orderPaymentId,
       )
 

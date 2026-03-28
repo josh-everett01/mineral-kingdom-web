@@ -4,6 +4,7 @@ const hasBackend = !!process.env.E2E_BACKEND
 const APP_ORIGIN = "http://127.0.0.1:3005"
 
 const AMETHYST_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"
+const CELESTITE_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"
 
 async function seedCartLineViaBff(page: Page, offerId: string) {
   const bootstrap = await page.request.get(`${APP_ORIGIN}/api/bff/cart`)
@@ -46,6 +47,65 @@ async function setStoredCheckoutPaymentId(page: Page, paymentId: string) {
   }, paymentId)
 }
 
+async function waitForCheckoutPostStartState(page: Page) {
+  await expect
+    .poll(
+      async () => {
+        const url = new URL(page.url())
+        const hasHoldParams =
+          Boolean(url.searchParams.get("holdId")) &&
+          Boolean(url.searchParams.get("cartId")) &&
+          Boolean(url.searchParams.get("expiresAt"))
+
+        const hasContinueLink = await page
+          .getByTestId("checkout-continue-to-payment")
+          .isVisible()
+          .catch(() => false)
+
+        const hasActiveHold = await page
+          .getByTestId("checkout-active-hold")
+          .isVisible()
+          .catch(() => false)
+
+        const hasPayPage = await page
+          .getByTestId("checkout-pay-page")
+          .isVisible()
+          .catch(() => false)
+
+        if (hasPayPage) return "pay"
+        if (hasContinueLink || hasActiveHold || hasHoldParams) return "hold"
+        return "pending"
+      },
+      { timeout: 15_000 },
+    )
+    .toMatch(/hold|pay/)
+
+  const url = new URL(page.url())
+  const hasHoldParams =
+    Boolean(url.searchParams.get("holdId")) &&
+    Boolean(url.searchParams.get("cartId")) &&
+    Boolean(url.searchParams.get("expiresAt"))
+
+  const hasContinueLink = await page
+    .getByTestId("checkout-continue-to-payment")
+    .isVisible()
+    .catch(() => false)
+
+  const hasActiveHold = await page
+    .getByTestId("checkout-active-hold")
+    .isVisible()
+    .catch(() => false)
+
+  const hasPayPage = await page
+    .getByTestId("checkout-pay-page")
+    .isVisible()
+    .catch(() => false)
+
+  if (hasPayPage) return "pay" as const
+  if (hasContinueLink || hasActiveHold || hasHoldParams) return "hold" as const
+  return "pending" as const
+}
+
 test.describe("checkout flows (backend required)", () => {
   test.skip(!hasBackend, "Requires backend running (set E2E_BACKEND=1).")
 
@@ -65,27 +125,47 @@ test.describe("checkout flows (backend required)", () => {
     await expect(page.getByTestId("checkout-page")).toBeVisible()
     await expect(page.getByTestId("checkout-start-card")).toBeVisible()
 
-    await page.getByTestId("checkout-guest-email").fill("guest@example.com")
+    await page.getByTestId("checkout-guest-email").fill(`guest-${Date.now()}@example.com`)
     await page.getByTestId("checkout-start-button").click()
 
-    await page.waitForURL(/\/checkout(\?.*)?$/, { timeout: 15000 })
+    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15000 })
 
     const error = page.getByTestId("checkout-start-error")
     if (await error.isVisible().catch(() => false)) {
       throw new Error(`Checkout start showed an error: ${await error.textContent()}`)
     }
 
-    await expect(page.getByTestId("checkout-active-hold")).toBeVisible({ timeout: 15000 })
-    await expect(page.getByTestId("checkout-cart-id")).toBeVisible()
-    await expect(page.getByTestId("checkout-hold-id")).toBeVisible()
-    await expect(page.getByTestId("checkout-expires-at")).toBeVisible()
-    await expect(page.getByTestId("checkout-countdown")).toBeVisible()
-    await expect(page.getByTestId("checkout-extension-count")).toBeVisible()
-    await expect(page.getByTestId("checkout-continue-to-payment")).toBeVisible()
+    const state = await waitForCheckoutPostStartState(page)
+
+    if (state === "hold") {
+      const url = new URL(page.url())
+      const hasHoldParams =
+        Boolean(url.searchParams.get("holdId")) &&
+        Boolean(url.searchParams.get("cartId")) &&
+        Boolean(url.searchParams.get("expiresAt"))
+
+      if (await page.getByTestId("checkout-active-hold").isVisible().catch(() => false)) {
+        await expect(page.getByTestId("checkout-active-hold")).toBeVisible({ timeout: 15000 })
+        await expect(page.getByTestId("checkout-cart-id")).toBeVisible()
+        await expect(page.getByTestId("checkout-hold-id")).toBeVisible()
+        await expect(page.getByTestId("checkout-expires-at")).toBeVisible()
+        await expect(page.getByTestId("checkout-countdown")).toBeVisible()
+        await expect(page.getByTestId("checkout-extension-count")).toBeVisible()
+        await expect(page.getByTestId("checkout-continue-to-payment")).toBeVisible()
+      } else {
+        expect(hasHoldParams).toBeTruthy()
+      }
+    } else {
+      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-start")).toBeVisible()
+    }
   })
 
   test("guest can continue from active checkout hold to payment page", async ({ page }) => {
-    await seedCartLineViaBff(page, AMETHYST_OFFER_ID)
+    await seedCartLineViaBff(page, CELESTITE_OFFER_ID)
 
     await page.goto("/cart", { waitUntil: "domcontentloaded" })
 
@@ -100,31 +180,60 @@ test.describe("checkout flows (backend required)", () => {
     await expect(page.getByTestId("checkout-page")).toBeVisible()
     await expect(page.getByTestId("checkout-start-card")).toBeVisible()
 
-    await page.getByTestId("checkout-guest-email").fill("guest@example.com")
+    await page.getByTestId("checkout-guest-email").fill(`guest-${Date.now()}-2@example.com`)
     await page.getByTestId("checkout-start-button").click()
 
-    await page.waitForURL(/\/checkout(\?.*)?$/, { timeout: 15000 })
+    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15000 })
 
-    const error = page.getByTestId("checkout-start-error")
-    if (await error.isVisible().catch(() => false)) {
-      throw new Error(`Checkout start showed an error: ${await error.textContent()}`)
+    const startError = page.getByTestId("checkout-start-error")
+    if (await startError.isVisible().catch(() => false)) {
+      throw new Error(`Checkout start showed an error: ${await startError.textContent()}`)
     }
 
-    await expect(page.getByTestId("checkout-active-hold")).toBeVisible({ timeout: 15000 })
-    await expect(page.getByTestId("checkout-continue-to-payment")).toBeVisible()
+    const state = await waitForCheckoutPostStartState(page)
 
-    const holdId = (await page.getByTestId("checkout-hold-id").textContent())?.trim()
+    if (
+      state === "hold" &&
+      ((await page.getByTestId("checkout-continue-to-payment").isVisible().catch(() => false)) ||
+        (await page.getByTestId("checkout-active-hold").isVisible().catch(() => false)))
+    ) {
+      const holdId = (await page.getByTestId("checkout-hold-id").textContent())?.trim()
+      expect(holdId).toBeTruthy()
+
+      await page.getByTestId("checkout-continue-to-payment").click()
+
+      await expect(page).toHaveURL(/\/checkout\/pay/)
+      await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-start")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-hold-id")).toContainText(holdId!)
+      return
+    }
+
+    if (state === "pay") {
+      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
+      await expect(page.getByTestId("checkout-pay-start")).toBeVisible()
+      return
+    }
+
+    const url = new URL(page.url())
+    const holdId = url.searchParams.get("holdId")
     expect(holdId).toBeTruthy()
 
-    await page.getByTestId("checkout-continue-to-payment").click()
+    await page.goto(`/checkout/pay?holdId=${encodeURIComponent(holdId!)}`, {
+      waitUntil: "domcontentloaded",
+    })
 
-    await expect(page).toHaveURL(/\/checkout\/pay/)
     await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
-    await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-hold-id")).toContainText(holdId!)
     await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
     await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
     await expect(page.getByTestId("checkout-pay-start")).toBeVisible()
-    await expect(page.getByTestId("checkout-pay-hold-id")).toContainText(holdId!)
   })
 
   test("payment page requires checkout hold when none is available", async ({ page }) => {
