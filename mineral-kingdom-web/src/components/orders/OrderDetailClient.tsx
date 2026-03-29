@@ -1,18 +1,40 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSse } from "@/lib/sse/useSse"
 
 type Props = {
   orderId: string
 }
 
+type OrderTimelineEntryDto = {
+  type?: string
+  title?: string
+  description?: string | null
+  occurredAt?: string | null
+}
+
+type OrderStatusHistoryDto = {
+  entries?: OrderTimelineEntryDto[] | null
+}
+
 type OrderLineDto = {
   id?: string
+  offerId?: string | null
   listingId?: string
+  listingSlug?: string | null
+  title?: string | null
+  primaryImageUrl?: string | null
+  mineralName?: string | null
+  locality?: string | null
   quantity?: number
+  unitPriceCents?: number
+  unitDiscountCents?: number
   unitFinalPriceCents?: number
+  lineSubtotalCents?: number
+  lineDiscountCents?: number
   lineTotalCents?: number
 }
 
@@ -22,6 +44,8 @@ type OrderDto = {
   orderNumber?: string | null
   sourceType?: string | null
   auctionId?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
   paymentDueAt?: string | null
   subtotalCents?: number
   discountTotalCents?: number
@@ -31,6 +55,8 @@ type OrderDto = {
   paymentStatus?: string | null
   paymentProvider?: string | null
   paidAt?: string | null
+  fulfillmentGroupId?: string | null
+  statusHistory?: OrderStatusHistoryDto | null
   lines?: OrderLineDto[] | null
 }
 
@@ -39,6 +65,31 @@ type StartOrderPaymentResponse = {
   provider?: string | null
   status?: string | null
   redirectUrl?: string | null
+}
+
+type OrderRealtimeSnapshot = {
+  orderId?: string
+  userId?: string | null
+  orderNumber?: string | null
+  status?: string | null
+  paymentStatus?: string | null
+  paymentProvider?: string | null
+  paidAt?: string | null
+  paymentDueAt?: string | null
+  totalCents?: number
+  currencyCode?: string | null
+  sourceType?: string | null
+  auctionId?: string | null
+  fulfillmentGroupId?: string | null
+  updatedAt?: string | null
+  newTimelineEntries?: OrderTimelineEntryDto[] | null
+}
+
+type LoadableError = {
+  status?: number
+  message?: string
+  error?: string
+  code?: string
 }
 
 function formatMoney(cents?: number | null, currencyCode?: string | null) {
@@ -59,6 +110,7 @@ function formatDateTime(value?: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   }).format(date)
@@ -96,6 +148,21 @@ function formatPaymentProvider(value?: string | null) {
   }
 }
 
+function formatOrderStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "AWAITING_PAYMENT":
+      return "Awaiting payment"
+    case "READY_TO_FULFILL":
+      return "Paid / Ready to fulfill"
+    case "DRAFT":
+      return "Draft"
+    default:
+      return value.replaceAll("_", " ")
+  }
+}
+
 function isAwaitingPayment(order: OrderDto | null) {
   return order?.status === "AWAITING_PAYMENT"
 }
@@ -104,16 +171,138 @@ function isPaidOrder(order: OrderDto | null) {
   return order?.status === "READY_TO_FULFILL"
 }
 
+function normalizeSseSnapshot(payload: unknown): OrderRealtimeSnapshot {
+  const source = (payload ?? {}) as Record<string, unknown>
+
+  return {
+    orderId: typeof source.OrderId === "string" ? source.OrderId : undefined,
+    userId:
+      typeof source.UserId === "string" || source.UserId === null
+        ? (source.UserId as string | null)
+        : undefined,
+    orderNumber: typeof source.OrderNumber === "string" ? source.OrderNumber : undefined,
+    status: typeof source.Status === "string" ? source.Status : undefined,
+    paymentStatus: typeof source.PaymentStatus === "string" ? source.PaymentStatus : undefined,
+    paymentProvider:
+      typeof source.PaymentProvider === "string" ? source.PaymentProvider : undefined,
+    paidAt:
+      typeof source.PaidAt === "string" || source.PaidAt === null
+        ? (source.PaidAt as string | null)
+        : undefined,
+    paymentDueAt:
+      typeof source.PaymentDueAt === "string" || source.PaymentDueAt === null
+        ? (source.PaymentDueAt as string | null)
+        : undefined,
+    totalCents: typeof source.TotalCents === "number" ? source.TotalCents : undefined,
+    currencyCode: typeof source.CurrencyCode === "string" ? source.CurrencyCode : undefined,
+    sourceType: typeof source.SourceType === "string" ? source.SourceType : undefined,
+    auctionId:
+      typeof source.AuctionId === "string" || source.AuctionId === null
+        ? (source.AuctionId as string | null)
+        : undefined,
+    fulfillmentGroupId:
+      typeof source.FulfillmentGroupId === "string" || source.FulfillmentGroupId === null
+        ? (source.FulfillmentGroupId as string | null)
+        : undefined,
+    updatedAt:
+      typeof source.UpdatedAt === "string" || source.UpdatedAt === null
+        ? (source.UpdatedAt as string | null)
+        : undefined,
+    newTimelineEntries: Array.isArray(source.NewTimelineEntries)
+      ? (source.NewTimelineEntries as OrderTimelineEntryDto[])
+      : null,
+  }
+}
+
+function mergeTimelineEntries(
+  existing: OrderTimelineEntryDto[] | null | undefined,
+  incoming: OrderTimelineEntryDto[] | null | undefined,
+) {
+  const current = [...(existing ?? [])]
+
+  for (const entry of incoming ?? []) {
+    const key = `${entry.type ?? ""}|${entry.occurredAt ?? ""}|${entry.title ?? ""}`
+    const exists = current.some(
+      (candidate) =>
+        `${candidate.type ?? ""}|${candidate.occurredAt ?? ""}|${candidate.title ?? ""}` === key,
+    )
+
+    if (!exists) {
+      current.push(entry)
+    }
+  }
+
+  return current.sort((a, b) => {
+    const aTime = a.occurredAt ? new Date(a.occurredAt).getTime() : 0
+    const bTime = b.occurredAt ? new Date(b.occurredAt).getTime() : 0
+    return aTime - bTime
+  })
+}
+
+function deriveSseFallbackTimelineEntry(
+  previous: OrderDto | null,
+  snapshot: OrderRealtimeSnapshot | null,
+): OrderTimelineEntryDto[] {
+  if (!previous || !snapshot?.status || previous.status === snapshot.status) {
+    return []
+  }
+
+  if (snapshot.status === "READY_TO_FULFILL") {
+    return [
+      {
+        type: "READY_TO_FULFILL",
+        title: "Ready to fulfill",
+        description: "Payment has been confirmed and the order is ready for fulfillment.",
+        occurredAt: snapshot.paidAt ?? snapshot.updatedAt ?? new Date().toISOString(),
+      },
+    ]
+  }
+
+  return [
+    {
+      type: snapshot.status,
+      title: formatOrderStatus(snapshot.status),
+      description: "The order status was updated.",
+      occurredAt: snapshot.updatedAt ?? new Date().toISOString(),
+    },
+  ]
+}
+
+function timelineEntriesFromOrder(order: OrderDto | null) {
+  return (order?.statusHistory?.entries ?? []).slice().sort((a, b) => {
+    const aTime = a.occurredAt ? new Date(a.occurredAt).getTime() : 0
+    const bTime = b.occurredAt ? new Date(b.occurredAt).getTime() : 0
+    return aTime - bTime
+  })
+}
+
+function listingHref(line: OrderLineDto) {
+  if (!line.listingId) return null
+  if (line.listingSlug) {
+    return `/listing/${line.listingSlug}-${line.listingId}`
+  }
+
+  return `/listing/${line.listingId}`
+}
+
 export function OrderDetailClient({ orderId }: Props) {
   const router = useRouter()
 
   const [order, setOrder] = useState<OrderDto | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorStatus, setErrorStatus] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProvider, setSelectedProvider] = useState<"stripe" | "paypal">("stripe")
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
+
+  const sse = useSse<OrderRealtimeSnapshot>(
+    order ? `/api/bff/sse/orders/${encodeURIComponent(orderId)}` : null,
+    {
+      parseSnapshot: (data) => normalizeSseSnapshot(JSON.parse(data) as unknown),
+    },
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -121,6 +310,7 @@ export function OrderDetailClient({ orderId }: Props) {
     async function loadOrder() {
       setIsLoading(true)
       setError(null)
+      setErrorStatus(null)
       setSessionExpired(false)
 
       try {
@@ -128,21 +318,34 @@ export function OrderDetailClient({ orderId }: Props) {
           cache: "no-store",
         })
 
-        const body = (await res.json().catch(() => null)) as
-          | OrderDto
-          | { message?: string; error?: string }
-          | null
+        const body = (await res.json().catch(() => null)) as OrderDto | LoadableError | null
 
         if (!isMounted) return
 
         if (res.status === 401) {
           setSessionExpired(true)
+          setErrorStatus(401)
           setError("Your session expired. Please sign in again.")
           setIsLoading(false)
           return
         }
 
+        if (res.status === 403) {
+          setErrorStatus(403)
+          setError("You do not have access to this order.")
+          setIsLoading(false)
+          return
+        }
+
+        if (res.status === 404) {
+          setErrorStatus(404)
+          setError("We couldn’t find this order.")
+          setIsLoading(false)
+          return
+        }
+
         if (!res.ok || !body || !("id" in body)) {
+          setErrorStatus(res.status)
           setError(
             (body && "message" in body && typeof body.message === "string" && body.message) ||
             (body && "error" in body && typeof body.error === "string" && body.error) ||
@@ -156,6 +359,7 @@ export function OrderDetailClient({ orderId }: Props) {
         setIsLoading(false)
       } catch {
         if (!isMounted) return
+        setErrorStatus(500)
         setError("We couldn’t load this order.")
         setIsLoading(false)
       }
@@ -168,8 +372,42 @@ export function OrderDetailClient({ orderId }: Props) {
     }
   }, [orderId])
 
+  const liveOrder = useMemo(() => {
+    if (!order) return null
+
+    const snapshot = sse.snapshot
+    if (!snapshot) return order
+
+    const incomingEntries =
+      snapshot.newTimelineEntries?.length
+        ? snapshot.newTimelineEntries
+        : deriveSseFallbackTimelineEntry(order, snapshot)
+
+    return {
+      ...order,
+      orderNumber: snapshot.orderNumber ?? order.orderNumber,
+      status: snapshot.status ?? order.status,
+      paymentStatus: snapshot.paymentStatus ?? order.paymentStatus,
+      paymentProvider: snapshot.paymentProvider ?? order.paymentProvider,
+      paidAt: snapshot.paidAt ?? order.paidAt,
+      paymentDueAt: snapshot.paymentDueAt ?? order.paymentDueAt,
+      totalCents: snapshot.totalCents ?? order.totalCents,
+      currencyCode: snapshot.currencyCode ?? order.currencyCode,
+      sourceType: snapshot.sourceType ?? order.sourceType,
+      auctionId: snapshot.auctionId !== undefined ? snapshot.auctionId : order.auctionId,
+      fulfillmentGroupId:
+        snapshot.fulfillmentGroupId !== undefined
+          ? snapshot.fulfillmentGroupId
+          : order.fulfillmentGroupId,
+      updatedAt: snapshot.updatedAt ?? order.updatedAt,
+      statusHistory: {
+        entries: mergeTimelineEntries(order.statusHistory?.entries, incomingEntries),
+      },
+    }
+  }, [order, sse.snapshot])
+
   async function handleStartPayment() {
-    if (!order || !isAwaitingPayment(order) || isSubmittingPayment) return
+    if (!liveOrder || !isAwaitingPayment(liveOrder) || isSubmittingPayment) return
 
     setIsSubmittingPayment(true)
     setPaymentError(null)
@@ -178,21 +416,18 @@ export function OrderDetailClient({ orderId }: Props) {
     try {
       const origin = window.location.origin
 
-      const res = await fetch(
-        `/api/bff/orders/${encodeURIComponent(orderId)}/payments/start`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            accept: "application/json",
-          },
-          body: JSON.stringify({
-            provider: selectedProvider,
-            successUrl: `${origin}/orders/return`,
-            cancelUrl: `${origin}/orders/${encodeURIComponent(orderId)}`,
-          }),
+      const res = await fetch(`/api/bff/orders/${encodeURIComponent(orderId)}/payments/start`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
         },
-      )
+        body: JSON.stringify({
+          provider: selectedProvider,
+          successUrl: `${origin}/orders/return`,
+          cancelUrl: `${origin}/orders/${encodeURIComponent(orderId)}`,
+        }),
+      })
 
       const body = (await res.json().catch(() => null)) as
         | StartOrderPaymentResponse
@@ -228,10 +463,7 @@ export function OrderDetailClient({ orderId }: Props) {
         return
       }
 
-      window.sessionStorage.setItem(
-        "mk_order_payment_return_payment_id",
-        body.orderPaymentId,
-      )
+      window.sessionStorage.setItem("mk_order_payment_return_payment_id", body.orderPaymentId)
 
       const redirectUrl = new URL(body.redirectUrl)
       redirectUrl.searchParams.set("paymentId", body.orderPaymentId)
@@ -248,13 +480,15 @@ export function OrderDetailClient({ orderId }: Props) {
     router.push(`/login?returnTo=${returnTo}`)
   }
 
-  const total = formatMoney(order?.totalCents, order?.currencyCode)
-  const subtotal = formatMoney(order?.subtotalCents, order?.currencyCode)
-  const discount = formatMoney(order?.discountTotalCents, order?.currencyCode)
-  const paymentDueAt = formatDateTime(order?.paymentDueAt)
-  const paidAt = formatDateTime(order?.paidAt)
-  const paymentStatus = formatPaymentStatus(order?.paymentStatus)
-  const paymentProvider = formatPaymentProvider(order?.paymentProvider)
+  const total = formatMoney(liveOrder?.totalCents, liveOrder?.currencyCode)
+  const subtotal = formatMoney(liveOrder?.subtotalCents, liveOrder?.currencyCode)
+  const discount = formatMoney(liveOrder?.discountTotalCents, liveOrder?.currencyCode)
+  const paymentDueAt = formatDateTime(liveOrder?.paymentDueAt)
+  const paidAt = formatDateTime(liveOrder?.paidAt)
+  const updatedAt = formatDateTime(liveOrder?.updatedAt)
+  const paymentStatus = formatPaymentStatus(liveOrder?.paymentStatus)
+  const paymentProvider = formatPaymentProvider(liveOrder?.paymentProvider)
+  const timelineEntries = useMemo(() => timelineEntriesFromOrder(liveOrder), [liveOrder])
 
   if (isLoading) {
     return (
@@ -267,25 +501,47 @@ export function OrderDetailClient({ orderId }: Props) {
     )
   }
 
-  if (error && !order) {
+  if (error && !liveOrder) {
     return (
       <section
         className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
         data-testid="order-detail-error"
       >
-        <h1 className="text-xl font-semibold text-red-900">We couldn’t load this order</h1>
+        <h1 className="text-xl font-semibold text-red-900">
+          {errorStatus === 404 ? "Order not found" : "We couldn’t load this order"}
+        </h1>
         <p className="mt-2 text-sm text-red-800">{error}</p>
 
-        {sessionExpired ? (
-          <button
-            type="button"
-            onClick={goToLogin}
-            className="mt-4 inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
-            data-testid="order-detail-sign-in-again"
+        <div className="mt-4 flex flex-wrap gap-3">
+          {sessionExpired || errorStatus === 401 ? (
+            <button
+              type="button"
+              onClick={goToLogin}
+              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              data-testid="order-detail-sign-in-again"
+            >
+              Sign in again
+            </button>
+          ) : null}
+
+          {errorStatus === 403 ? (
+            <Link
+              href="/403"
+              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              data-testid="order-detail-go-forbidden"
+            >
+              View access information
+            </Link>
+          ) : null}
+
+          <Link
+            href="/dashboard"
+            className="inline-flex rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-900 transition hover:bg-red-100"
+            data-testid="order-detail-back-dashboard"
           >
-            Sign in again
-          </button>
-        ) : null}
+            Back to dashboard
+          </Link>
+        </div>
       </section>
     )
   }
@@ -297,93 +553,138 @@ export function OrderDetailClient({ orderId }: Props) {
     >
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Order</p>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-          {isAwaitingPayment(order) ? "Complete payment for your order" : "Order details"}
-        </h1>
-        <p className="text-sm text-stone-600 sm:text-base">
-          Auction winners pay from an order-owned flow. This page reflects backend-authoritative
-          order and payment state.
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+              {isAwaitingPayment(liveOrder) ? "Complete payment for your order" : "Order details"}
+            </h1>
+            <p className="mt-2 text-sm text-stone-600 sm:text-base">
+              This page shows backend-confirmed order and payment status and updates live when that
+              status changes.
+            </p>
+          </div>
+
+          <div
+            className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-700"
+            data-testid="order-detail-live-status"
+          >
+            {sse.connected
+              ? "Live updates active"
+              : sse.connecting
+                ? "Reconnecting to live updates…"
+                : sse.error
+                  ? "Live updates unavailable"
+                  : "Waiting for live updates…"}
+          </div>
+        </div>
+
+        {sse.error ? (
+          <p className="text-xs text-amber-700" data-testid="order-detail-live-status-message">
+            Showing the last known order state. You can refresh the page if needed.
+          </p>
+        ) : null}
       </div>
 
-      <dl className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
+      <section
+        className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-2 lg:grid-cols-3"
+        data-testid="order-detail-summary"
+      >
         <div>
-          <dt className="font-medium text-stone-500">Order number</dt>
-          <dd data-testid="order-detail-number">{order?.orderNumber ?? "—"}</dd>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Order number</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-number">
+            {liveOrder?.orderNumber ?? "—"}
+          </p>
         </div>
-        <div>
-          <dt className="font-medium text-stone-500">Status</dt>
-          <dd data-testid="order-detail-status">{order?.status ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Source</dt>
-          <dd data-testid="order-detail-source">{order?.sourceType ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Auction</dt>
-          <dd data-testid="order-detail-auction-id">{order?.auctionId ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Payment due</dt>
-          <dd data-testid="order-detail-payment-due">{paymentDueAt ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Payment status</dt>
-          <dd data-testid="order-detail-payment-status">{paymentStatus}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Provider</dt>
-          <dd data-testid="order-detail-payment-provider">{paymentProvider}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Paid at</dt>
-          <dd data-testid="order-detail-paid-at">{paidAt ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Subtotal</dt>
-          <dd data-testid="order-detail-subtotal">{subtotal ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Discount</dt>
-          <dd data-testid="order-detail-discount">{discount ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Total</dt>
-          <dd data-testid="order-detail-total">{total ?? "—"}</dd>
-        </div>
-      </dl>
 
-      {order?.lines?.length ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-          data-testid="order-detail-lines"
-        >
-          <h2 className="text-lg font-semibold text-stone-900">Order lines</h2>
-          <ul className="mt-3 space-y-3">
-            {order.lines.map((line) => (
-              <li
-                key={line.id ?? `${line.listingId}-${line.quantity}`}
-                className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-sm text-stone-700"
-              >
-                <div>Listing: {line.listingId ?? "—"}</div>
-                <div>Quantity: {line.quantity ?? 0}</div>
-                <div>
-                  Line total: {formatMoney(line.lineTotalCents, order.currencyCode) ?? "—"}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Status</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-status">
+            {formatOrderStatus(liveOrder?.status)}
+          </p>
+        </div>
 
-      {isAwaitingPayment(order) ? (
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Source</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-source">
+            {liveOrder?.sourceType ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Auction</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-auction-id">
+            {liveOrder?.auctionId ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Payment due</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-due">
+            {paymentDueAt ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Paid at</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-paid-at">
+            {paidAt ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+            Payment status
+          </p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-status">
+            {paymentStatus}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Provider</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-provider">
+            {paymentProvider}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Last updated</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-updated-at">
+            {updatedAt ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Subtotal</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-subtotal">
+            {subtotal ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Discount</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-discount">
+            {discount ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Total</p>
+          <p className="mt-1 text-sm font-semibold text-stone-900" data-testid="order-detail-total">
+            {total ?? "—"}
+          </p>
+        </div>
+      </section>
+
+      {isAwaitingPayment(liveOrder) ? (
         <section
           className="rounded-2xl border border-blue-200 bg-blue-50 p-6"
           data-testid="order-detail-payment-panel"
         >
           <h2 className="text-lg font-semibold text-blue-950">Payment is due</h2>
           <p className="mt-2 text-sm leading-6 text-blue-900">
-            Choose a payment provider to complete this auction order.
+            Choose a payment provider to complete this order. Payment is only considered complete
+            when the backend confirms it.
           </p>
 
           <fieldset className="mt-4 space-y-2">
@@ -423,12 +724,12 @@ export function OrderDetailClient({ orderId }: Props) {
               className="inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="order-detail-start-payment"
             >
-              {isSubmittingPayment ? "Starting payment..." : "Pay Now"}
+              {isSubmittingPayment ? "Starting payment..." : "Pay now"}
             </button>
 
-            {order?.auctionId ? (
+            {liveOrder?.auctionId ? (
               <Link
-                href={`/auctions/${order.auctionId}`}
+                href={`/auctions/${liveOrder.auctionId}`}
                 className="inline-flex rounded-full border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-950 transition hover:bg-blue-100"
                 data-testid="order-detail-back-to-auction"
               >
@@ -459,20 +760,20 @@ export function OrderDetailClient({ orderId }: Props) {
         </section>
       ) : null}
 
-      {isPaidOrder(order) ? (
+      {isPaidOrder(liveOrder) ? (
         <section
           className="rounded-2xl border border-green-200 bg-green-50 p-6"
           data-testid="order-detail-paid-state"
         >
           <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
           <p className="mt-2 text-sm leading-6 text-green-800">
-            This auction order has been paid successfully and is moving through fulfillment.
+            Payment has been confirmed and this order is moving into fulfillment.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
-            {order?.auctionId ? (
+            {liveOrder?.auctionId ? (
               <Link
-                href={`/auctions/${order.auctionId}`}
+                href={`/auctions/${liveOrder.auctionId}`}
                 className="inline-flex rounded-full border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-900 transition hover:bg-green-100"
                 data-testid="order-detail-paid-back-to-auction"
               >
@@ -490,6 +791,146 @@ export function OrderDetailClient({ orderId }: Props) {
           </div>
         </section>
       ) : null}
+
+      {liveOrder?.lines?.length ? (
+        <section
+          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          data-testid="order-detail-lines"
+        >
+          <h2 className="text-lg font-semibold text-stone-900">Line items</h2>
+          <ul className="mt-3 space-y-3">
+            {liveOrder.lines.map((line) => {
+              const href = listingHref(line)
+              const lineTotal = formatMoney(line.lineTotalCents, liveOrder.currencyCode)
+              const unitFinal = formatMoney(line.unitFinalPriceCents, liveOrder.currencyCode)
+
+              return (
+                <li
+                  key={line.id ?? `${line.listingId}-${line.quantity}`}
+                  className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                >
+                  <div className="flex gap-4">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                      {line.primaryImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={line.primaryImageUrl}
+                          alt={line.title ?? "Order line item"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
+                          No image
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      {href ? (
+                        <Link
+                          href={href}
+                          className="text-base font-semibold text-stone-900 hover:underline"
+                          data-testid="order-detail-line-link"
+                        >
+                          {line.title ?? "Listing"}
+                        </Link>
+                      ) : (
+                        <p className="text-base font-semibold text-stone-900">
+                          {line.title ?? "Listing"}
+                        </p>
+                      )}
+
+                      {line.mineralName || line.locality ? (
+                        <p className="mt-1 text-sm text-stone-600">
+                          {[line.mineralName, line.locality].filter(Boolean).join(" • ")}
+                        </p>
+                      ) : null}
+
+                      <dl className="mt-3 grid gap-2 text-sm text-stone-700 sm:grid-cols-3">
+                        <div>
+                          <dt className="font-medium text-stone-500">Quantity</dt>
+                          <dd>{line.quantity ?? 0}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-medium text-stone-500">Unit price</dt>
+                          <dd>{unitFinal ?? "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-medium text-stone-500">Line total</dt>
+                          <dd>{lineTotal ?? "—"}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <section
+        className="rounded-2xl border border-stone-200 bg-white p-4"
+        data-testid="order-detail-timeline"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-stone-900">Order history</h2>
+          {updatedAt ? <p className="text-xs text-stone-500">Last updated {updatedAt}</p> : null}
+        </div>
+
+        {timelineEntries.length ? (
+          <ol className="mt-4 space-y-4">
+            {timelineEntries.map((entry, index) => (
+              <li
+                key={`${entry.type ?? "entry"}-${entry.occurredAt ?? index}-${entry.title ?? ""}`}
+                className="border-l-2 border-stone-200 pl-4"
+                data-testid="order-detail-timeline-entry"
+              >
+                <p className="text-sm font-semibold text-stone-900">
+                  {entry.title ?? formatOrderStatus(entry.type)}
+                </p>
+                {entry.description ? (
+                  <p className="mt-1 text-sm text-stone-600">{entry.description}</p>
+                ) : null}
+                <p className="mt-1 text-xs text-stone-500">
+                  {formatDateTime(entry.occurredAt) ?? "—"}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-3 text-sm text-stone-600">
+            Order history is not available yet for this order.
+          </p>
+        )}
+      </section>
+
+      <section
+        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        data-testid="order-detail-support"
+      >
+        <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
+        <p className="mt-2 text-sm text-stone-600">
+          If something looks wrong with this order or payment state, contact support and include
+          your order number.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            data-testid="order-detail-support-dashboard"
+          >
+            Back to dashboard
+          </Link>
+          <Link
+            href="/support"
+            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+            data-testid="order-detail-support-link"
+          >
+            Contact support
+          </Link>
+        </div>
+      </section>
     </section>
   )
 }
