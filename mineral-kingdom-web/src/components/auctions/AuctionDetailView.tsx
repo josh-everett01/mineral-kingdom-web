@@ -258,6 +258,26 @@ export function AuctionDetailView({ data }: Props) {
         </div>
       </section>
 
+      {typeof detail.quotedShippingCents === "number" ? (
+        <section
+          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          data-testid="auction-detail-shipping-summary"
+        >
+          <h2 className="text-base font-semibold text-stone-900">Shipping</h2>
+          <p className="mt-2 text-sm text-stone-700" data-testid="auction-detail-quoted-shipping">
+            Standard shipping for this auction is{" "}
+            <span className="font-semibold">
+              {formatMoney(detail.quotedShippingCents) ?? "—"}
+            </span>
+            .
+          </p>
+          <p className="mt-2 text-sm text-stone-600">
+            If you win, you can either pay your winning bid plus shipping now, or choose Open Box and
+            pay shipping later when your combined shipment is ready.
+          </p>
+        </section>
+      ) : null}
+
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div
