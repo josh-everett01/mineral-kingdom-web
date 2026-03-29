@@ -64,6 +64,69 @@ test("auction detail happy path renders public auction information", async ({ pa
   await expect(page.getByTestId("auction-detail-closing-time")).toBeVisible()
 })
 
+test("auction detail shows quoted shipping guidance when shipping quote is present", async ({ page }) => {
+  await page.route("**/api/bff/auth/me", async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        isAuthenticated: false,
+        user: null,
+        roles: [],
+      }),
+    })
+  })
+
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        auctionId: AUCTION_ID,
+        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
+        title: "Arkansas Quartz Cluster",
+        description: "Deterministic E2E auction listing fixture.",
+        status: "LIVE",
+        currentPriceCents: 15500,
+        bidCount: 2,
+        reserveMet: true,
+        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
+        minimumNextBidCents: 16000,
+        quotedShippingCents: 2500,
+        media: [
+          {
+            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
+            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
+            isPrimary: true,
+            sortOrder: 0,
+          },
+        ],
+        isCurrentUserLeading: null,
+        hasCurrentUserBid: null,
+        currentUserMaxBidCents: null,
+        currentUserBidState: null,
+        hasPendingDelayedBid: null,
+        currentUserDelayedBidCents: null,
+        currentUserDelayedBidStatus: null,
+        isCurrentUserWinner: null,
+        paymentOrderId: null,
+        paymentVisibilityState: null,
+      }),
+    })
+  })
+
+  await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
+
+  await expect(page.getByTestId("auction-detail-shipping-summary")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-quoted-shipping")).toContainText("$25.00")
+  await expect(page.getByTestId("auction-detail-shipping-summary")).toContainText(
+    /pay your winning bid plus shipping now/i,
+  )
+  await expect(page.getByTestId("auction-detail-shipping-summary")).toContainText(
+    /choose open box and pay shipping later/i,
+  )
+})
+
 test("auction detail renders not-found state cleanly", async ({ page }) => {
   const auctionId = "00000000-0000-0000-0000-000000000000"
 

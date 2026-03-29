@@ -20,6 +20,7 @@ export type AuctionDetailDto = {
   reserveMet?: boolean | null
   closingTimeUtc: string
   minimumNextBidCents: number
+  quotedShippingCents?: number | null
   media: AuctionDetailMediaDto[]
   isCurrentUserLeading?: boolean | null
   hasCurrentUserBid?: boolean | null

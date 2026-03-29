@@ -47,6 +47,8 @@ type OrderDto = {
   createdAt?: string | null
   updatedAt?: string | null
   paymentDueAt?: string | null
+  shippingMode?: string | null
+  shippingAmountCents?: number
   subtotalCents?: number
   discountTotalCents?: number
   totalCents?: number
@@ -65,6 +67,18 @@ type StartOrderPaymentResponse = {
   provider?: string | null
   status?: string | null
   redirectUrl?: string | null
+}
+
+type AuctionShippingChoiceResponse = {
+  orderId?: string
+  shippingMode?: string | null
+  subtotalCents?: number
+  discountTotalCents?: number
+  shippingAmountCents?: number
+  totalCents?: number
+  currencyCode?: string | null
+  auctionId?: string | null
+  quotedShippingCents?: number | null
 }
 
 type OrderRealtimeSnapshot = {
@@ -91,6 +105,8 @@ type LoadableError = {
   error?: string
   code?: string
 }
+
+type ShippingMode = "UNSELECTED" | "SHIP_NOW" | "OPEN_BOX"
 
 function formatMoney(cents?: number | null, currencyCode?: string | null) {
   if (cents == null) return null
@@ -163,12 +179,35 @@ function formatOrderStatus(value?: string | null) {
   }
 }
 
+function formatShippingMode(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "UNSELECTED":
+      return "Not selected"
+    case "SHIP_NOW":
+      return "Ship now"
+    case "OPEN_BOX":
+      return "Open Box"
+    default:
+      return value.replaceAll("_", " ")
+  }
+}
+
 function isAwaitingPayment(order: OrderDto | null) {
   return order?.status === "AWAITING_PAYMENT"
 }
 
 function isPaidOrder(order: OrderDto | null) {
   return order?.status === "READY_TO_FULFILL"
+}
+
+function isAuctionAwaitingShippingChoice(order: OrderDto | null) {
+  return (
+    order?.sourceType === "AUCTION" &&
+    order?.status === "AWAITING_PAYMENT" &&
+    (order?.shippingMode ?? "UNSELECTED") === "UNSELECTED"
+  )
 }
 
 function normalizeSseSnapshot(payload: unknown): OrderRealtimeSnapshot {
@@ -297,6 +336,10 @@ export function OrderDetailClient({ orderId }: Props) {
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
 
+  const [selectedShippingMode, setSelectedShippingMode] = useState<ShippingMode>("UNSELECTED")
+  const [isSavingShippingChoice, setIsSavingShippingChoice] = useState(false)
+  const [shippingChoiceError, setShippingChoiceError] = useState<string | null>(null)
+
   const sse = useSse<OrderRealtimeSnapshot>(
     order ? `/api/bff/sse/orders/${encodeURIComponent(orderId)}` : null,
     {
@@ -356,6 +399,7 @@ export function OrderDetailClient({ orderId }: Props) {
         }
 
         setOrder(body)
+        setSelectedShippingMode((body.shippingMode as ShippingMode | undefined) ?? "UNSELECTED")
         setIsLoading(false)
       } catch {
         if (!isMounted) return
@@ -383,15 +427,19 @@ export function OrderDetailClient({ orderId }: Props) {
         ? snapshot.newTimelineEntries
         : deriveSseFallbackTimelineEntry(order, snapshot)
 
+    const nextStatus = snapshot.status ?? order.status
+    const shouldApplyRealtimeTotals =
+      nextStatus === "READY_TO_FULFILL" || nextStatus === "PAID"
+
     return {
       ...order,
       orderNumber: snapshot.orderNumber ?? order.orderNumber,
-      status: snapshot.status ?? order.status,
+      status: nextStatus,
       paymentStatus: snapshot.paymentStatus ?? order.paymentStatus,
       paymentProvider: snapshot.paymentProvider ?? order.paymentProvider,
       paidAt: snapshot.paidAt ?? order.paidAt,
       paymentDueAt: snapshot.paymentDueAt ?? order.paymentDueAt,
-      totalCents: snapshot.totalCents ?? order.totalCents,
+      totalCents: shouldApplyRealtimeTotals ? (snapshot.totalCents ?? order.totalCents) : order.totalCents,
       currencyCode: snapshot.currencyCode ?? order.currencyCode,
       sourceType: snapshot.sourceType ?? order.sourceType,
       auctionId: snapshot.auctionId !== undefined ? snapshot.auctionId : order.auctionId,
@@ -406,8 +454,81 @@ export function OrderDetailClient({ orderId }: Props) {
     }
   }, [order, sse.snapshot])
 
+  async function handleSaveShippingChoice() {
+    if (!liveOrder || liveOrder.sourceType !== "AUCTION" || !isAwaitingPayment(liveOrder)) return
+    if (selectedShippingMode === "UNSELECTED") {
+      setShippingChoiceError("Please choose how you want this auction order shipped before paying.")
+      return
+    }
+
+    setIsSavingShippingChoice(true)
+    setShippingChoiceError(null)
+    setPaymentError(null)
+    setSessionExpired(false)
+
+    try {
+      const res = await fetch(`/api/bff/orders/${encodeURIComponent(orderId)}/auction-shipping-choice`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          shippingMode: selectedShippingMode,
+        }),
+      })
+
+      const body = (await res.json().catch(() => null)) as
+        | AuctionShippingChoiceResponse
+        | { message?: string; error?: string }
+        | null
+
+      if (res.status === 401) {
+        setSessionExpired(true)
+        setShippingChoiceError("Your session expired. Please sign in again.")
+        setIsSavingShippingChoice(false)
+        return
+      }
+
+      if (!res.ok || !body || !("shippingMode" in body)) {
+        setShippingChoiceError(
+          (body && "message" in body && typeof body.message === "string" && body.message) ||
+          (body && "error" in body && typeof body.error === "string" && body.error) ||
+          "We couldn’t update your shipping choice.",
+        )
+        setIsSavingShippingChoice(false)
+        return
+      }
+
+      setOrder((current) =>
+        current
+          ? {
+            ...current,
+            shippingMode: body.shippingMode ?? current.shippingMode,
+            shippingAmountCents: body.shippingAmountCents ?? current.shippingAmountCents,
+            subtotalCents: body.subtotalCents ?? current.subtotalCents,
+            discountTotalCents: body.discountTotalCents ?? current.discountTotalCents,
+            totalCents: body.totalCents ?? current.totalCents,
+            currencyCode: body.currencyCode ?? current.currencyCode,
+          }
+          : current,
+      )
+
+      setSelectedShippingMode((body.shippingMode as ShippingMode | undefined) ?? selectedShippingMode)
+      setIsSavingShippingChoice(false)
+    } catch {
+      setShippingChoiceError("We couldn’t update your shipping choice.")
+      setIsSavingShippingChoice(false)
+    }
+  }
+
   async function handleStartPayment() {
     if (!liveOrder || !isAwaitingPayment(liveOrder) || isSubmittingPayment) return
+
+    if (liveOrder.sourceType === "AUCTION" && (liveOrder.shippingMode ?? "UNSELECTED") === "UNSELECTED") {
+      setPaymentError("Choose Ship now or Open Box before starting payment.")
+      return
+    }
 
     setIsSubmittingPayment(true)
     setPaymentError(null)
@@ -480,15 +601,22 @@ export function OrderDetailClient({ orderId }: Props) {
     router.push(`/login?returnTo=${returnTo}`)
   }
 
+  const effectiveShippingMode: ShippingMode =
+    selectedShippingMode !== "UNSELECTED"
+      ? selectedShippingMode
+      : ((liveOrder?.shippingMode as ShippingMode | undefined) ?? "UNSELECTED")
+
   const total = formatMoney(liveOrder?.totalCents, liveOrder?.currencyCode)
   const subtotal = formatMoney(liveOrder?.subtotalCents, liveOrder?.currencyCode)
   const discount = formatMoney(liveOrder?.discountTotalCents, liveOrder?.currencyCode)
+  const shipping = formatMoney(liveOrder?.shippingAmountCents, liveOrder?.currencyCode)
   const paymentDueAt = formatDateTime(liveOrder?.paymentDueAt)
   const paidAt = formatDateTime(liveOrder?.paidAt)
   const updatedAt = formatDateTime(liveOrder?.updatedAt)
   const paymentStatus = formatPaymentStatus(liveOrder?.paymentStatus)
   const paymentProvider = formatPaymentProvider(liveOrder?.paymentProvider)
   const timelineEntries = useMemo(() => timelineEntriesFromOrder(liveOrder), [liveOrder])
+  const shippingChoiceRequired = isAuctionAwaitingShippingChoice(liveOrder)
 
   if (isLoading) {
     return (
@@ -655,6 +783,13 @@ export function OrderDetailClient({ orderId }: Props) {
         </div>
 
         <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Shipping mode</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-shipping-mode">
+            {formatShippingMode(liveOrder?.shippingMode)}
+          </p>
+        </div>
+
+        <div>
           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Subtotal</p>
           <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-subtotal">
             {subtotal ?? "—"}
@@ -669,12 +804,110 @@ export function OrderDetailClient({ orderId }: Props) {
         </div>
 
         <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Shipping</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-shipping">
+            {shipping ?? "—"}
+          </p>
+        </div>
+
+        <div>
           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Total</p>
           <p className="mt-1 text-sm font-semibold text-stone-900" data-testid="order-detail-total">
             {total ?? "—"}
           </p>
         </div>
       </section>
+
+      {isAwaitingPayment(liveOrder) && liveOrder?.sourceType === "AUCTION" ? (
+        <section
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-6"
+          data-testid="order-detail-auction-shipping-choice-panel"
+        >
+          <h2 className="text-lg font-semibold text-amber-950">Choose how you want this auction shipped</h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            Standard auction checkout includes shipping in this payment. If you prefer to combine
+            shipping later, choose Open Box and shipping will be billed later by shipping invoice.
+          </p>
+
+          <fieldset className="mt-4 space-y-3">
+            <legend className="block text-sm font-medium text-amber-950">Shipping choice</legend>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-950">
+              <input
+                type="radio"
+                name="auction-shipping-mode"
+                value="SHIP_NOW"
+                checked={effectiveShippingMode === "SHIP_NOW"}
+                onChange={() => setSelectedShippingMode("SHIP_NOW")}
+                data-testid="order-detail-shipping-mode-ship-now"
+              />
+              <span>
+                <span className="block font-semibold">Ship now</span>
+                <span className="mt-1 block text-amber-800">
+                  Pay your auction total including shipping in one transaction now.
+                </span>
+              </span>
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-950">
+              <input
+                type="radio"
+                name="auction-shipping-mode"
+                value="OPEN_BOX"
+                checked={effectiveShippingMode === "OPEN_BOX"}
+                onChange={() => setSelectedShippingMode("OPEN_BOX")}
+                data-testid="order-detail-shipping-mode-open-box"
+              />
+              <span>
+                <span className="block font-semibold">Keep in Open Box</span>
+                <span className="mt-1 block text-amber-800">
+                  Pay for this item now and pay shipping later when your Open Box shipment is ready.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleSaveShippingChoice}
+              disabled={isSavingShippingChoice}
+              className="inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+              data-testid="order-detail-save-shipping-choice"
+            >
+              {isSavingShippingChoice ? "Saving choice..." : "Update total"}
+            </button>
+          </div>
+
+          {shippingChoiceRequired ? (
+            <p
+              className="mt-4 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm text-amber-900"
+              data-testid="order-detail-shipping-choice-required"
+            >
+              Choose Ship now or Open Box before starting payment.
+            </p>
+          ) : null}
+
+          {effectiveShippingMode === "OPEN_BOX" ? (
+            <p
+              className="mt-4 text-sm text-amber-900"
+              data-testid="order-detail-open-box-note"
+            >
+              Open Box means you are paying for this auction item now. Shipping will be billed
+              later through a separate shipping invoice when your Open Box shipment is closed.
+            </p>
+          ) : null}
+
+          {shippingChoiceError ? (
+            <div
+              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              data-testid="order-detail-shipping-choice-error"
+            >
+              {shippingChoiceError}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {isAwaitingPayment(liveOrder) ? (
         <section
@@ -720,7 +953,7 @@ export function OrderDetailClient({ orderId }: Props) {
             <button
               type="button"
               onClick={handleStartPayment}
-              disabled={isSubmittingPayment}
+              disabled={isSubmittingPayment || shippingChoiceRequired}
               className="inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="order-detail-start-payment"
             >

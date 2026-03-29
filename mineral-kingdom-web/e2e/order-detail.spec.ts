@@ -37,6 +37,8 @@ function buildAwaitingPaymentOrder() {
     createdAt: "2026-03-28T18:10:00.000000+00:00",
     updatedAt: "2026-03-28T18:15:00.000000+00:00",
     paymentDueAt: "2026-03-30T18:10:00.000000+00:00",
+    shippingMode: "UNSELECTED",
+    shippingAmountCents: 0,
     subtotalCents: 11000,
     discountTotalCents: 0,
     totalCents: 11000,
@@ -162,6 +164,48 @@ async function mockOrderPaymentStart(page: Page) {
         provider: "stripe",
         status: "REDIRECTED",
         redirectUrl: "https://payments.example.com/checkout",
+      }),
+    })
+  })
+}
+
+async function mockAuctionShippingChoice(page: Page, options?: { mode?: "SHIP_NOW" | "OPEN_BOX" }) {
+  await page.route(`**/api/bff/orders/${ORDER_ID}/auction-shipping-choice`, async (route) => {
+    const requested = route.request().postDataJSON() as { shippingMode?: string } | undefined
+    const mode = options?.mode ?? (requested?.shippingMode === "OPEN_BOX" ? "OPEN_BOX" : "SHIP_NOW")
+
+    if (mode === "OPEN_BOX") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          orderId: ORDER_ID,
+          shippingMode: "OPEN_BOX",
+          subtotalCents: 11000,
+          discountTotalCents: 0,
+          shippingAmountCents: 0,
+          totalCents: 11000,
+          currencyCode: "USD",
+          auctionId: "a7e13d24-c538-4e66-9437-e55e6ef78d08",
+          quotedShippingCents: null,
+        }),
+      })
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        orderId: ORDER_ID,
+        shippingMode: "SHIP_NOW",
+        subtotalCents: 11000,
+        discountTotalCents: 0,
+        shippingAmountCents: 2500,
+        totalCents: 13500,
+        currencyCode: "USD",
+        auctionId: "a7e13d24-c538-4e66-9437-e55e6ef78d08",
+        quotedShippingCents: 2500,
       }),
     })
   })
@@ -308,5 +352,59 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-status")).toContainText("Awaiting payment")
     await expect(page.getByTestId("order-detail-payment-panel")).toBeVisible()
     await expect(page.getByTestId("order-detail-paid-state")).toHaveCount(0)
+  })
+
+  test("auction order blocks payment until a shipping choice is selected", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOrderDetail(page, buildAwaitingPaymentOrder())
+    await mockOrderSsePending(page)
+    await mockOrderPaymentStart(page)
+    await mockAuctionShippingChoice(page)
+
+    await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("order-detail-auction-shipping-choice-panel")).toBeVisible()
+    await expect(page.getByTestId("order-detail-shipping-choice-required")).toBeVisible()
+
+    const payNow = page.getByTestId("order-detail-start-payment")
+    await expect(payNow).toBeDisabled()
+  })
+
+  test("ship now updates shipping and total before payment", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOrderDetail(page, buildAwaitingPaymentOrder())
+    await mockOrderSsePending(page)
+    await mockOrderPaymentStart(page)
+    await mockAuctionShippingChoice(page, { mode: "SHIP_NOW" })
+
+    await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
+
+    await page.getByTestId("order-detail-shipping-mode-ship-now").check()
+    await page.getByTestId("order-detail-save-shipping-choice").click()
+
+    await expect(page.getByTestId("order-detail-shipping-mode")).toContainText("Ship now")
+    await expect(page.getByTestId("order-detail-shipping")).toContainText("$25.00")
+    await expect(page.getByTestId("order-detail-total")).toContainText("$135.00")
+    await expect(page.getByTestId("order-detail-shipping-choice-required")).toHaveCount(0)
+    await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
+  })
+
+  test("open box keeps shipping deferred and total item-only before payment", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOrderDetail(page, buildAwaitingPaymentOrder())
+    await mockOrderSsePending(page)
+    await mockOrderPaymentStart(page)
+    await mockAuctionShippingChoice(page, { mode: "OPEN_BOX" })
+
+    await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
+
+    await page.getByTestId("order-detail-shipping-mode-open-box").check()
+    await page.getByTestId("order-detail-save-shipping-choice").click()
+
+    await expect(page.getByTestId("order-detail-shipping-mode")).toContainText("Open Box")
+    await expect(page.getByTestId("order-detail-shipping")).toContainText("$0.00")
+    await expect(page.getByTestId("order-detail-total")).toContainText("$110.00")
+    await expect(page.getByTestId("order-detail-open-box-note")).toBeVisible()
+    await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
   })
 })
