@@ -11,8 +11,37 @@ function buildUnpaidInvoice() {
     currencyCode: "USD",
     status: "UNPAID",
     paidAt: null,
-    provider: null,
-    providerCheckoutId: null,
+    provider: "STRIPE",
+    providerCheckoutId: "ship_pay_123",
+    dueAt: "2026-03-31T16:00:00.000000+00:00",
+    createdAt: "2026-03-29T15:55:00.000000+00:00",
+    updatedAt: "2026-03-29T16:00:00.000000+00:00",
+    itemCount: 1,
+    previewTitle: "Quartz Cluster",
+    previewImageUrl: "https://cdn.example.com/quartz.jpg",
+    auctionOrderCount: 1,
+    storeOrderCount: 0,
+    relatedOrders: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+      },
+    ],
+    items: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+        listingId: "05dee38f-6f8e-402e-bc39-9ef63df92956",
+        listingSlug: "quartz-cluster",
+        title: "Quartz Cluster",
+        primaryImageUrl: "https://cdn.example.com/quartz.jpg",
+        mineralName: "Quartz",
+        locality: "Arkansas, USA",
+        quantity: 1,
+      },
+    ],
   }
 }
 
@@ -26,6 +55,35 @@ function buildPaidInvoice() {
     paidAt: "2026-03-29T16:10:00.000000+00:00",
     provider: "STRIPE",
     providerCheckoutId: "pi_test_123",
+    dueAt: "2026-03-31T16:00:00.000000+00:00",
+    createdAt: "2026-03-29T15:55:00.000000+00:00",
+    updatedAt: "2026-03-29T16:10:00.000000+00:00",
+    itemCount: 1,
+    previewTitle: "Quartz Cluster",
+    previewImageUrl: "https://cdn.example.com/quartz.jpg",
+    auctionOrderCount: 1,
+    storeOrderCount: 0,
+    relatedOrders: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+      },
+    ],
+    items: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+        listingId: "05dee38f-6f8e-402e-bc39-9ef63df92956",
+        listingSlug: "quartz-cluster",
+        title: "Quartz Cluster",
+        primaryImageUrl: "https://cdn.example.com/quartz.jpg",
+        mineralName: "Quartz",
+        locality: "Arkansas, USA",
+        quantity: 1,
+      },
+    ],
   }
 }
 
@@ -101,7 +159,7 @@ data: ${JSON.stringify({
         CurrencyCode: "USD",
         Status: "UNPAID",
         PaidAt: null,
-        Provider: null,
+        Provider: "STRIPE",
         UpdatedAt: "2026-03-29T16:00:00.000000+00:00",
       })}
 
@@ -137,7 +195,7 @@ data: ${JSON.stringify({
 }
 
 test.describe("shipping invoice detail", () => {
-  test("unpaid shipping invoice renders and shows pay CTA", async ({ page }) => {
+  test("unpaid shipping invoice renders payment context, covered items, and pay CTA", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockShippingInvoiceDetail(page, buildUnpaidInvoice())
     await mockShippingInvoiceSseUnpaid(page)
@@ -148,13 +206,36 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-card")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Unpaid")
     await expect(page.getByTestId("shipping-invoice-detail-amount")).toContainText("$42.00")
-    await expect(page.getByTestId("shipping-invoice-detail-context")).toContainText(
-      /open box/i,
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Shipping payment",
     )
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Quartz Cluster",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Shipping invoice • Open Box • Order MK-20260329-SHIP01",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Shipping payment only",
+    )
+
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "This invoice covers shipping for",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Quartz Cluster",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Order MK-20260329-SHIP01 • Auction",
+    )
+
+    await expect(page.getByTestId("shipping-invoice-detail-awaiting-confirmation")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toBeVisible()
   })
 
-  test("paid shipping invoice renders without pay CTA", async ({ page }) => {
+  test("paid shipping invoice renders confirmed payment messaging without pay CTA", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockShippingInvoiceDetail(page, buildPaidInvoice())
     await mockShippingInvoiceSsePaid(page)
@@ -163,6 +244,7 @@ test.describe("shipping invoice detail", () => {
 
     await expect(page.getByTestId("shipping-invoice-detail-card")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
+    await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })
@@ -176,7 +258,6 @@ test.describe("shipping invoice detail", () => {
     await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
 
     await page.getByTestId("shipping-invoice-detail-provider-stripe").check()
-
     await page.getByTestId("shipping-invoice-detail-start-payment").click()
 
     await page.waitForURL("**/mock-shipping-invoice-checkout")
@@ -196,6 +277,7 @@ test.describe("shipping invoice detail", () => {
     await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
 
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
+    await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })
@@ -231,10 +313,10 @@ data: ${JSON.stringify({
     await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
 
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
+    await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
 
-    // Simulate SSE becoming unavailable after the page has already reached paid state.
     await page.unroute(`**/api/bff/sse/shipping-invoices/${INVOICE_ID}`)
     await page.route(`**/api/bff/sse/shipping-invoices/${INVOICE_ID}`, async (route) => {
       await route.fulfill({
@@ -251,6 +333,7 @@ data: ${JSON.stringify({
     await page.reload({ waitUntil: "domcontentloaded" })
 
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
+    await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })

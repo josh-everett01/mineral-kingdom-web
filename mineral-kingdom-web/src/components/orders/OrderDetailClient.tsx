@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { PaymentContextRow } from '../payments/PaymentContextRow'
+import { PaymentStatusPanel } from "@/components/payments/PaymentStatusPanel"
 import { useSse } from "@/lib/sse/useSse"
 
 type Props = {
@@ -132,6 +134,18 @@ function formatDateTime(value?: string | null) {
   }).format(date)
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date)
+}
+
 function formatPaymentStatus(value?: string | null) {
   if (!value) return "—"
 
@@ -208,6 +222,69 @@ function isAuctionAwaitingShippingChoice(order: OrderDto | null) {
     order?.status === "AWAITING_PAYMENT" &&
     (order?.shippingMode ?? "UNSELECTED") === "UNSELECTED"
   )
+}
+
+function isAwaitingProviderConfirmation(order: OrderDto | null) {
+  const paymentStatus = order?.paymentStatus?.toUpperCase()
+  return isAwaitingPayment(order) && (paymentStatus === "PENDING" || paymentStatus === "REDIRECTED")
+}
+
+function buildOrderPaymentTitle(order: OrderDto | null) {
+  if (!order) return "Order"
+
+  const lines = order.lines ?? []
+  const firstTitle = lines[0]?.title?.trim()
+
+  if (firstTitle && lines.length > 1) {
+    return `${firstTitle} + ${lines.length - 1} more`
+  }
+
+  if (firstTitle) return firstTitle
+  return `Order ${order.orderNumber ?? ""}`.trim()
+}
+
+function buildOrderPaymentContext(order: OrderDto | null) {
+  if (!order) return "Order payment"
+
+  const sourceType =
+    order.sourceType?.toUpperCase() === "AUCTION"
+      ? "Auction"
+      : order.sourceType?.toUpperCase() === "STORE"
+        ? "Store"
+        : "Order"
+
+  return `Order ${order.orderNumber ?? "—"} • ${sourceType}`
+}
+
+function buildOrderPaymentHelper(order: OrderDto | null) {
+  if (!order) return null
+
+  const parts: string[] = []
+
+  if (order.paymentDueAt) {
+    const formatted = formatDate(order.paymentDueAt)
+    if (formatted) {
+      parts.push(`Due ${formatted}`)
+    }
+  }
+
+  if (order.shippingMode) {
+    const shippingMode = order.shippingMode.toUpperCase()
+    if (shippingMode === "UNSELECTED") {
+      parts.push("Shipping not selected")
+    } else if (shippingMode === "SHIP_NOW") {
+      parts.push("Ship now selected")
+    } else if (shippingMode === "OPEN_BOX") {
+      parts.push("Open Box selected")
+    }
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : null
+}
+
+function buildOrderPaymentImage(order: OrderDto | null) {
+  if (!order?.lines?.length) return null
+  return order.lines[0]?.primaryImageUrl ?? null
 }
 
 function normalizeSseSnapshot(payload: unknown): OrderRealtimeSnapshot {
@@ -818,6 +895,20 @@ export function OrderDetailClient({ orderId }: Props) {
         </div>
       </section>
 
+      {isAwaitingPayment(liveOrder) ? (
+        <PaymentContextRow
+          testId="order-detail-payment-context"
+          imageUrl={buildOrderPaymentImage(liveOrder)}
+          imageAlt={buildOrderPaymentTitle(liveOrder)}
+          fallbackLabel="Order"
+          badge="Order payment"
+          title={buildOrderPaymentTitle(liveOrder)}
+          context={buildOrderPaymentContext(liveOrder)}
+          helper={buildOrderPaymentHelper(liveOrder)}
+          amount={formatMoney(liveOrder?.totalCents ?? null, liveOrder?.currencyCode ?? "USD")}
+        />
+      ) : null}
+
       {isAwaitingPayment(liveOrder) && liveOrder?.sourceType === "AUCTION" ? (
         <section
           className="rounded-2xl border border-amber-200 bg-amber-50 p-6"
@@ -909,6 +1000,18 @@ export function OrderDetailClient({ orderId }: Props) {
         </section>
       ) : null}
 
+      {isAwaitingProviderConfirmation(liveOrder) ? (
+        <PaymentStatusPanel
+          testId="order-detail-payment-awaiting-confirmation"
+          tone="info"
+          title="Waiting for payment confirmation"
+          body="Your order payment has been started, but it is not final until we confirm it from the payment provider. This page will update automatically when confirmation arrives."
+          actions={[
+            { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
+          ]}
+        />
+      ) : null}
+
       {isAwaitingPayment(liveOrder) ? (
         <section
           className="rounded-2xl border border-blue-200 bg-blue-50 p-6"
@@ -972,11 +1075,16 @@ export function OrderDetailClient({ orderId }: Props) {
           </div>
 
           {paymentError ? (
-            <div
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-              data-testid="order-detail-payment-error"
-            >
-              {paymentError}
+            <div className="mt-4">
+              <PaymentStatusPanel
+                testId="order-detail-payment-error"
+                tone="error"
+                title="We couldn’t start payment"
+                body={paymentError}
+                actions={[
+                  { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
+                ]}
+              />
             </div>
           ) : null}
 
@@ -994,43 +1102,55 @@ export function OrderDetailClient({ orderId }: Props) {
       ) : null}
 
       {isPaidOrder(liveOrder) ? (
-        <section
-          className="rounded-2xl border border-green-200 bg-green-50 p-6"
-          data-testid="order-detail-paid-state"
-        >
-          <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
-          <p className="mt-2 text-sm leading-6 text-green-800">
-            Payment has been confirmed and this order is moving into fulfillment.
-          </p>
+        <>
+          <PaymentStatusPanel
+            testId="order-detail-payment-confirmed"
+            tone="success"
+            title="Order payment confirmed"
+            body="We’ve confirmed payment for this order. You can continue tracking it from your order details and dashboard."
+            actions={[
+              { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
+            ]}
+          />
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            {liveOrder?.auctionId ? (
+          <section
+            className="rounded-2xl border border-green-200 bg-green-50 p-6"
+            data-testid="order-detail-paid-state"
+          >
+            <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
+            <p className="mt-2 text-sm leading-6 text-green-800">
+              Payment has been confirmed and this order is moving into fulfillment.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {liveOrder?.auctionId ? (
+                <Link
+                  href={`/auctions/${liveOrder.auctionId}`}
+                  className="inline-flex rounded-full border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-900 transition hover:bg-green-100"
+                  data-testid="order-detail-paid-back-to-auction"
+                >
+                  Back to auction
+                </Link>
+              ) : null}
+
               <Link
-                href={`/auctions/${liveOrder.auctionId}`}
-                className="inline-flex rounded-full border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-900 transition hover:bg-green-100"
-                data-testid="order-detail-paid-back-to-auction"
+                href="/dashboard"
+                className="inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
+                data-testid="order-detail-paid-go-dashboard"
               >
-                Back to auction
+                Go to dashboard
               </Link>
-            ) : null}
-
-            <Link
-              href="/dashboard"
-              className="inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
-              data-testid="order-detail-paid-go-dashboard"
-            >
-              Go to dashboard
-            </Link>
-          </div>
-        </section>
+            </div>
+          </section>
+        </>
       ) : null}
 
-      {liveOrder?.lines?.length ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-          data-testid="order-detail-lines"
-        >
-          <h2 className="text-lg font-semibold text-stone-900">Line items</h2>
+      <section
+        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        data-testid="order-detail-lines"
+      >
+        <h2 className="text-lg font-semibold text-stone-900">Line items</h2>
+        {liveOrder?.lines?.length ? (
           <ul className="mt-3 space-y-3">
             {liveOrder.lines.map((line) => {
               const href = listingHref(line)
@@ -1099,8 +1219,10 @@ export function OrderDetailClient({ orderId }: Props) {
               )
             })}
           </ul>
-        </section>
-      ) : null}
+        ) : (
+          <p className="mt-3 text-sm text-stone-600">No line items are available for this order yet.</p>
+        )}
+      </section>
 
       <section
         className="rounded-2xl border border-stone-200 bg-white p-4"
