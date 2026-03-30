@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { apiRefresh } from "@/lib/auth/api"
 import {
   clearAuthCookies,
@@ -12,8 +12,19 @@ const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
 
 type RouteContext = {
   params: Promise<{
-    paymentId: string
+    invoiceId: string
   }>
+}
+
+type ShippingInvoiceDetailDto = {
+  shippingInvoiceId?: string
+  fulfillmentGroupId?: string | null
+  amountCents?: number
+  currencyCode?: string | null
+  status?: string | null
+  paidAt?: string | null
+  provider?: string | null
+  providerCheckoutId?: string | null
 }
 
 function contentType(res: Response) {
@@ -38,20 +49,20 @@ async function readBody(res: Response): Promise<unknown> {
   }
 }
 
-async function forwardOnce(paymentId: string, accessToken: string) {
+async function forwardOnce(accessToken: string) {
   const headers = new Headers()
   headers.set("accept", "application/json")
   headers.set("authorization", `Bearer ${accessToken}`)
 
-  return fetch(`${API_BASE_URL}/api/order-payments/${encodeURIComponent(paymentId)}/confirmation`, {
+  return fetch(`${API_BASE_URL}/api/me/open-box/shipping-invoice`, {
     method: "GET",
     headers,
     cache: "no-store",
   })
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
-  const { paymentId } = await context.params
+export async function GET(_req: Request, context: RouteContext) {
+  const { invoiceId } = await context.params
 
   const initialAccess = await getAccessToken()
   const refresh = await getRefreshToken()
@@ -89,7 +100,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       )
     }
 
-    upstream = await forwardOnce(paymentId, access)
+    upstream = await forwardOnce(access)
   } catch (e) {
     const err = toProxyError(
       503,
@@ -97,7 +108,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         code: "UPSTREAM_UNAVAILABLE",
         message: e instanceof Error ? e.message : "Upstream fetch failed",
       },
-      "Order payment confirmation service unavailable",
+      "Shipping invoice service unavailable",
     )
 
     return NextResponse.json(err, { status: 503 })
@@ -108,7 +119,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       const tokens = await apiRefresh(refresh)
       await setAuthCookies(tokens)
       access = tokens.access_token
-      upstream = await forwardOnce(paymentId, access)
+      upstream = await forwardOnce(access)
     } catch {
       await clearAuthCookies()
 
@@ -125,6 +136,17 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (upstream.status === 404) {
+    return NextResponse.json(
+      {
+        status: 404,
+        code: "SHIPPING_INVOICE_NOT_FOUND",
+        message: "We couldn’t find this shipping invoice.",
+      },
+      { status: 404 },
+    )
+  }
+
   if (!upstream.ok) {
     const upstreamBody = await readBody(upstream)
     const err = toProxyError(
@@ -136,22 +158,33 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json(err, { status: upstream.status })
   }
 
-  const ct = contentType(upstream)
+  const body = (await upstream.json()) as ShippingInvoiceDetailDto | null
 
-  if (ct.includes("application/json")) {
-    const json = await upstream.json()
-    return NextResponse.json(json, {
-      status: upstream.status,
-      headers: {
-        "cache-control": "no-store",
+  if (!body?.shippingInvoiceId) {
+    return NextResponse.json(
+      {
+        status: 404,
+        code: "SHIPPING_INVOICE_NOT_FOUND",
+        message: "We couldn’t find this shipping invoice.",
       },
-    })
+      { status: 404 },
+    )
   }
 
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
+  if (body.shippingInvoiceId !== invoiceId) {
+    return NextResponse.json(
+      {
+        status: 404,
+        code: "SHIPPING_INVOICE_NOT_FOUND",
+        message: "We couldn’t find this shipping invoice.",
+      },
+      { status: 404 },
+    )
+  }
+
+  return NextResponse.json(body, {
+    status: 200,
     headers: {
-      "content-type": upstream.headers.get("content-type") ?? "application/json",
       "cache-control": "no-store",
     },
   })

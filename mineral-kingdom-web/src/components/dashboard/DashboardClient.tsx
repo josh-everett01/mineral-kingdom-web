@@ -1,9 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { bffFetch, type ApiError } from "@/lib/api/bffFetch"
 import type {
-  DashboardActionItem,
   DashboardOpenBoxDto,
   DashboardOrderSummaryDto,
   DashboardShippingInvoiceDto,
@@ -11,7 +11,6 @@ import type {
   DashboardWonAuctionDto,
   MemberDashboardDto,
 } from "@/lib/dashboard/types"
-import { DashboardActionStrip } from "@/components/dashboard/DashboardActionStrip"
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { DashboardWidgetCard } from "@/components/dashboard/DashboardWidgetCard"
@@ -66,6 +65,10 @@ function normalizeOrder(raw: unknown): DashboardOrderSummaryDto | null {
   const createdAt = asString(raw.createdAt ?? raw.CreatedAt)
   const paymentDueAt = asString(raw.paymentDueAt ?? raw.PaymentDueAt)
   const fulfillmentGroupId = asString(raw.fulfillmentGroupId ?? raw.FulfillmentGroupId)
+  const shippingMode = asString(raw.shippingMode ?? raw.ShippingMode)
+  const itemCount = asNumber(raw.itemCount ?? raw.ItemCount)
+  const previewTitle = asString(raw.previewTitle ?? raw.PreviewTitle)
+  const previewImageUrl = asString(raw.previewImageUrl ?? raw.PreviewImageUrl)
 
   if (
     !orderId ||
@@ -89,6 +92,10 @@ function normalizeOrder(raw: unknown): DashboardOrderSummaryDto | null {
     createdAt,
     paymentDueAt,
     fulfillmentGroupId,
+    shippingMode,
+    itemCount: itemCount ?? 0,
+    previewTitle,
+    previewImageUrl,
   }
 }
 
@@ -126,6 +133,12 @@ function normalizeShippingInvoice(raw: unknown): DashboardShippingInvoiceDto | n
   const providerCheckoutId = asString(raw.providerCheckoutId ?? raw.ProviderCheckoutId)
   const paidAt = asString(raw.paidAt ?? raw.PaidAt)
   const createdAt = asString(raw.createdAt ?? raw.CreatedAt)
+  const itemCount = asNumber(raw.itemCount ?? raw.ItemCount)
+  const previewTitle = asString(raw.previewTitle ?? raw.PreviewTitle)
+  const previewImageUrl = asString(raw.previewImageUrl ?? raw.PreviewImageUrl)
+  const auctionOrderCount = asNumber(raw.auctionOrderCount ?? raw.AuctionOrderCount)
+  const storeOrderCount = asNumber(raw.storeOrderCount ?? raw.StoreOrderCount)
+  const relatedOrdersRaw = asArray(raw.relatedOrders ?? raw.RelatedOrders)
 
   if (
     !shippingInvoiceId ||
@@ -148,6 +161,28 @@ function normalizeShippingInvoice(raw: unknown): DashboardShippingInvoiceDto | n
     providerCheckoutId,
     paidAt,
     createdAt,
+    itemCount: itemCount ?? 0,
+    previewTitle,
+    previewImageUrl,
+    auctionOrderCount: auctionOrderCount ?? 0,
+    storeOrderCount: storeOrderCount ?? 0,
+    relatedOrders: relatedOrdersRaw
+      .map((value: unknown) => {
+        if (!isRecord(value)) return null
+
+        const orderId = asString(value.orderId ?? value.OrderId)
+        const orderNumber = asString(value.orderNumber ?? value.OrderNumber)
+        const sourceType = asString(value.sourceType ?? value.SourceType)
+
+        if (!orderId || !orderNumber || !sourceType) return null
+
+        return { orderId, orderNumber, sourceType }
+      })
+      .filter(
+        (
+          value: { orderId: string; orderNumber: string; sourceType: string } | null,
+        ): value is { orderId: string; orderNumber: string; sourceType: string } => value !== null,
+      ),
   }
 }
 
@@ -205,6 +240,23 @@ function normalizeStatus(value?: string | null) {
   return (value ?? "").trim().toUpperCase()
 }
 
+function normalizeShippingMode(value?: string | null) {
+  return (value ?? "").trim().toUpperCase()
+}
+
+function formatShippingMode(value?: string | null) {
+  switch (normalizeShippingMode(value)) {
+    case "UNSELECTED":
+      return "Shipping not selected"
+    case "SHIP_NOW":
+      return "Ship now selected"
+    case "OPEN_BOX":
+      return "Open Box selected"
+    default:
+      return "Shipping details pending"
+  }
+}
+
 function isOrderPayable(order: DashboardOrderSummaryDto) {
   const status = normalizeStatus(order.status)
   return status === "AWAITING_PAYMENT" || status === "UNPAID" || status === "PAYMENT_REQUIRED"
@@ -223,84 +275,291 @@ function isOrderFulfillmentState(order: DashboardOrderSummaryDto) {
 }
 
 function isInvoicePayable(invoice: DashboardShippingInvoiceDto) {
-  const status = normalizeStatus(invoice.status)
-  return status !== "PAID"
+  return normalizeStatus(invoice.status) !== "PAID"
 }
 
-function buildActionItems(data: MemberDashboardDto): DashboardActionItem[] {
-  const items: DashboardActionItem[] = []
+function buildTitle(previewTitle?: string | null, itemCount?: number) {
+  const title = previewTitle?.trim()
+  const count = itemCount ?? 0
 
-  const payableOrder = data.unpaidAuctionOrders.find(isOrderPayable)
-  if (payableOrder) {
-    items.push({
-      label: `Pay order ${payableOrder.orderNumber}`,
-      href: `/orders/${payableOrder.orderId}`,
-      tone: "primary",
-    })
+  if (title && count > 1) {
+    return `${title} + ${count - 1} more`
   }
 
-  const recentOrder = data.paidOrders.find(isOrderFulfillmentState)
-  if (recentOrder) {
-    items.push({
-      label: `View order ${recentOrder.orderNumber}`,
-      href: `/orders/${recentOrder.orderId}`,
-    })
+  if (title) return title
+
+  if (count > 1) return `${count} items`
+  if (count === 1) return "1 item"
+
+  return "Untitled item"
+}
+
+function orderContext(order: DashboardOrderSummaryDto) {
+  const type = order.sourceType === "AUCTION" ? "Auction" : "Order"
+  const due = order.paymentDueAt ? ` • Due ${formatDate(order.paymentDueAt)}` : ""
+  return `Order ${order.orderNumber} • ${type}${due}`
+}
+
+function shippingInvoiceContext(invoice: DashboardShippingInvoiceDto) {
+  const firstOrder = invoice.relatedOrders[0]
+
+  if (invoice.relatedOrders.length === 1 && firstOrder) {
+    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber}`
   }
 
-  const payableInvoice = data.shippingInvoices.find(isInvoicePayable)
-  if (payableInvoice) {
-    items.push({
-      label: `Contact support about shipping invoice`,
-      href: `mailto:support@mineralkingdom.net?subject=Shipping%20invoice%20${encodeURIComponent(payableInvoice.shippingInvoiceId)}`,
-    })
+  if (firstOrder && invoice.relatedOrders.length > 1) {
+    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber} + ${invoice.relatedOrders.length - 1} more`
   }
 
-  return items.slice(0, 4)
+  return "Shipping invoice • Open Box"
+}
+
+function shippingActionLabel(invoice: DashboardShippingInvoiceDto) {
+  if (invoice.previewTitle) {
+    return `Pay shipping for ${buildTitle(invoice.previewTitle, invoice.itemCount)}`
+  }
+
+  if (invoice.relatedOrders.length === 1) {
+    return `Pay shipping for order ${invoice.relatedOrders[0].orderNumber}`
+  }
+
+  if (invoice.auctionOrderCount > 0 && invoice.storeOrderCount === 0) {
+    return `Pay shipping for ${invoice.auctionOrderCount} auction ${invoice.auctionOrderCount === 1 ? "win" : "wins"}`
+  }
+
+  return `Pay shipping for ${invoice.itemCount || invoice.relatedOrders.length} ${invoice.itemCount === 1 ? "item" : "items"}`
+}
+
+function Thumbnail({
+  src,
+  alt,
+  fallback,
+  testId,
+}: {
+  src?: string | null
+  alt: string
+  fallback: string
+  testId?: string
+}) {
+  return (
+    <div
+      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100"
+      data-testid={testId}
+    >
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={alt} className="h-full w-full object-cover" />
+      ) : (
+        <span className="px-2 text-center text-[11px] font-medium text-stone-500">{fallback}</span>
+      )}
+    </div>
+  )
+}
+
+function ActionRow({
+  title,
+  context,
+  helper,
+  amount,
+  ctaLabel,
+  href,
+  imageUrl,
+  imageAlt,
+  testId,
+}: {
+  title: string
+  context: string
+  helper: string
+  amount: string
+  ctaLabel: string
+  href: string
+  imageUrl?: string | null
+  imageAlt: string
+  testId: string
+}) {
+  return (
+    <div
+      className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      data-testid={testId}
+    >
+      <Thumbnail
+        src={imageUrl}
+        alt={imageAlt}
+        fallback="Mineral"
+        testId={`${testId}-thumbnail`}
+      />
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-stone-900">{title}</p>
+        <p className="mt-1 text-sm text-stone-600">{context}</p>
+        <p className="mt-1 text-sm text-stone-700">{helper}</p>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-3">
+        <p className="text-sm font-semibold text-stone-900">{amount}</p>
+        <Link
+          href={href}
+          className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+        >
+          {ctaLabel}
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function ActionSection({
+  title,
+  description,
+  children,
+  testId,
+}: {
+  title: string
+  description: string
+  children: React.ReactNode
+  testId: string
+}) {
+  return (
+    <section
+      className="rounded-2xl border border-stone-200 bg-stone-50 p-5 shadow-sm"
+      data-testid={testId}
+    >
+      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
+      <p className="mt-1 text-sm text-stone-600">{description}</p>
+      <div className="mt-4 space-y-3">{children}</div>
+    </section>
+  )
+}
+
+function InProgressSection({ data }: { data: MemberDashboardDto }) {
+  const openBox = data.openBox
+  const paidOrders = data.paidOrders.filter(isOrderFulfillmentState).slice(0, 4)
+  const pendingInvoices = data.shippingInvoices
+    .filter((invoice) => !isInvoicePayable(invoice) && normalizeStatus(invoice.status) !== "PAID")
+    .slice(0, 4)
+
+  if (!openBox && paidOrders.length === 0 && pendingInvoices.length === 0) {
+    return null
+  }
+
+  return (
+    <section
+      className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      data-testid="dashboard-in-progress"
+    >
+      <h2 className="text-lg font-semibold text-stone-900">In progress</h2>
+      <p className="mt-1 text-sm text-stone-600">
+        Items you already paid for that are still moving through Open Box or fulfillment.
+      </p>
+
+      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+        {openBox ? (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Open Box</h3>
+            <div className="mt-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <p className="text-sm font-semibold text-stone-900">
+                {openBox.orders.length} item{openBox.orders.length === 1 ? "" : "s"} currently in your Open Box
+              </p>
+              <p className="mt-1 text-sm text-stone-600">
+                Status: {openBox.status} • Updated {formatDate(openBox.updatedAt) ?? "recently"}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {paidOrders.length > 0 ? (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Orders in fulfillment</h3>
+            <div className="mt-3 space-y-3">
+              {paidOrders.map((order) => (
+                <div
+                  key={order.orderId}
+                  className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                >
+                  <Thumbnail
+                    src={order.previewImageUrl}
+                    alt={order.previewTitle ?? order.orderNumber}
+                    fallback="Order"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-stone-900">
+                      {buildTitle(order.previewTitle, order.itemCount)}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-600">
+                      Order {order.orderNumber} • {order.status}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/orders/${order.orderId}`}
+                    className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                  >
+                    View
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {pendingInvoices.length > 0 ? (
+          <div className="lg:col-span-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Shipping awaiting confirmation</h3>
+            <div className="mt-3 space-y-3">
+              {pendingInvoices.map((invoice) => (
+                <div
+                  key={invoice.shippingInvoiceId}
+                  className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                >
+                  <Thumbnail
+                    src={invoice.previewImageUrl}
+                    alt={invoice.previewTitle ?? "Shipping invoice"}
+                    fallback="Ship"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-stone-900">
+                      {buildTitle(invoice.previewTitle, invoice.itemCount)}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-600">{shippingInvoiceContext(invoice)}</p>
+                  </div>
+                  <Link
+                    href={`/shipping-invoices/${invoice.shippingInvoiceId}`}
+                    className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                  >
+                    View
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  )
 }
 
 function buildAuctionsWidget(data: MemberDashboardDto): DashboardWidgetModel {
-  const rows = [
-    ...data.unpaidAuctionOrders.slice(0, 3).map((order) => ({
-      id: order.orderId,
-      title: `Auction order ${order.orderNumber}`,
-      subtitle: `${order.status} • ${formatMoney(order.totalCents, order.currencyCode)}`,
-      meta: order.paymentDueAt ? `Due ${formatDate(order.paymentDueAt)}` : "Auction order",
-      action: isOrderPayable(order)
-        ? {
-          label: "Pay now",
-          href: `/orders/${order.orderId}`,
-          tone: "primary" as const,
-        }
-        : {
-          label: "View order",
-          href: `/orders/${order.orderId}`,
-        },
-    })),
-    ...data.wonAuctions.slice(0, 3).map((auction) => ({
+  return {
+    title: "Won auctions",
+    countLabel: "wins",
+    countValue: data.wonAuctions.length,
+    description: "Past auction wins and recently closed results.",
+    rows: data.wonAuctions.slice(0, 4).map((auction) => ({
       id: auction.auctionId,
       title: "Won auction",
       subtitle: `${auction.status} • ${formatMoney(auction.currentPriceCents, "USD")}`,
       meta: auction.closeTime ? `Closed ${formatDate(auction.closeTime)}` : null,
       action: null,
     })),
-  ].slice(0, 4)
-
-  return {
-    title: "Auctions",
-    countLabel: "items",
-    countValue: data.wonAuctions.length + data.unpaidAuctionOrders.length,
-    description: "Track auction wins and any auction orders that still need attention.",
-    rows,
-    emptyMessage: "You do not have any active wins or auction payment actions right now.",
+    emptyMessage: "You do not have any past auction wins to show yet.",
   }
 }
 
 function buildOrdersWidget(data: MemberDashboardDto): DashboardWidgetModel {
   return {
-    title: "Orders",
+    title: "Paid orders",
     countLabel: "orders",
     countValue: data.paidOrders.length,
-    description: "Recent paid orders that are progressing through fulfillment.",
+    description: "Recent paid orders in your account history.",
     rows: data.paidOrders.slice(0, 4).map((order) => ({
       id: order.orderId,
       title: order.orderNumber,
@@ -317,46 +576,21 @@ function buildOrdersWidget(data: MemberDashboardDto): DashboardWidgetModel {
 
 function buildShippingInvoicesWidget(data: MemberDashboardDto): DashboardWidgetModel {
   return {
-    title: "Shipping invoices",
+    title: "Past shipping invoices",
     countLabel: "invoices",
     countValue: data.shippingInvoices.length,
-    description: "See shipping invoice status and take the next step when needed.",
+    description: "Past and current shipping invoices for your Open Box shipments.",
     rows: data.shippingInvoices.slice(0, 4).map((invoice) => ({
       id: invoice.shippingInvoiceId,
-      title: "Shipping invoice",
+      title: buildTitle(invoice.previewTitle, invoice.itemCount),
       subtitle: `${invoice.status} • ${formatMoney(invoice.amountCents, invoice.currencyCode)}`,
-      meta: `Created ${formatDate(invoice.createdAt)}`,
-      action: isInvoicePayable(invoice)
-        ? {
-          label: "Contact support",
-          href: `mailto:support@mineralkingdom.net?subject=Shipping%20invoice%20${encodeURIComponent(invoice.shippingInvoiceId)}`,
-        }
-        : null,
+      meta: shippingInvoiceContext(invoice),
+      action: {
+        label: "View invoice",
+        href: `/shipping-invoices/${invoice.shippingInvoiceId}`,
+      },
     })),
     emptyMessage: "You do not have any shipping invoices right now.",
-  }
-}
-
-function buildFulfillmentWidget(data: MemberDashboardDto): DashboardWidgetModel {
-  const openBox = data.openBox
-
-  return {
-    title: "Fulfillment updates",
-    countLabel: "updates",
-    countValue: openBox ? openBox.orders.length : 0,
-    description: "Monitor grouped fulfillment activity and related order progress.",
-    rows:
-      openBox?.orders.slice(0, 4).map((order) => ({
-        id: order.orderId,
-        title: order.orderNumber,
-        subtitle: `${openBox.status} • ${formatMoney(order.totalCents, order.currencyCode)}`,
-        meta: `Updated ${formatDate(openBox.updatedAt)}`,
-        action: {
-          label: "View order",
-          href: `/orders/${order.orderId}`,
-        },
-      })) ?? [],
-    emptyMessage: "You do not have any fulfillment updates yet.",
   }
 }
 
@@ -395,14 +629,22 @@ export function DashboardClient() {
     }
   }, [])
 
-  const actionItems = useMemo(() => (data ? buildActionItems(data) : []), [data])
   const auctionsWidget = useMemo(() => (data ? buildAuctionsWidget(data) : null), [data])
   const ordersWidget = useMemo(() => (data ? buildOrdersWidget(data) : null), [data])
   const shippingInvoicesWidget = useMemo(
     () => (data ? buildShippingInvoicesWidget(data) : null),
     [data],
   )
-  const fulfillmentWidget = useMemo(() => (data ? buildFulfillmentWidget(data) : null), [data])
+
+  const payableOrders = useMemo(
+    () => (data ? data.unpaidAuctionOrders.filter(isOrderPayable).slice(0, 6) : []),
+    [data],
+  )
+
+  const payableInvoices = useMemo(
+    () => (data ? data.shippingInvoices.filter(isInvoicePayable).slice(0, 4) : []),
+    [data],
+  )
 
   const isCompletelyEmpty =
     data != null &&
@@ -449,27 +691,96 @@ export function DashboardClient() {
   return (
     <div className="space-y-6" data-testid="dashboard-page">
       <DashboardHeader />
-      <DashboardActionStrip items={actionItems} />
+
+      {(payableOrders.length > 0 || payableInvoices.length > 0) ? (
+        <section className="space-y-4" data-testid="dashboard-action-needed">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-900">Action needed</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Review item payments and Open Box shipping payments that still need attention.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {payableOrders.length > 0 ? (
+              <ActionSection
+                title="Orders to complete"
+                description="Auction orders that still need shipping selection or payment."
+                testId="dashboard-action-orders"
+              >
+                {payableOrders.map((order) => {
+                  const shippingMode = normalizeShippingMode(order.shippingMode)
+                  return (
+                    <ActionRow
+                      key={order.orderId}
+                      testId={`dashboard-action-order-${order.orderId}`}
+                      title={buildTitle(order.previewTitle, order.itemCount)}
+                      context={orderContext(order)}
+                      helper={formatShippingMode(order.shippingMode)}
+                      amount={formatMoney(order.totalCents, order.currencyCode)}
+                      ctaLabel={shippingMode === "UNSELECTED" ? "Choose shipping" : "Pay now"}
+                      href={`/orders/${order.orderId}`}
+                      imageUrl={order.previewImageUrl}
+                      imageAlt={order.previewTitle ?? order.orderNumber}
+                    />
+                  )
+                })}
+              </ActionSection>
+            ) : null}
+
+            {payableInvoices.length > 0 ? (
+              <ActionSection
+                title="Shipping to pay"
+                description="Open Box shipping invoices that are ready for payment."
+                testId="dashboard-action-shipping"
+              >
+                {payableInvoices.map((invoice) => (
+                  <ActionRow
+                    key={invoice.shippingInvoiceId}
+                    testId={`dashboard-action-shipping-${invoice.shippingInvoiceId}`}
+                    title={buildTitle(invoice.previewTitle, invoice.itemCount)}
+                    context={shippingInvoiceContext(invoice)}
+                    helper={`${formatMoney(invoice.amountCents, invoice.currencyCode)} due`}
+                    amount={formatMoney(invoice.amountCents, invoice.currencyCode)}
+                    ctaLabel="Pay shipping"
+                    href={`/shipping-invoices/${invoice.shippingInvoiceId}`}
+                    imageUrl={invoice.previewImageUrl}
+                    imageAlt={invoice.previewTitle ?? "Shipping invoice"}
+                  />
+                ))}
+              </ActionSection>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      <InProgressSection data={data!} />
 
       {isCompletelyEmpty ? <DashboardEmptyState /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {auctionsWidget ? (
-          <DashboardWidgetCard testId="dashboard-widget-auctions" model={auctionsWidget} />
-        ) : null}
-        {ordersWidget ? (
-          <DashboardWidgetCard testId="dashboard-widget-orders" model={ordersWidget} />
-        ) : null}
-        {shippingInvoicesWidget ? (
-          <DashboardWidgetCard
-            testId="dashboard-widget-shipping-invoices"
-            model={shippingInvoicesWidget}
-          />
-        ) : null}
-        {fulfillmentWidget ? (
-          <DashboardWidgetCard testId="dashboard-widget-fulfillment" model={fulfillmentWidget} />
-        ) : null}
-      </div>
+      <section className="space-y-4" data-testid="dashboard-history">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">History</h2>
+          <p className="mt-1 text-sm text-stone-600">
+            Recent wins, paid orders, and shipping records in your account.
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {auctionsWidget ? (
+            <DashboardWidgetCard testId="dashboard-widget-auctions" model={auctionsWidget} />
+          ) : null}
+          {ordersWidget ? (
+            <DashboardWidgetCard testId="dashboard-widget-orders" model={ordersWidget} />
+          ) : null}
+          {shippingInvoicesWidget ? (
+            <DashboardWidgetCard
+              testId="dashboard-widget-shipping-invoices"
+              model={shippingInvoicesWidget}
+            />
+          ) : null}
+        </div>
+      </section>
     </div>
   )
 }
