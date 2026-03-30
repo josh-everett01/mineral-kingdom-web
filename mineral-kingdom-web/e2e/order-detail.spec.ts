@@ -260,7 +260,7 @@ data: ${JSON.stringify(buildPaidSnapshot())}
 }
 
 test.describe("order detail", () => {
-  test("initial snapshot render shows order summary, lines, and timeline", async ({ page }) => {
+  test("initial snapshot render shows payment context, order summary, lines, and timeline", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockOrderDetail(page, buildAwaitingPaymentOrder())
     await mockOrderSsePending(page)
@@ -275,8 +275,27 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-payment-provider")).toContainText("Stripe")
     await expect(page.getByTestId("order-detail-total")).toContainText("$110.00")
 
+    await expect(page.getByTestId("order-detail-payment-context")).toBeVisible()
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Order payment")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Purple Fluorite Cube")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      "Order MK-20260328-ABC123 • Auction",
+    )
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      /due mar/i,
+    )
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      "Shipping not selected",
+    )
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("$110.00")
+
+    await expect(page.getByTestId("order-detail-payment-awaiting-confirmation")).toBeVisible()
+    await expect(page.getByTestId("order-detail-payment-awaiting-confirmation")).toContainText(
+      /waiting for payment confirmation/i,
+    )
+
     await expect(page.getByTestId("order-detail-lines")).toBeVisible()
-    await expect(page.getByText("Purple Fluorite Cube")).toBeVisible()
+    await expect(page.getByTestId("order-detail-line-link")).toContainText("Purple Fluorite Cube")
     await expect(page.getByTestId("order-detail-lines")).toContainText("Fluorite")
     await expect(page.getByText(/Denton Mine, Illinois, USA/i)).toBeVisible()
 
@@ -297,8 +316,8 @@ test.describe("order detail", () => {
 
     await expect(page.getByTestId("order-detail-status")).toContainText("Paid / Ready to fulfill")
     await expect(page.getByTestId("order-detail-payment-status")).toContainText("Paid")
+    await expect(page.getByTestId("order-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("order-detail-paid-state")).toBeVisible()
-    await expect(page.getByTestId("order-detail-status")).toContainText("Paid / Ready to fulfill")
   })
 
   test("unauthenticated user is prompted to sign in again", async ({ page }) => {
@@ -387,6 +406,8 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-total")).toContainText("$135.00")
     await expect(page.getByTestId("order-detail-shipping-choice-required")).toHaveCount(0)
     await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Ship now selected")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("$135.00")
   })
 
   test("open box keeps shipping deferred and total item-only before payment", async ({ page }) => {
@@ -406,5 +427,7 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-total")).toContainText("$110.00")
     await expect(page.getByTestId("order-detail-open-box-note")).toBeVisible()
     await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Open Box selected")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText("$110.00")
   })
 })
