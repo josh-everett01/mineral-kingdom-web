@@ -45,6 +45,119 @@ function buildUnpaidInvoice() {
   }
 }
 
+function buildMultiItemInvoice() {
+  return {
+    shippingInvoiceId: INVOICE_ID,
+    fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
+    amountCents: 8600,
+    currencyCode: "USD",
+    status: "UNPAID",
+    paidAt: null,
+    provider: "STRIPE",
+    providerCheckoutId: "ship_pay_456",
+    dueAt: "2026-03-31T16:00:00.000000+00:00",
+    createdAt: "2026-03-29T15:55:00.000000+00:00",
+    updatedAt: "2026-03-29T16:00:00.000000+00:00",
+    itemCount: 3,
+    previewTitle: "Quartz Cluster",
+    previewImageUrl: "https://cdn.example.com/quartz.jpg",
+    auctionOrderCount: 1,
+    storeOrderCount: 1,
+    relatedOrders: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+      },
+      {
+        orderId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        orderNumber: "MK-20260329-SHIP02",
+        sourceType: "STORE",
+      },
+    ],
+    items: [
+      {
+        orderId: "99999999-1111-2222-3333-444444444444",
+        orderNumber: "MK-20260329-SHIP01",
+        sourceType: "AUCTION",
+        listingId: "05dee38f-6f8e-402e-bc39-9ef63df92956",
+        listingSlug: "quartz-cluster",
+        title: "Quartz Cluster",
+        primaryImageUrl: "https://cdn.example.com/quartz.jpg",
+        mineralName: "Quartz",
+        locality: "Arkansas, USA",
+        quantity: 1,
+      },
+      {
+        orderId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        orderNumber: "MK-20260329-SHIP02",
+        sourceType: "STORE",
+        listingId: "11111111-2222-3333-4444-555555555555",
+        listingSlug: "fluorite-cube",
+        title: "Fluorite Cube",
+        primaryImageUrl: "https://cdn.example.com/fluorite.jpg",
+        mineralName: "Fluorite",
+        locality: "Illinois, USA",
+        quantity: 1,
+      },
+      {
+        orderId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        orderNumber: "MK-20260329-SHIP02",
+        sourceType: "STORE",
+        listingId: "66666666-7777-8888-9999-000000000000",
+        listingSlug: "azurite-sun",
+        title: "Azurite Sun",
+        primaryImageUrl: null,
+        mineralName: "Azurite",
+        locality: "Mexico",
+        quantity: 1,
+      },
+    ],
+  }
+}
+
+function buildMissingThumbnailInvoice() {
+  return {
+    shippingInvoiceId: INVOICE_ID,
+    fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
+    amountCents: 4200,
+    currencyCode: "USD",
+    status: "UNPAID",
+    paidAt: null,
+    provider: "STRIPE",
+    providerCheckoutId: "ship_pay_789",
+    dueAt: "2026-03-31T16:00:00.000000+00:00",
+    createdAt: "2026-03-29T15:55:00.000000+00:00",
+    updatedAt: "2026-03-29T16:00:00.000000+00:00",
+    itemCount: 1,
+    previewTitle: "Azurite Sun",
+    previewImageUrl: null,
+    auctionOrderCount: 0,
+    storeOrderCount: 1,
+    relatedOrders: [
+      {
+        orderId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        orderNumber: "MK-20260329-SHIP02",
+        sourceType: "STORE",
+      },
+    ],
+    items: [
+      {
+        orderId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        orderNumber: "MK-20260329-SHIP02",
+        sourceType: "STORE",
+        listingId: "66666666-7777-8888-9999-000000000000",
+        listingSlug: "azurite-sun",
+        title: "Azurite Sun",
+        primaryImageUrl: null,
+        mineralName: "Azurite",
+        locality: "Mexico",
+        quantity: 1,
+      },
+    ],
+  }
+}
+
 function buildPaidInvoice() {
   return {
     shippingInvoiceId: INVOICE_ID,
@@ -235,6 +348,70 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toBeVisible()
   })
 
+  test("single-item invoice context is rendered clearly", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockShippingInvoiceDetail(page, buildUnpaidInvoice())
+    await mockShippingInvoiceSseUnpaid(page)
+
+    await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Quartz Cluster",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-item-row")).toHaveCount(1)
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Quartz"
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Arkansas, USA"
+    )
+  })
+
+  test("multi-item multi-order invoice remains scannable and grouped", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockShippingInvoiceDetail(page, buildMultiItemInvoice())
+    await mockShippingInvoiceSseUnpaid(page)
+
+    await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Quartz Cluster + 2 more",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Shipping invoice • Open Box • Order MK-20260329-SHIP01 + 1 more",
+    )
+
+    await expect(page.getByTestId("shipping-invoice-detail-item-row")).toHaveCount(3)
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Order MK-20260329-SHIP01 • Auction",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Order MK-20260329-SHIP02 • Store",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Fluorite Cube",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Azurite Sun",
+    )
+  })
+
+  test("missing thumbnail fallback renders for covered items", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockShippingInvoiceDetail(page, buildMissingThumbnailInvoice())
+    await mockShippingInvoiceSseUnpaid(page)
+
+    await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
+      "Azurite Sun",
+    )
+    await expect(page.getByTestId("shipping-invoice-detail-item-no-image")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Order MK-20260329-SHIP02 • Store",
+    )
+  })
+
   test("paid shipping invoice renders confirmed payment messaging without pay CTA", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockShippingInvoiceDetail(page, buildPaidInvoice())
@@ -246,6 +423,9 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
     await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
+      "Quartz Cluster",
+    )
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })
 
