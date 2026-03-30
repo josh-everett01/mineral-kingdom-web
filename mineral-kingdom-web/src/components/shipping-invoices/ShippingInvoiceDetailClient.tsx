@@ -140,6 +140,19 @@ function formatProvider(value?: string | null) {
   }
 }
 
+function formatSourceType(value?: string | null) {
+  if (!value) return "Order"
+
+  switch (value.toUpperCase()) {
+    case "AUCTION":
+      return "Auction"
+    case "STORE":
+      return "Store"
+    default:
+      return value
+  }
+}
+
 function normalizeStatus(value?: string | null) {
   return (value ?? "").trim().toUpperCase()
 }
@@ -228,6 +241,63 @@ function normalizeSseSnapshot(payload: unknown): ShippingInvoiceRealtimeSnapshot
         ? (source.UpdatedAt as string | null)
         : undefined,
   }
+}
+
+function CoveredItemRow({
+  item,
+}: {
+  item: ShippingInvoiceItemDto
+}) {
+  const href = listingHref(item)
+
+  return (
+    <li
+      className="rounded-xl border border-stone-200 bg-white p-4"
+      data-testid="shipping-invoice-detail-item-row"
+    >
+      <div className="flex gap-4">
+        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+          {item.primaryImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.primaryImageUrl}
+              alt={item.title ?? "Shipping invoice item"}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className="flex h-full w-full items-center justify-center text-xs text-stone-500"
+              data-testid="shipping-invoice-detail-item-no-image"
+            >
+              No image
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {href ? (
+            <Link href={href} className="text-sm font-semibold text-stone-900 hover:underline">
+              {item.title ?? "Listing"}
+            </Link>
+          ) : (
+            <p className="text-sm font-semibold text-stone-900">{item.title ?? "Listing"}</p>
+          )}
+
+          <p className="mt-1 text-sm text-stone-600">
+            {item.orderNumber ? `Order ${item.orderNumber}` : "Order"} • {formatSourceType(item.sourceType)}
+          </p>
+
+          {item.mineralName || item.locality ? (
+            <p className="mt-1 text-sm text-stone-600">
+              {[item.mineralName, item.locality].filter(Boolean).join(" • ")}
+            </p>
+          ) : null}
+
+          <p className="mt-1 text-sm text-stone-700">Quantity: {item.quantity ?? 1}</p>
+        </div>
+      </div>
+    </li>
+  )
 }
 
 export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
@@ -592,59 +662,12 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
           </h2>
 
           <ul className="mt-3 space-y-3">
-            {liveInvoice.items.map((item, index) => {
-              const href = listingHref(item)
-
-              return (
-                <li
-                  key={`${item.orderId ?? "order"}-${item.listingId ?? "listing"}-${index}`}
-                  className="rounded-xl border border-stone-200 bg-white p-4"
-                  data-testid="shipping-invoice-detail-item-row"
-                >
-                  <div className="flex gap-4">
-                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-                      {item.primaryImageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.primaryImageUrl}
-                          alt={item.title ?? "Shipping invoice item"}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
-                          No image
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      {href ? (
-                        <Link href={href} className="text-sm font-semibold text-stone-900 hover:underline">
-                          {item.title ?? "Listing"}
-                        </Link>
-                      ) : (
-                        <p className="text-sm font-semibold text-stone-900">{item.title ?? "Listing"}</p>
-                      )}
-
-                      <p className="mt-1 text-sm text-stone-600">
-                        {item.orderNumber ? `Order ${item.orderNumber}` : "Order"} •{" "}
-                        {item.sourceType?.toUpperCase() === "AUCTION" ? "Auction" : "Store"}
-                      </p>
-
-                      {(item.mineralName || item.locality) ? (
-                        <p className="mt-1 text-sm text-stone-600">
-                          {[item.mineralName, item.locality].filter(Boolean).join(" • ")}
-                        </p>
-                      ) : null}
-
-                      <p className="mt-1 text-sm text-stone-700">
-                        Quantity: {item.quantity ?? 1}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
+            {liveInvoice.items.map((item, index) => (
+              <CoveredItemRow
+                key={`${item.orderId ?? "order"}-${item.listingId ?? "listing"}-${index}`}
+                item={item}
+              />
+            ))}
           </ul>
         </section>
       ) : null}
