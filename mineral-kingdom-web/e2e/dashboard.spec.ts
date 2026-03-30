@@ -48,6 +48,10 @@ function buildDashboardFixture() {
         createdAt: "2026-03-26T12:10:18.795374+00:00",
         paymentDueAt: "2026-03-28T12:10:18.795374+00:00",
         fulfillmentGroupId: null,
+        shippingMode: "UNSELECTED",
+        itemCount: 1,
+        previewTitle: "Fluorite Cube",
+        previewImageUrl: null,
       },
     ],
     paidOrders: [
@@ -60,7 +64,11 @@ function buildDashboardFixture() {
         currencyCode: "USD",
         createdAt: "2026-03-25T21:51:59.27348+00:00",
         paymentDueAt: "2026-03-27T21:51:59.27348+00:00",
-        fulfillmentGroupId: null,
+        fulfillmentGroupId: "7d3c61b8-b3bb-4db0-961c-522d0d00d111",
+        shippingMode: "OPEN_BOX",
+        itemCount: 1,
+        previewTitle: "Quartz Cluster",
+        previewImageUrl: null,
       },
       {
         orderId: "a25edef3-8d70-488b-98d3-3b591ab95cb9",
@@ -72,6 +80,10 @@ function buildDashboardFixture() {
         createdAt: "2026-03-25T21:23:22.227736+00:00",
         paymentDueAt: null,
         fulfillmentGroupId: null,
+        shippingMode: null,
+        itemCount: 1,
+        previewTitle: "Azurite Sun",
+        previewImageUrl: null,
       },
     ],
     openBox: {
@@ -89,6 +101,10 @@ function buildDashboardFixture() {
           createdAt: "2026-03-25T21:51:59.27348+00:00",
           paymentDueAt: "2026-03-27T21:51:59.27348+00:00",
           fulfillmentGroupId: "7d3c61b8-b3bb-4db0-961c-522d0d00d111",
+          shippingMode: "OPEN_BOX",
+          itemCount: 1,
+          previewTitle: "Quartz Cluster",
+          previewImageUrl: null,
         },
       ],
     },
@@ -103,6 +119,18 @@ function buildDashboardFixture() {
         providerCheckoutId: null,
         paidAt: null,
         createdAt: "2026-03-27T16:35:00.000000+00:00",
+        itemCount: 1,
+        previewTitle: "Quartz Cluster",
+        previewImageUrl: null,
+        auctionOrderCount: 1,
+        storeOrderCount: 0,
+        relatedOrders: [
+          {
+            orderId: "e3995a99-eab9-47c9-898a-088f2d7d0df1",
+            orderNumber: "MK-20260325-D013EC",
+            sourceType: "AUCTION",
+          },
+        ],
       },
     ],
   }
@@ -153,7 +181,7 @@ async function gotoDashboard(page: Page) {
 }
 
 test.describe("dashboard", () => {
-  test("authenticated happy path renders widgets and action CTAs", async ({ page }) => {
+  test("authenticated happy path renders grouped action sections and history", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockDashboard(page, buildDashboardFixture())
 
@@ -161,34 +189,48 @@ test.describe("dashboard", () => {
 
     await expect(page.getByTestId("dashboard-page")).toBeVisible()
 
+    await expect(page.getByTestId("dashboard-action-needed")).toBeVisible()
+    await expect(page.getByTestId("dashboard-action-orders")).toBeVisible()
+    await expect(page.getByTestId("dashboard-action-shipping")).toBeVisible()
+    await expect(page.getByTestId("dashboard-in-progress")).toBeVisible()
+    await expect(page.getByTestId("dashboard-history")).toBeVisible()
+
+    await expect(page.getByText(/orders to complete/i)).toBeVisible()
+    await expect(page.getByText(/shipping to pay/i)).toBeVisible()
+
+    await expect(page.getByText(/fluorite cube/i)).toBeVisible()
+    await expect(
+      page.getByTestId("dashboard-action-shipping-77fe1dbf-2d9b-4a38-8224-6d8f276a9c9b").getByText(/quartz cluster/i),
+    ).toBeVisible()
+
+    await expect(page.getByText(/order mk-20260326-c10ca1 • auction/i)).toBeVisible()
+    await expect(
+      page
+        .getByTestId("dashboard-action-shipping-77fe1dbf-2d9b-4a38-8224-6d8f276a9c9b")
+        .getByText(/shipping invoice • open box • order mk-20260325-d013ec/i),
+    ).toBeVisible()
+
+    await expect(page.getByText(/shipping not selected/i)).toBeVisible()
+    await expect(page.getByText(/\$28\.00 due/i)).toBeVisible()
+
+    await expect(
+      page.getByTestId("dashboard-action-order-20548e00-7b1a-4c4b-9ad1-1a5b8f5561d3").getByRole("link", {
+        name: /choose shipping/i,
+      }),
+    ).toHaveAttribute("href", "/orders/20548e00-7b1a-4c4b-9ad1-1a5b8f5561d3")
+
+    await expect(
+      page.getByTestId("dashboard-action-shipping-77fe1dbf-2d9b-4a38-8224-6d8f276a9c9b").getByRole("link", {
+        name: /pay shipping/i,
+      }),
+    ).toHaveAttribute("href", "/shipping-invoices/77fe1dbf-2d9b-4a38-8224-6d8f276a9c9b")
+
+    await expect(page.getByText(/currently in your open box/i)).toBeVisible()
+    await expect(page.getByText(/status: packing/i)).toBeVisible()
+
     await expect(page.getByTestId("dashboard-widget-auctions")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-orders")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toBeVisible()
-    await expect(page.getByTestId("dashboard-widget-fulfillment")).toBeVisible()
-
-    await expect(page.getByText(/pay order mk-20260326-c10ca1/i)).toBeVisible()
-    await expect(page.getByText(/view order mk-20260325-d013ec/i)).toBeVisible()
-    await expect(page.getByText(/contact support about shipping invoice/i)).toBeVisible()
-
-    await expect(page.getByText(/auction order mk-20260326-c10ca1/i)).toBeVisible()
-
-    await expect(
-      page.getByTestId("dashboard-widget-orders").getByText(/mk-20260325-d013ec/i),
-    ).toBeVisible()
-
-    await expect(
-      page.getByTestId("dashboard-widget-fulfillment").getByText(/mk-20260325-d013ec/i),
-    ).toBeVisible()
-
-    await expect(
-      page.getByTestId("dashboard-widget-shipping-invoices").getByText(/^shipping invoice$/i),
-    ).toBeVisible()
-
-    await expect(page.getByText(/packing/i)).toBeVisible()
-
-    await expect(
-      page.getByRole("link", { name: /pay order mk-20260326-c10ca1/i }),
-    ).toHaveAttribute("href", "/orders/20548e00-7b1a-4c4b-9ad1-1a5b8f5561d3")
   })
 
   test("empty state renders for authenticated member with no dashboard data", async ({ page }) => {
@@ -198,23 +240,22 @@ test.describe("dashboard", () => {
     await gotoDashboard(page)
 
     await expect(page.getByTestId("dashboard-page")).toBeVisible()
+    await expect(page.getByTestId("dashboard-action-needed")).toHaveCount(0)
+    await expect(page.getByTestId("dashboard-in-progress")).toHaveCount(0)
+    await expect(page.getByTestId("dashboard-history")).toBeVisible()
 
     await expect(page.getByTestId("dashboard-widget-auctions")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-orders")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toBeVisible()
-    await expect(page.getByTestId("dashboard-widget-fulfillment")).toBeVisible()
 
     await expect(
-      page.getByText(/you do not have any active wins or auction payment actions right now/i),
+      page.getByText(/you do not have any past auction wins to show yet/i),
     ).toBeVisible()
     await expect(
       page.getByText(/you do not have any paid orders to review right now/i),
     ).toBeVisible()
     await expect(
       page.getByText(/you do not have any shipping invoices right now/i),
-    ).toBeVisible()
-    await expect(
-      page.getByText(/you do not have any fulfillment updates yet/i),
     ).toBeVisible()
   })
 

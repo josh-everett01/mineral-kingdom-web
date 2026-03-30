@@ -16,6 +16,10 @@ export type DashboardOrderSummaryDto = {
   createdAt: string
   paymentDueAt?: string | null
   fulfillmentGroupId?: string | null
+  shippingMode?: string | null
+  itemCount: number
+  previewTitle?: string | null
+  previewImageUrl?: string | null
 }
 
 export type DashboardOpenBoxDto = {
@@ -23,6 +27,12 @@ export type DashboardOpenBoxDto = {
   status: string
   updatedAt: string
   orders: DashboardOrderSummaryDto[]
+}
+
+export type DashboardShippingInvoiceRelatedOrderDto = {
+  orderId: string
+  orderNumber: string
+  sourceType: string
 }
 
 export type DashboardShippingInvoiceDto = {
@@ -35,28 +45,38 @@ export type DashboardShippingInvoiceDto = {
   providerCheckoutId?: string | null
   paidAt?: string | null
   createdAt: string
+  itemCount: number
+  previewTitle?: string | null
+  previewImageUrl?: string | null
+  auctionOrderCount: number
+  storeOrderCount: number
+  relatedOrders: DashboardShippingInvoiceRelatedOrderDto[]
 }
 
 export type MemberDashboardDto = {
   wonAuctions: DashboardWonAuctionDto[]
   unpaidAuctionOrders: DashboardOrderSummaryDto[]
   paidOrders: DashboardOrderSummaryDto[]
-  openBox?: DashboardOpenBoxDto | null
+  openBox: DashboardOpenBoxDto | null
   shippingInvoices: DashboardShippingInvoiceDto[]
 }
 
 export type DashboardActionItem = {
   label: string
   href: string
-  tone?: "default" | "primary"
+  tone?: "primary" | "default"
 }
 
 export type DashboardWidgetRow = {
   id: string
   title: string
-  subtitle?: string | null
+  subtitle: string
   meta?: string | null
-  action?: DashboardActionItem | null
+  action?: {
+    label: string
+    href: string
+    tone?: "primary" | "default"
+  } | null
 }
 
 export type DashboardWidgetModel = {
