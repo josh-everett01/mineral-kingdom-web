@@ -8,13 +8,10 @@ type Props = {
 }
 
 export function CartRealtimeClient({ cartId, onSnapshot }: Props) {
-  const hasSeenInitialSnapshotRef = useRef(false)
   const refreshTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!cartId) return
-
-    hasSeenInitialSnapshotRef.current = false
 
     const eventSource = new EventSource(`/api/bff/sse/cart/${cartId}`)
 
@@ -26,17 +23,13 @@ export function CartRealtimeClient({ cartId, onSnapshot }: Props) {
       refreshTimeoutRef.current = window.setTimeout(() => {
         refreshTimeoutRef.current = null
         onSnapshot?.()
-      }, 500)
+      }, 300)
     }
 
     const handleSnapshot = () => {
-      // Ignore the initial snapshot that arrives immediately after connect.
-      // It represents the current state, not a meaningful change.
-      if (!hasSeenInitialSnapshotRef.current) {
-        hasSeenInitialSnapshotRef.current = true
-        return
-      }
-
+      // In the client-owned cart architecture, every snapshot is useful,
+      // including the initial one after connect. We no longer router.refresh(),
+      // so there is no full-page refresh loop to guard against here.
       scheduleRefresh()
     }
 
