@@ -1,37 +1,56 @@
-import type { NextRequest } from "next/server";
-import { getAccessToken } from "@/lib/auth/cookies";
+import { NextRequest, NextResponse } from "next/server"
 
-const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
 
-function sseHeaders() {
-  return {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  } as const;
+type RouteContext = {
+  params: Promise<{
+    groupId: string
+  }>
 }
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ groupId: string }> }) {
-  const { groupId } = await ctx.params;
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { groupId } = await context.params
 
-  const access = await getAccessToken();
-  if (!access) return new Response("Unauthorized", { status: 401 });
+  const upstreamUrl = new URL(
+    `/api/fulfillment-groups/${encodeURIComponent(groupId)}/events`,
+    API_BASE_URL,
+  )
 
-  const upstreamUrl = `${API_BASE_URL}/api/fulfillment-groups/${groupId}/events`;
-  
-  const upstreamRes = await fetch(upstreamUrl, {
-    headers: {
-      authorization: `Bearer ${access}`,
-      accept: "text/event-stream",
-    },
-    cache: "no-store",
-  });
+  try {
+    const upstream = await fetch(upstreamUrl.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "text/event-stream",
+        Cookie: request.headers.get("cookie") ?? "",
+      },
+      cache: "no-store",
+    })
 
-  if (!upstreamRes.ok || !upstreamRes.body) {
-    const text = await upstreamRes.text().catch(() => "");
-    return new Response(text || "Upstream SSE failed", { status: upstreamRes.status });
+    if (!upstream.ok || !upstream.body) {
+      const bodyText = await upstream.text().catch(() => "")
+      return new NextResponse(bodyText || "Unable to connect to fulfillment events.", {
+        status: upstream.status,
+        headers: {
+          "content-type": upstream.headers.get("content-type") ?? "text/plain; charset=utf-8",
+          "cache-control": "no-store",
+        },
+      })
+    }
+
+    const headers = new Headers()
+    headers.set("content-type", "text/event-stream")
+    headers.set("cache-control", "no-cache, no-transform")
+    headers.set("connection", "keep-alive")
+    headers.set("x-accel-buffering", "no")
+
+    return new NextResponse(upstream.body, {
+      status: 200,
+      headers,
+    })
+  } catch {
+    return NextResponse.json(
+      { message: "Unable to connect to fulfillment live updates." },
+      { status: 502 },
+    )
   }
-
-  return new Response(upstreamRes.body, { status: 200, headers: sseHeaders() });
 }

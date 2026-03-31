@@ -1,14 +1,13 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
 
 type Props = {
   cartId: string
+  onSnapshot?: () => void
 }
 
-export function CartRealtimeClient({ cartId }: Props) {
-  const router = useRouter()
+export function CartRealtimeClient({ cartId, onSnapshot }: Props) {
   const refreshTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -23,18 +22,21 @@ export function CartRealtimeClient({ cartId }: Props) {
 
       refreshTimeoutRef.current = window.setTimeout(() => {
         refreshTimeoutRef.current = null
-        router.refresh()
-      }, 500)
+        onSnapshot?.()
+      }, 300)
     }
 
     const handleSnapshot = () => {
+      // In the client-owned cart architecture, every snapshot is useful,
+      // including the initial one after connect. We no longer router.refresh(),
+      // so there is no full-page refresh loop to guard against here.
       scheduleRefresh()
     }
 
     eventSource.addEventListener("snapshot", handleSnapshot)
 
     eventSource.onerror = () => {
-      // Browser EventSource will retry automatically.
+      // Browser EventSource automatically retries.
     }
 
     return () => {
@@ -47,7 +49,7 @@ export function CartRealtimeClient({ cartId }: Props) {
 
       eventSource.close()
     }
-  }, [cartId, router])
+  }, [cartId, onSnapshot])
 
   return null
 }
