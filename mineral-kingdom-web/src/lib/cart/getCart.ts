@@ -1,5 +1,7 @@
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import type { CartDto } from "@/lib/cart/cartTypes"
+
+const CART_COOKIE_NAME = "mk_cart_id"
 
 async function getAppOriginAndCookieHeader(): Promise<{ origin: string; cookieHeader: string | null }> {
   const h = await headers()
@@ -22,14 +24,24 @@ async function getAppOriginAndCookieHeader(): Promise<{ origin: string; cookieHe
 }
 
 export async function fetchCart(): Promise<CartDto | null> {
+  const cookieStore = await cookies()
+  const existingCartId = cookieStore.get(CART_COOKIE_NAME)?.value ?? null
+
+  // Do not create/bootstrap a brand-new cart from a server-to-server fetch.
+  // If the browser does not already have a persisted cart cookie, let the
+  // browser-side cart flow establish it through the BFF response directly.
+  if (!existingCartId) {
+    return null
+  }
+
   const { origin, cookieHeader } = await getAppOriginAndCookieHeader()
 
   const res = await fetch(`${origin}/api/bff/cart`, {
     cache: "no-store",
     headers: cookieHeader
       ? {
-          cookie: cookieHeader,
-        }
+        cookie: cookieHeader,
+      }
       : undefined,
   })
 

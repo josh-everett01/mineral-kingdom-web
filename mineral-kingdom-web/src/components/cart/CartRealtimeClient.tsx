@@ -1,18 +1,20 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
 
 type Props = {
   cartId: string
+  onSnapshot?: () => void
 }
 
-export function CartRealtimeClient({ cartId }: Props) {
-  const router = useRouter()
+export function CartRealtimeClient({ cartId, onSnapshot }: Props) {
+  const hasSeenInitialSnapshotRef = useRef(false)
   const refreshTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!cartId) return
+
+    hasSeenInitialSnapshotRef.current = false
 
     const eventSource = new EventSource(`/api/bff/sse/cart/${cartId}`)
 
@@ -23,18 +25,25 @@ export function CartRealtimeClient({ cartId }: Props) {
 
       refreshTimeoutRef.current = window.setTimeout(() => {
         refreshTimeoutRef.current = null
-        router.refresh()
+        onSnapshot?.()
       }, 500)
     }
 
     const handleSnapshot = () => {
+      // Ignore the initial snapshot that arrives immediately after connect.
+      // It represents the current state, not a meaningful change.
+      if (!hasSeenInitialSnapshotRef.current) {
+        hasSeenInitialSnapshotRef.current = true
+        return
+      }
+
       scheduleRefresh()
     }
 
     eventSource.addEventListener("snapshot", handleSnapshot)
 
     eventSource.onerror = () => {
-      // Browser EventSource will retry automatically.
+      // Browser EventSource automatically retries.
     }
 
     return () => {
@@ -47,7 +56,7 @@ export function CartRealtimeClient({ cartId }: Props) {
 
       eventSource.close()
     }
-  }, [cartId, router])
+  }, [cartId, onSnapshot])
 
   return null
 }

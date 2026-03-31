@@ -2,7 +2,11 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
-import type { OpenBoxDto, OpenBoxOrderItemDto, OpenBoxShippingInvoiceDto } from "@/lib/open-box/types"
+import type {
+  OpenBoxDto,
+  OpenBoxOrderItemDto,
+  OpenBoxShippingInvoiceDto,
+} from "@/lib/open-box/types"
 
 type LoadableError = {
   status?: number
@@ -32,17 +36,15 @@ function formatDate(value?: string | null) {
   }).format(date)
 }
 
-function normalizeStatus(value?: string | null) {
-  return (value ?? "").trim().toUpperCase()
-}
-
 function displayOpenBoxStatus(openBox: OpenBoxDto | null) {
-  const boxStatus = normalizeStatus(openBox?.boxStatus)
-  const status = normalizeStatus(openBox?.status)
+  const boxStatus = (openBox?.boxStatus ?? "").trim().toUpperCase()
+  const fulfillmentStatus = (openBox?.fulfillmentStatus ?? "").trim().toUpperCase()
 
-  if (boxStatus === "OPEN" || boxStatus === "CLOSED") return boxStatus
-  if (status === "SHIPPED" || boxStatus === "SHIPPED") return "SHIPPED"
-  if (status === "OPEN" || status === "CLOSED") return status
+  if (boxStatus === "OPEN" || boxStatus === "CLOSED" || boxStatus === "SHIPPED") {
+    return boxStatus
+  }
+
+  if (fulfillmentStatus === "SHIPPED") return "SHIPPED"
 
   return "OPEN"
 }
@@ -88,26 +90,6 @@ function statusDescription(status: string, hasInvoice: boolean) {
   }
 }
 
-function orderTitle(order: OpenBoxOrderItemDto) {
-  const title = order.previewTitle?.trim()
-  if (title && order.itemCount > 1) {
-    return `${title} + ${order.itemCount - 1} more`
-  }
-
-  return title || order.orderNumber
-}
-
-function orderSourceLabel(sourceType?: string | null) {
-  switch ((sourceType ?? "").toUpperCase()) {
-    case "AUCTION":
-      return "Auction"
-    case "STORE":
-      return "Store"
-    default:
-      return "Order"
-  }
-}
-
 function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
   return (
     <li
@@ -115,32 +97,14 @@ function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
       data-testid="open-box-order-row"
     >
       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-        {order.previewImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={order.previewImageUrl}
-            alt={orderTitle(order)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="px-2 text-center text-[11px] font-medium text-stone-500">Order</span>
-        )}
+        <span className="px-2 text-center text-[11px] font-medium text-stone-500">Order</span>
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-stone-900">{orderTitle(order)}</p>
-        <p className="mt-1 text-sm text-stone-600">
-          Order {order.orderNumber} • {orderSourceLabel(order.sourceType)}
-        </p>
-
-        {order.mineralName || order.locality ? (
-          <p className="mt-1 text-sm text-stone-600">
-            {[order.mineralName, order.locality].filter(Boolean).join(" • ")}
-          </p>
-        ) : null}
-
+        <p className="truncate text-sm font-semibold text-stone-900">{order.orderNumber}</p>
+        <p className="mt-1 text-sm text-stone-600">Status: {order.status}</p>
         <p className="mt-1 text-sm text-stone-700">
-          {order.itemCount} item{order.itemCount === 1 ? "" : "s"} • {formatMoney(order.totalCents, order.currencyCode)}
+          {formatMoney(order.totalCents, order.currencyCode)}
         </p>
       </div>
     </li>
@@ -170,7 +134,11 @@ export function OpenBoxClient() {
           fetch("/api/bff/me/open-box/shipping-invoice", { cache: "no-store" }),
         ])
 
-        const openBoxBody = (await openBoxRes.json().catch(() => null)) as OpenBoxDto | LoadableError | null
+        const openBoxBody = (await openBoxRes.json().catch(() => null)) as
+          | OpenBoxDto
+          | LoadableError
+          | null
+
         const invoiceBody = (await invoiceRes.json().catch(() => null)) as
           | OpenBoxShippingInvoiceDto
           | LoadableError
@@ -196,8 +164,14 @@ export function OpenBoxClient() {
         if (!openBoxRes.ok || !openBoxBody || !("fulfillmentGroupId" in openBoxBody)) {
           setErrorStatus(openBoxRes.status)
           setError(
-            (openBoxBody && "message" in openBoxBody && typeof openBoxBody.message === "string" && openBoxBody.message) ||
-            (openBoxBody && "error" in openBoxBody && typeof openBoxBody.error === "string" && openBoxBody.error) ||
+            (openBoxBody &&
+              "message" in openBoxBody &&
+              typeof openBoxBody.message === "string" &&
+              openBoxBody.message) ||
+            (openBoxBody &&
+              "error" in openBoxBody &&
+              typeof openBoxBody.error === "string" &&
+              openBoxBody.error) ||
             "We couldn’t load your Open Box.",
           )
           setIsLoading(false)
@@ -335,7 +309,6 @@ export function OpenBoxClient() {
         {openBox.closedAt ? (
           <p className="mt-3 text-xs opacity-80">Closed {formatDate(openBox.closedAt) ?? "recently"}</p>
         ) : null}
-        <p className="mt-1 text-xs opacity-80">Updated {formatDate(openBox.updatedAt) ?? "recently"}</p>
       </section>
 
       <section
@@ -343,9 +316,9 @@ export function OpenBoxClient() {
         data-testid="open-box-items"
       >
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-stone-900">Items in your Open Box</h2>
+          <h2 className="text-lg font-semibold text-stone-900">Orders in your Open Box</h2>
           <p className="text-sm text-stone-500">
-            {openBox.orders.length} order{openBox.orders.length === 1 ? "" : "s"}
+            {openBox.orderCount} order{openBox.orderCount === 1 ? "" : "s"}
           </p>
         </div>
 
@@ -357,7 +330,7 @@ export function OpenBoxClient() {
           </ul>
         ) : (
           <p className="mt-4 text-sm text-stone-600" data-testid="open-box-items-empty">
-            Your Open Box exists, but items are not visible yet.
+            Your Open Box exists, but orders are not visible yet.
           </p>
         )}
       </section>
@@ -379,9 +352,7 @@ export function OpenBoxClient() {
                 <p className="text-sm font-semibold text-stone-900">
                   {formatMoney(invoice.amountCents, invoice.currencyCode)}
                 </p>
-                <p className="mt-1 text-sm text-stone-600">
-                  Status: {invoice.status}
-                </p>
+                <p className="mt-1 text-sm text-stone-600">Status: {invoice.status}</p>
               </div>
 
               <Link

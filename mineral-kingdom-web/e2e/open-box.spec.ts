@@ -29,24 +29,17 @@ function buildUnauthenticatedMe() {
 function buildOpenGroup() {
   return {
     fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
-    status: "OPEN",
     boxStatus: "OPEN",
-    updatedAt: "2026-04-02T16:00:00.000000+00:00",
+    fulfillmentStatus: "READY_TO_FULFILL",
     closedAt: null,
+    orderCount: 1,
     orders: [
       {
         orderId: "o1111111-2222-3333-4444-555555555555",
         orderNumber: "MK-20260402-OPEN01",
-        sourceType: "AUCTION",
-        status: "READY_TO_FULFILL",
         totalCents: 11000,
         currencyCode: "USD",
-        createdAt: "2026-04-01T14:00:00.000000+00:00",
-        previewTitle: "Quartz Cluster",
-        previewImageUrl: "https://cdn.example.com/quartz.jpg",
-        itemCount: 1,
-        mineralName: "Quartz",
-        locality: "Arkansas, USA",
+        status: "READY_TO_FULFILL",
       },
     ],
   }
@@ -55,38 +48,24 @@ function buildOpenGroup() {
 function buildClosedGroup() {
   return {
     fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
-    status: "READY_TO_FULFILL",
     boxStatus: "CLOSED",
-    updatedAt: "2026-04-02T16:00:00.000000+00:00",
+    fulfillmentStatus: "READY_TO_FULFILL",
     closedAt: "2026-04-02T15:00:00.000000+00:00",
+    orderCount: 2,
     orders: [
       {
         orderId: "o1111111-2222-3333-4444-555555555555",
         orderNumber: "MK-20260402-CLOSED01",
-        sourceType: "AUCTION",
-        status: "READY_TO_FULFILL",
         totalCents: 11000,
         currencyCode: "USD",
-        createdAt: "2026-04-01T14:00:00.000000+00:00",
-        previewTitle: "Quartz Cluster",
-        previewImageUrl: "https://cdn.example.com/quartz.jpg",
-        itemCount: 1,
-        mineralName: "Quartz",
-        locality: "Arkansas, USA",
+        status: "READY_TO_FULFILL",
       },
       {
         orderId: "o2222222-3333-4444-5555-666666666666",
         orderNumber: "MK-20260402-CLOSED02",
-        sourceType: "STORE",
-        status: "READY_TO_FULFILL",
         totalCents: 7600,
         currencyCode: "USD",
-        createdAt: "2026-04-01T15:00:00.000000+00:00",
-        previewTitle: "Fluorite Cube",
-        previewImageUrl: null,
-        itemCount: 1,
-        mineralName: "Fluorite",
-        locality: "Illinois, USA",
+        status: "READY_TO_FULFILL",
       },
     ],
   }
@@ -95,24 +74,17 @@ function buildClosedGroup() {
 function buildShippedGroup() {
   return {
     fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
-    status: "SHIPPED",
     boxStatus: "SHIPPED",
-    updatedAt: "2026-04-02T16:00:00.000000+00:00",
+    fulfillmentStatus: "SHIPPED",
     closedAt: "2026-04-01T12:00:00.000000+00:00",
+    orderCount: 1,
     orders: [
       {
         orderId: "o3333333-4444-5555-6666-777777777777",
         orderNumber: "MK-20260402-SHIP01",
-        sourceType: "STORE",
-        status: "READY_TO_FULFILL",
         totalCents: 5200,
         currencyCode: "USD",
-        createdAt: "2026-03-31T11:00:00.000000+00:00",
-        previewTitle: "Azurite Sun",
-        previewImageUrl: null,
-        itemCount: 1,
-        mineralName: "Azurite",
-        locality: "Mexico",
+        status: "READY_TO_FULFILL",
       },
     ],
   }
@@ -169,7 +141,7 @@ async function mockOpenBoxInvoice(page: Page, body: unknown, status = 200) {
 }
 
 test.describe("open box", () => {
-  test("open group renders items and no shipping invoice CTA yet", async ({ page }) => {
+  test("open group renders orders and no shipping invoice CTA yet", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockOpenBox(page, buildOpenGroup())
     await mockOpenBoxInvoice(page, { error: "INVOICE_NOT_FOUND" }, 404)
@@ -180,10 +152,9 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-status")).toContainText("OPEN")
     await expect(page.getByTestId("open-box-status-card")).toContainText(/active/i)
 
-    await expect(page.getByTestId("open-box-items")).toContainText("Quartz Cluster")
-    await expect(page.getByTestId("open-box-items")).toContainText("Order MK-20260402-OPEN01 • Auction")
-    await expect(page.getByTestId("open-box-items")).toContainText("Quartz")
-    await expect(page.getByTestId("open-box-items")).toContainText("Arkansas, USA")
+    await expect(page.getByTestId("open-box-items")).toContainText("MK-20260402-OPEN01")
+    await expect(page.getByTestId("open-box-items")).toContainText("READY_TO_FULFILL")
+    await expect(page.getByTestId("open-box-items")).toContainText("$110.00")
 
     await expect(page.getByTestId("open-box-pay-shipping")).toHaveCount(0)
     await expect(page.getByTestId("open-box-no-invoice")).toContainText(
@@ -200,8 +171,8 @@ test.describe("open box", () => {
 
     await expect(page.getByTestId("open-box-page")).toBeVisible()
     await expect(page.getByTestId("open-box-status")).toContainText("CLOSED")
-    await expect(page.getByTestId("open-box-items")).toContainText("Quartz Cluster")
-    await expect(page.getByTestId("open-box-items")).toContainText("Fluorite Cube")
+    await expect(page.getByTestId("open-box-items")).toContainText("MK-20260402-CLOSED01")
+    await expect(page.getByTestId("open-box-items")).toContainText("MK-20260402-CLOSED02")
     await expect(page.getByTestId("open-box-order-row")).toHaveCount(2)
 
     await expect(page.getByTestId("open-box-pay-shipping")).toBeVisible()
@@ -222,7 +193,7 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-page")).toBeVisible()
     await expect(page.getByTestId("open-box-status")).toContainText("SHIPPED")
     await expect(page.getByTestId("open-box-status-card")).toContainText(/has shipped/i)
-    await expect(page.getByTestId("open-box-items")).toContainText("Azurite Sun")
+    await expect(page.getByTestId("open-box-items")).toContainText("MK-20260402-SHIP01")
     await expect(page.getByTestId("open-box-pay-shipping")).toHaveCount(0)
     await expect(page.getByTestId("open-box-no-invoice")).toContainText(
       /shipping payment is no longer needed/i,
