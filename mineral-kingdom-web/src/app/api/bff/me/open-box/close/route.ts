@@ -10,12 +10,6 @@ import { toProxyError } from "@/lib/api/proxyError"
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
 
-type RouteContext = {
-  params: Promise<{
-    invoiceId: string
-  }>
-}
-
 function contentType(res: Response) {
   return (res.headers.get("content-type") ?? "").toLowerCase()
 }
@@ -38,47 +32,66 @@ async function readBody(res: Response): Promise<unknown> {
   }
 }
 
-async function forwardOnce(accessToken: string, invoiceId: string) {
+async function forwardOnce(accessToken: string | null) {
   const headers = new Headers()
   headers.set("accept", "application/json")
-  headers.set("authorization", `Bearer ${accessToken}`)
 
-  return fetch(`${API_BASE_URL}/api/shipping-invoices/${invoiceId}`, {
-    method: "GET",
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`)
+  }
+
+  return fetch(`${API_BASE_URL}/api/me/open-box/close`, {
+    method: "POST",
     headers,
     cache: "no-store",
   })
 }
 
-export async function GET(_req: Request, context: RouteContext) {
-  const { invoiceId } = await context.params
-
+export async function POST() {
   const initialAccess = await getAccessToken()
   const refresh = await getRefreshToken()
   const startedAuthenticated = Boolean(initialAccess || refresh)
-
-  if (!initialAccess && !refresh) {
-    return NextResponse.json(
-      {
-        status: 401,
-        code: "AUTH_EXPIRED",
-        message: "Your session expired. Please sign in again.",
-      },
-      { status: 401 },
-    )
-  }
 
   let access = initialAccess
   let upstream: Response
 
   try {
-    if (!access && refresh) {
-      const tokens = await apiRefresh(refresh)
-      await setAuthCookies(tokens)
-      access = tokens.access_token
-    }
+    upstream = await forwardOnce(access)
+  } catch (e) {
+    const err = toProxyError(
+      503,
+      {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: e instanceof Error ? e.message : "Upstream fetch failed",
+      },
+      "Open Box close service unavailable",
+    )
 
-    if (!access) {
+    return NextResponse.json(err, { status: 503 })
+  }
+
+  if (upstream.status === 401) {
+    if (refresh) {
+      try {
+        const tokens = await apiRefresh(refresh)
+        await setAuthCookies(tokens)
+        access = tokens.access_token
+        upstream = await forwardOnce(access)
+      } catch {
+        await clearAuthCookies()
+
+        if (startedAuthenticated) {
+          return NextResponse.json(
+            {
+              status: 401,
+              code: "AUTH_EXPIRED",
+              message: "Your session expired. Please sign in again.",
+            },
+            { status: 401 },
+          )
+        }
+      }
+    } else if (startedAuthenticated) {
       return NextResponse.json(
         {
           status: 401,
@@ -88,59 +101,13 @@ export async function GET(_req: Request, context: RouteContext) {
         { status: 401 },
       )
     }
-
-    upstream = await forwardOnce(access, invoiceId)
-  } catch (e) {
-    const err = toProxyError(
-      503,
-      {
-        code: "UPSTREAM_UNAVAILABLE",
-        message: e instanceof Error ? e.message : "Upstream fetch failed",
-      },
-      "Shipping invoice service unavailable",
-    )
-
-    return NextResponse.json(err, { status: 503 })
-  }
-
-  if (upstream.status === 401 && refresh) {
-    try {
-      const tokens = await apiRefresh(refresh)
-      await setAuthCookies(tokens)
-      access = tokens.access_token
-      upstream = await forwardOnce(access, invoiceId)
-    } catch {
-      await clearAuthCookies()
-
-      if (startedAuthenticated) {
-        return NextResponse.json(
-          {
-            status: 401,
-            code: "AUTH_EXPIRED",
-            message: "Your session expired. Please sign in again.",
-          },
-          { status: 401 },
-        )
-      }
-    }
-  }
-
-  if (upstream.status === 404) {
-    return NextResponse.json(
-      {
-        status: 404,
-        code: "SHIPPING_INVOICE_NOT_FOUND",
-        message: "We couldn’t find this shipping invoice.",
-      },
-      { status: 404 },
-    )
   }
 
   if (!upstream.ok) {
-    const upstreamBody = await readBody(upstream)
+    const body = await readBody(upstream)
     const err = toProxyError(
       upstream.status,
-      upstreamBody,
+      body,
       `Upstream request failed (${upstream.status})`,
     )
 

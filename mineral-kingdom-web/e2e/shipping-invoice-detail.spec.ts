@@ -359,12 +359,8 @@ test.describe("shipping invoice detail", () => {
       "Quartz Cluster",
     )
     await expect(page.getByTestId("shipping-invoice-detail-item-row")).toHaveCount(1)
-    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Quartz"
-    )
-    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Arkansas, USA"
-    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText("Quartz")
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText("Arkansas, USA")
   })
 
   test("multi-item multi-order invoice remains scannable and grouped", async ({ page }) => {
@@ -388,12 +384,8 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
       "Order MK-20260329-SHIP02 • STORE",
     )
-    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Fluorite Cube",
-    )
-    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Azurite Sun",
-    )
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText("Fluorite Cube")
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText("Azurite Sun")
   })
 
   test("missing thumbnail fallback renders for covered items", async ({ page }) => {
@@ -429,7 +421,7 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })
 
-  test("clicking pay shipping starts payment flow", async ({ page }) => {
+  test("clicking pay shipping starts payment flow from invoice id route", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockShippingInvoiceDetail(page, buildUnpaidInvoice())
     await mockShippingInvoiceSseUnpaid(page)
@@ -505,7 +497,7 @@ data: ${JSON.stringify({
           UpdatedAt: "2026-03-29T16:10:00.000000+00:00",
         })}
 
-`
+`,
       })
     })
 
