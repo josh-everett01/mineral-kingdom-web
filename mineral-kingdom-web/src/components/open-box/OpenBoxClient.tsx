@@ -90,6 +90,14 @@ function statusDescription(status: string, hasInvoice: boolean) {
   }
 }
 
+function normalizeInvoiceStatus(value?: string | null) {
+  return (value ?? "").trim().toUpperCase()
+}
+
+function shouldShowInvoiceForOpenBox(status: string) {
+  return status === "CLOSED" || status === "SHIPPED"
+}
+
 function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
   return (
     <li
@@ -156,7 +164,9 @@ export function OpenBoxClient() {
 
         if (openBoxRes.status === 404) {
           setOpenBox(null)
-          setInvoice(invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null)
+          setInvoice(
+            invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null,
+          )
           setIsLoading(false)
           return
         }
@@ -179,7 +189,9 @@ export function OpenBoxClient() {
         }
 
         setOpenBox(openBoxBody)
-        setInvoice(invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null)
+        setInvoice(
+          invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null,
+        )
         setIsLoading(false)
       } catch {
         if (!isMounted) return
@@ -198,7 +210,12 @@ export function OpenBoxClient() {
 
   const openBoxStatus = useMemo(() => displayOpenBoxStatus(openBox), [openBox])
   const toneClasses = statusToneClasses(openBoxStatus)
-  const hasInvoice = invoice != null
+  const invoiceStatus = normalizeInvoiceStatus(invoice?.status)
+  const showInvoiceForCurrentBox = shouldShowInvoiceForOpenBox(openBoxStatus)
+  const visibleInvoice = showInvoiceForCurrentBox ? invoice : null
+  const hasInvoice = visibleInvoice != null
+  const isInvoicePayable = invoiceStatus === "UNPAID"
+  const isInvoicePaid = invoiceStatus === "PAID"
 
   if (isLoading) {
     return (
@@ -255,7 +272,8 @@ export function OpenBoxClient() {
             You do not have an Open Box yet
           </h1>
           <p className="mt-2 text-sm text-stone-600 sm:text-base">
-            Open Box lets you combine eligible purchases into one shipment. When you keep an item in Open Box, it will appear here.
+            Open Box lets you combine eligible purchases into one shipment. When you keep an item
+            in Open Box, it will appear here.
           </p>
         </div>
 
@@ -290,7 +308,8 @@ export function OpenBoxClient() {
           Combined shipping made simple
         </h1>
         <p className="mt-2 text-sm text-stone-600 sm:text-base">
-          Open Box lets you combine eligible purchases into one shipment. This page shows what is currently grouped together and what the next step is.
+          Open Box lets you combine eligible purchases into one shipment. This page shows what is
+          currently grouped together and what the next step is.
         </p>
       </div>
 
@@ -303,11 +322,11 @@ export function OpenBoxClient() {
           {openBoxStatus}
         </h2>
         <p className="mt-2 text-sm font-medium">{statusTitle(openBoxStatus)}</p>
-        <p className="mt-2 text-sm opacity-90">
-          {statusDescription(openBoxStatus, hasInvoice)}
-        </p>
+        <p className="mt-2 text-sm opacity-90">{statusDescription(openBoxStatus, hasInvoice)}</p>
         {openBox.closedAt ? (
-          <p className="mt-3 text-xs opacity-80">Closed {formatDate(openBox.closedAt) ?? "recently"}</p>
+          <p className="mt-3 text-xs opacity-80">
+            Closed {formatDate(openBox.closedAt) ?? "recently"}
+          </p>
         ) : null}
       </section>
 
@@ -341,36 +360,44 @@ export function OpenBoxClient() {
       >
         <h2 className="text-lg font-semibold text-stone-900">Shipping invoice</h2>
 
-        {invoice ? (
+        {!showInvoiceForCurrentBox ? (
+          <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
+            Shipping will be billed once your Open Box is closed.
+          </p>
+        ) : visibleInvoice ? (
           <>
             <p className="mt-2 text-sm text-stone-600">
-              Your Open Box shipping invoice is ready.
+              {isInvoicePayable
+                ? "Your Open Box shipping invoice is ready."
+                : isInvoicePaid
+                  ? "Shipping has already been paid for this closed Open Box shipment."
+                  : "Your Open Box shipping invoice is available."}
             </p>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4">
               <div>
                 <p className="text-sm font-semibold text-stone-900">
-                  {formatMoney(invoice.amountCents, invoice.currencyCode)}
+                  {formatMoney(visibleInvoice.amountCents, visibleInvoice.currencyCode)}
                 </p>
-                <p className="mt-1 text-sm text-stone-600">Status: {invoice.status}</p>
+                <p className="mt-1 text-sm text-stone-600">Status: {visibleInvoice.status}</p>
               </div>
 
               <Link
-                href={`/shipping-invoices/${invoice.shippingInvoiceId}`}
+                href={`/shipping-invoices/${visibleInvoice.shippingInvoiceId}`}
                 className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
                 data-testid="open-box-pay-shipping"
               >
-                Pay shipping
+                {isInvoicePayable ? "Pay shipping" : "View invoice"}
               </Link>
             </div>
           </>
         ) : (
           <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
-            {openBoxStatus === "OPEN"
-              ? "Shipping will be billed once your Open Box is closed."
-              : openBoxStatus === "CLOSED"
-                ? "Your shipment is being finalized. A shipping invoice will appear here when ready."
-                : "Shipping payment is no longer needed for this Open Box shipment."}
+            {openBoxStatus === "CLOSED"
+              ? "Your shipment is being finalized. A shipping invoice will appear here when ready."
+              : openBoxStatus === "SHIPPED"
+                ? "Shipping payment is no longer needed for this Open Box shipment."
+                : "Shipping will be billed once your Open Box is closed."}
           </p>
         )}
       </section>
@@ -381,7 +408,8 @@ export function OpenBoxClient() {
       >
         <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
         <p className="mt-2 text-sm text-stone-600">
-          If you have questions about what is in your Open Box or when shipping will be ready, contact support.
+          If you have questions about what is in your Open Box or when shipping will be ready,
+          contact support.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">

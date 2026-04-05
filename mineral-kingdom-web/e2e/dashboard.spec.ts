@@ -131,6 +131,51 @@ function buildDashboardFixture() {
             sourceType: "AUCTION",
           },
         ],
+      }, {
+        shippingInvoiceId: "88fe1dbf-2d9b-4a38-8224-6d8f276a9c9c",
+        fulfillmentGroupId: "7d3c61b8-b3bb-4db0-961c-522d0d00d112",
+        amountCents: 1800,
+        currencyCode: "USD",
+        status: "PAID",
+        provider: "STRIPE",
+        providerCheckoutId: "pi_paid_123",
+        paidAt: "2026-03-27T17:35:00.000000+00:00",
+        createdAt: "2026-03-27T16:35:00.000000+00:00",
+        itemCount: 1,
+        previewTitle: "Azurite Sun",
+        previewImageUrl: null,
+        auctionOrderCount: 0,
+        storeOrderCount: 1,
+        relatedOrders: [
+          {
+            orderId: "a25edef3-8d70-488b-98d3-3b591ab95cb9",
+            orderNumber: "MK-20260325-2CCFD2",
+            sourceType: "STORE",
+          },
+        ],
+      },
+      {
+        shippingInvoiceId: "99fe1dbf-2d9b-4a38-8224-6d8f276a9c9d",
+        fulfillmentGroupId: "7d3c61b8-b3bb-4db0-961c-522d0d00d113",
+        amountCents: 2200,
+        currencyCode: "USD",
+        status: "VOID",
+        provider: null,
+        providerCheckoutId: null,
+        paidAt: null,
+        createdAt: "2026-03-26T16:35:00.000000+00:00",
+        itemCount: 1,
+        previewTitle: "Fluorite Cube",
+        previewImageUrl: null,
+        auctionOrderCount: 1,
+        storeOrderCount: 0,
+        relatedOrders: [
+          {
+            orderId: "bbbbbbbb-1111-2222-3333-444444444444",
+            orderNumber: "MK-20260324-VOID01",
+            sourceType: "AUCTION",
+          },
+        ],
       },
     ],
   }
@@ -198,7 +243,11 @@ test.describe("dashboard", () => {
     await expect(page.getByText(/orders to complete/i)).toBeVisible()
     await expect(page.getByText(/shipping to pay/i)).toBeVisible()
 
-    await expect(page.getByText(/fluorite cube/i)).toBeVisible()
+    await expect(
+      page
+        .getByTestId("dashboard-action-order-20548e00-7b1a-4c4b-9ad1-1a5b8f5561d3")
+        .getByText(/fluorite cube/i),
+    ).toBeVisible()
     await expect(
       page.getByTestId("dashboard-action-shipping-77fe1dbf-2d9b-4a38-8224-6d8f276a9c9b").getByText(/quartz cluster/i),
     ).toBeVisible()
@@ -231,6 +280,27 @@ test.describe("dashboard", () => {
     await expect(page.getByTestId("dashboard-widget-auctions")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-orders")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toBeVisible()
+
+    await expect(
+      page.getByTestId("dashboard-action-shipping"),
+    ).toContainText("Quartz Cluster")
+
+    await expect(
+      page.getByTestId("dashboard-action-shipping"),
+    ).not.toContainText("Azurite Sun")
+
+    await expect(
+      page.getByTestId("dashboard-action-shipping"),
+    ).not.toContainText("MK-20260324-VOID01")
+
+    await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toContainText("PAID")
+    await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toContainText("VOID")
+
+    await expect(page.getByTestId("dashboard-open-box-card")).toBeVisible()
+    await expect(page.getByTestId("dashboard-open-box-orders")).toBeVisible()
+    await expect(page.getByTestId("dashboard-open-box-order-row")).toHaveCount(1)
+    await expect(page.getByTestId("dashboard-open-box-orders")).toContainText("MK-20260325-D013EC")
+    await expect(page.getByTestId("dashboard-open-box-view-link")).toHaveAttribute("href", "/open-box")
   })
 
   test("empty state renders for authenticated member with no dashboard data", async ({ page }) => {

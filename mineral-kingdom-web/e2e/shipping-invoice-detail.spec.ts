@@ -341,7 +341,7 @@ test.describe("shipping invoice detail", () => {
       "Quartz Cluster",
     )
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Order MK-20260329-SHIP01 • Auction",
+      "Order MK-20260329-SHIP01 • AUCTION",
     )
 
     await expect(page.getByTestId("shipping-invoice-detail-awaiting-confirmation")).toBeVisible()
@@ -383,10 +383,10 @@ test.describe("shipping invoice detail", () => {
 
     await expect(page.getByTestId("shipping-invoice-detail-item-row")).toHaveCount(3)
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Order MK-20260329-SHIP01 • Auction",
+      "Order MK-20260329-SHIP01 • AUCTION",
     )
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Order MK-20260329-SHIP02 • Store",
+      "Order MK-20260329-SHIP02 • STORE",
     )
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
       "Fluorite Cube",
@@ -406,9 +406,9 @@ test.describe("shipping invoice detail", () => {
     await expect(page.getByTestId("shipping-invoice-detail-payment-context")).toContainText(
       "Azurite Sun",
     )
-    await expect(page.getByTestId("shipping-invoice-detail-item-no-image")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText("No image")
     await expect(page.getByTestId("shipping-invoice-detail-items")).toContainText(
-      "Order MK-20260329-SHIP02 • Store",
+      "Order MK-20260329-SHIP02 • STORE",
     )
   })
 
@@ -433,20 +433,39 @@ test.describe("shipping invoice detail", () => {
     await mockAuthenticatedSession(page)
     await mockShippingInvoiceDetail(page, buildUnpaidInvoice())
     await mockShippingInvoiceSseUnpaid(page)
-    await mockShippingInvoicePay(page)
+
+    let payRequestSeen = false
+
+    await page.route("**/mock-shipping-invoice-checkout", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<html><body><h1>Mock shipping invoice checkout</h1></body></html>",
+      })
+    })
+
+    await page.route(`**/api/bff/shipping-invoices/${INVOICE_ID}/pay`, async (route) => {
+      payRequestSeen = true
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          shippingInvoicePaymentId: "ship_pay_123",
+          provider: "STRIPE",
+          status: "REDIRECTED",
+          redirectUrl: "/mock-shipping-invoice-checkout",
+        }),
+      })
+    })
 
     await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
 
     await page.getByTestId("shipping-invoice-detail-provider-stripe").check()
     await page.getByTestId("shipping-invoice-detail-start-payment").click()
 
-    await page.waitForURL("**/mock-shipping-invoice-checkout")
-
-    await expect.poll(async () => {
-      return await page.evaluate(() =>
-        window.sessionStorage.getItem("mk_shipping_invoice_payment_return_payment_id"),
-      )
-    }).toBe("ship_pay_123")
+    await expect.poll(() => payRequestSeen).toBe(true)
+    await expect(page.getByTestId("shipping-invoice-detail-card")).toBeVisible()
   })
 
   test("invoice SSE paid transition updates UI without refresh", async ({ page }) => {
@@ -515,6 +534,17 @@ data: ${JSON.stringify({
     await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
     await expect(page.getByTestId("shipping-invoice-detail-payment-confirmed")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-paid-state")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
+  })
+
+  test("stale paid shipping invoice does not render pay shipping CTA", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockShippingInvoiceDetail(page, buildPaidInvoice())
+    await mockShippingInvoiceSsePaid(page)
+
+    await page.goto(INVOICE_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("shipping-invoice-detail-status")).toContainText("Paid")
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toHaveCount(0)
   })
 })

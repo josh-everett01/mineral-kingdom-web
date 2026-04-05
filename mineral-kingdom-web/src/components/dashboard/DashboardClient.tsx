@@ -275,7 +275,12 @@ function isOrderFulfillmentState(order: DashboardOrderSummaryDto) {
 }
 
 function isInvoicePayable(invoice: DashboardShippingInvoiceDto) {
-  return normalizeStatus(invoice.status) !== "PAID"
+  return normalizeStatus(invoice.status) === "UNPAID"
+}
+
+function isInvoiceAwaitingConfirmation(invoice: DashboardShippingInvoiceDto) {
+  const status = normalizeStatus(invoice.status)
+  return status === "PROCESSING" || status === "PENDING" || status === "CONFIRMING"
 }
 
 function buildTitle(previewTitle?: string | null, itemCount?: number) {
@@ -300,6 +305,11 @@ function orderContext(order: DashboardOrderSummaryDto) {
   return `Order ${order.orderNumber} • ${type}${due}`
 }
 
+function openBoxOrderContext(order: DashboardOrderSummaryDto) {
+  const type = order.sourceType === "AUCTION" ? "Auction" : "Store"
+  return `Order ${order.orderNumber} • ${type} • ${order.status}`
+}
+
 function shippingInvoiceContext(invoice: DashboardShippingInvoiceDto) {
   const firstOrder = invoice.relatedOrders[0]
 
@@ -312,22 +322,6 @@ function shippingInvoiceContext(invoice: DashboardShippingInvoiceDto) {
   }
 
   return "Shipping invoice • Open Box"
-}
-
-function shippingActionLabel(invoice: DashboardShippingInvoiceDto) {
-  if (invoice.previewTitle) {
-    return `Pay shipping for ${buildTitle(invoice.previewTitle, invoice.itemCount)}`
-  }
-
-  if (invoice.relatedOrders.length === 1) {
-    return `Pay shipping for order ${invoice.relatedOrders[0].orderNumber}`
-  }
-
-  if (invoice.auctionOrderCount > 0 && invoice.storeOrderCount === 0) {
-    return `Pay shipping for ${invoice.auctionOrderCount} auction ${invoice.auctionOrderCount === 1 ? "win" : "wins"}`
-  }
-
-  return `Pay shipping for ${invoice.itemCount || invoice.relatedOrders.length} ${invoice.itemCount === 1 ? "item" : "items"}`
 }
 
 function Thumbnail({
@@ -431,11 +425,42 @@ function ActionSection({
   )
 }
 
+function OpenBoxOrderRow({ order }: { order: DashboardOrderSummaryDto }) {
+  return (
+    <li
+      className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      data-testid="dashboard-open-box-order-row"
+    >
+      <Thumbnail
+        src={order.previewImageUrl}
+        alt={order.previewTitle ?? order.orderNumber}
+        fallback="Order"
+        testId={`dashboard-open-box-order-${order.orderId}-thumbnail`}
+      />
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-stone-900">
+          {buildTitle(order.previewTitle, order.itemCount)}
+        </p>
+        <p className="mt-1 text-sm text-stone-600">{openBoxOrderContext(order)}</p>
+      </div>
+
+      <Link
+        href={`/orders/${order.orderId}`}
+        className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+        data-testid={`dashboard-open-box-order-${order.orderId}-view`}
+      >
+        View
+      </Link>
+    </li>
+  )
+}
+
 function InProgressSection({ data }: { data: MemberDashboardDto }) {
   const openBox = data.openBox
   const paidOrders = data.paidOrders.filter(isOrderFulfillmentState).slice(0, 4)
   const pendingInvoices = data.shippingInvoices
-    .filter((invoice) => !isInvoicePayable(invoice) && normalizeStatus(invoice.status) !== "PAID")
+    .filter(isInvoiceAwaitingConfirmation)
     .slice(0, 4)
 
   if (!openBox && paidOrders.length === 0 && pendingInvoices.length === 0) {
@@ -456,13 +481,41 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
         {openBox ? (
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Open Box</h3>
-            <div className="mt-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-              <p className="text-sm font-semibold text-stone-900">
+            <div
+              className="mt-3 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+              data-testid="dashboard-open-box-card"
+            >
+              <p
+                className="text-sm font-semibold text-stone-900"
+                data-testid="dashboard-open-box-count"
+              >
                 {openBox.orders.length} item{openBox.orders.length === 1 ? "" : "s"} currently in your Open Box
               </p>
               <p className="mt-1 text-sm text-stone-600">
                 Status: {openBox.status} • Updated {formatDate(openBox.updatedAt) ?? "recently"}
               </p>
+
+              {openBox.orders.length > 0 ? (
+                <ul className="mt-4 space-y-3" data-testid="dashboard-open-box-orders">
+                  {openBox.orders.slice(0, 4).map((order) => (
+                    <OpenBoxOrderRow key={order.orderId} order={order} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-stone-600" data-testid="dashboard-open-box-empty">
+                  Your Open Box exists, but orders are not visible yet.
+                </p>
+              )}
+
+              <div className="mt-4">
+                <Link
+                  href="/open-box"
+                  className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                  data-testid="dashboard-open-box-view-link"
+                >
+                  View Open Box
+                </Link>
+              </div>
             </div>
           </div>
         ) : null}
