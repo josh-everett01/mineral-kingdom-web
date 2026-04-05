@@ -240,4 +240,42 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-error")).toBeVisible()
     await expect(page.getByTestId("open-box-sign-in-again")).toBeVisible()
   })
+
+  test("open group ignores historical paid invoice response and does not show shipping CTA", async ({
+    page,
+  }) => {
+    await mockAuthenticatedSession(page)
+    await mockOpenBox(page, buildOpenGroup())
+    await mockOpenBoxInvoice(page, {
+      shippingInvoiceId: "historical-paid-invoice",
+      fulfillmentGroupId: "old-closed-group",
+      amountCents: 4200,
+      currencyCode: "USD",
+      status: "PAID",
+    })
+
+    await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("open-box-status")).toContainText("OPEN")
+    await expect(page.getByTestId("open-box-pay-shipping")).toHaveCount(0)
+    await expect(page.getByTestId("open-box-no-invoice")).toContainText(
+      /shipping will be billed once your open box is closed/i,
+    )
+  })
+
+  test("closed group with paid invoice shows view invoice instead of pay shipping", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOpenBox(page, buildClosedGroup())
+    await mockOpenBoxInvoice(page, {
+      ...buildInvoice(),
+      status: "PAID",
+      paidAt: "2026-04-02T16:00:00.000000+00:00",
+    })
+
+    await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("open-box-status")).toContainText("CLOSED")
+    await expect(page.getByTestId("open-box-invoice-section")).toContainText("Status: PAID")
+    await expect(page.getByTestId("open-box-pay-shipping")).toContainText(/view invoice/i)
+  })
 })

@@ -1,5 +1,15 @@
 import { defineConfig, devices } from "@playwright/test"
 
+const serializedSpecs = [
+  "**/checkout-return-confirmation.spec.ts",
+  "**/shipping-invoice-detail.spec.ts",
+  "**/auction-detail.spec.ts",
+  "**/order-detail.spec.ts",
+  "**/dashboard.spec.ts",
+  "**/open-box.spec.ts",
+  "**/fulfillment.spec.ts",
+]
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -25,12 +35,12 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: ["**/checkout-return-confirmation.spec.ts"],
+      testIgnore: serializedSpecs,
       use: { ...devices["Desktop Chrome"] },
     },
     {
-      name: "chromium-backend-serialized",
-      testMatch: ["**/checkout-return-confirmation.spec.ts"],
+      name: "chromium-serialized",
+      testMatch: serializedSpecs,
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },

@@ -75,3 +75,54 @@ test("checkout return page redirects to confirmed order after backend payment co
   await expect(page.getByTestId("order-confirmation-page")).toBeVisible()
   await expect(page.getByTestId("order-confirmation-card")).toBeVisible()
 })
+
+test("checkout return page stays on return screen while backend confirmation is still pending", async ({
+  page,
+}) => {
+  const paymentId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+  await page.addInitScript((storedPaymentId: string) => {
+    window.sessionStorage.setItem("mk_checkout_payment_id", storedPaymentId)
+  }, paymentId)
+
+  await page.route(`**/api/bff/sse/checkout-payments/${paymentId}`, async (route) => {
+    await route.abort()
+  })
+
+  await page.route(`**/api/bff/payments/${paymentId}/confirmation`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        paymentId,
+        provider: "stripe",
+        paymentStatus: "REDIRECTED",
+        isConfirmed: false,
+        orderId: "11111111-2222-3333-4444-555555555555",
+        orderNumber: "MK-20260403-PEND01",
+        orderStatus: "AWAITING_PAYMENT",
+        orderTotalCents: 21900,
+        orderCurrencyCode: "USD",
+        guestEmail: "guest@example.com",
+      }),
+    })
+  })
+
+  await page.route("**/api/bff/cart", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "cart-test-id",
+        status: "ACTIVE",
+        lines: [],
+        notices: [],
+      }),
+    })
+  })
+
+  await page.goto("/checkout/return", { waitUntil: "domcontentloaded" })
+
+  await expect(page.getByTestId("checkout-return-page")).toBeVisible()
+  await expect(page).toHaveURL(/\/checkout\/return/)
+})
