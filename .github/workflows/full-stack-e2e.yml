@@ -167,46 +167,71 @@ jobs:
           docker ps || true
           docker logs mk_api --tail 250 || true
           exit 1
-            
+
       - name: Seed deterministic E2E catalog fixtures
         shell: bash
         run: |
           set -euo pipefail
 
           curl -fsS \
-          -X POST "http://localhost:8080/api/testing/e2e/seed" \
-          -H "content-type: application/json"
-      
+            -X POST "http://localhost:8080/api/testing/e2e/seed" \
+            -H "content-type: application/json"
 
-      - name: Wait for auth upstream to be ready
+      - name: Wait for app endpoints to stabilize
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Waiting for auth endpoints to stop returning 503..."
+          echo "Waiting for app endpoints to stabilize..."
+
           for i in {1..60}; do
-            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d '{"email":"healthcheck@example.com","password":"Password123!"}' || true)"
+            auth_code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d '{"email":"healthcheck@example.com","password":"Password123!"}' || true)"
 
-            code="$(echo "$http_and_body" | tail -n 1)"
-            body="$(echo "$http_and_body" | head -n -1)"
+            about_code="$(curl -s -o /dev/null -w "%{http_code}" \
+              "http://localhost:8080/api/pages/about" || true)"
 
-            echo "Attempt $i: HTTP $code"
-            if [ "$code" != "503" ] && [ "$code" != "000" ]; then
-              echo "Auth upstream responding (not 503)."
-              exit 0
+            faq_code="$(curl -s -o /dev/null -w "%{http_code}" \
+              "http://localhost:8080/api/pages/faq" || true)"
+
+            seed_code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/testing/e2e/seed" \
+              -H "content-type: application/json" || true)"
+
+            echo "Attempt $i: auth=$auth_code about=$about_code faq=$faq_code seed=$seed_code"
+
+            auth_ready="0"
+            pages_ready="0"
+            seed_ready="0"
+
+            if [ "$auth_code" != "503" ] && [ "$auth_code" != "502" ] && [ "$auth_code" != "000" ]; then
+              auth_ready="1"
             fi
 
-            if [ "$i" -eq 60 ]; then
-              echo "Auth upstream still returning 503 after waiting."
-              echo "$body"
-              docker ps || true
-              docker logs mk_api --tail 300 || true
-              docker logs mk_worker --tail 300 || true
-              exit 1
+            if [ "$about_code" = "200" ] && [ "$faq_code" = "200" ]; then
+              pages_ready="1"
+            fi
+
+            if [ "$seed_code" = "200" ] || [ "$seed_code" = "204" ]; then
+              seed_ready="1"
+            fi
+
+            if [ "$auth_ready" = "1" ] && [ "$pages_ready" = "1" ] && [ "$seed_ready" = "1" ]; then
+              echo "App endpoints are stable."
+              exit 0
             fi
 
             sleep 2
           done
+
+          echo "App endpoints did not stabilize in time."
+          docker ps || true
+          docker logs mk_api --tail 400 || true
+          docker logs mk_worker --tail 400 || true
+          docker logs mk_postgres --tail 400 || true
+          exit 1
 
       - name: Seed verified E2E user (register + verify)
         id: seed_user
@@ -222,7 +247,10 @@ jobs:
           register_json=""
           for i in {1..10}; do
             echo "Register attempt $i..."
-            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+            http_and_body="$(curl -sS -w "\n%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
 
             body="$(echo "$http_and_body" | head -n -1)"
             code="$(echo "$http_and_body" | tail -n 1)"
@@ -257,7 +285,10 @@ jobs:
 
           verify_ok=""
           for i in {1..10}; do
-            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
+            code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/verify-email" \
+              -H "content-type: application/json" \
+              -d "{\"token\":\"$TOKEN\"}" || true)"
 
             echo "Verify attempt $i: HTTP $code"
             if [ "$code" = "200" ] || [ "$code" = "204" ]; then
@@ -296,7 +327,10 @@ jobs:
           register_json=""
           for i in {1..10}; do
             echo "Register attempt $i..."
-            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+            http_and_body="$(curl -sS -w "\n%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
 
             body="$(echo "$http_and_body" | head -n -1)"
             code="$(echo "$http_and_body" | tail -n 1)"
@@ -331,7 +365,10 @@ jobs:
 
           verify_ok=""
           for i in {1..10}; do
-            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
+            code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/verify-email" \
+              -H "content-type: application/json" \
+              -d "{\"token\":\"$TOKEN\"}" || true)"
 
             echo "Verify attempt $i: HTTP $code"
             if [ "$code" = "200" ] || [ "$code" = "204" ]; then
@@ -353,7 +390,8 @@ jobs:
             exit 1
           fi
 
-          docker exec mk_postgres psql -U mk -d mk -c             "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+          docker exec mk_postgres psql -U mk -d mk -c \
+            "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
@@ -372,7 +410,10 @@ jobs:
           register_json=""
           for i in {1..10}; do
             echo "Register attempt $i..."
-            http_and_body="$(curl -sS -w "\n%{http_code}"               -X POST "http://localhost:8080/api/auth/register"               -H "content-type: application/json"               -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+            http_and_body="$(curl -sS -w "\n%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
 
             body="$(echo "$http_and_body" | head -n -1)"
             code="$(echo "$http_and_body" | tail -n 1)"
@@ -407,7 +448,10 @@ jobs:
 
           verify_ok=""
           for i in {1..10}; do
-            code="$(curl -s -o /dev/null -w "%{http_code}"               -X POST "http://localhost:8080/api/auth/verify-email"               -H "content-type: application/json"               -d "{\"token\":\"$TOKEN\"}" || true)"
+            code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/verify-email" \
+              -H "content-type: application/json" \
+              -d "{\"token\":\"$TOKEN\"}" || true)"
 
             echo "Verify attempt $i: HTTP $code"
             if [ "$code" = "200" ] || [ "$code" = "204" ]; then
@@ -429,7 +473,8 @@ jobs:
             exit 1
           fi
 
-          docker exec mk_postgres psql -U mk -d mk -c             "UPDATE users SET \"Role\"='STAFF', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+          docker exec mk_postgres psql -U mk -d mk -c \
+            "UPDATE users SET \"Role\"='STAFF', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
 
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"

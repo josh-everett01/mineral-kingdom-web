@@ -26,22 +26,25 @@ function buildUnauthenticatedMe() {
   }
 }
 
-function buildOpenGroup() {
+function buildOpenGroup(orderCount = 1) {
   return {
     fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
     boxStatus: "OPEN",
     fulfillmentStatus: "READY_TO_FULFILL",
     closedAt: null,
-    orderCount: 1,
-    orders: [
-      {
-        orderId: "o1111111-2222-3333-4444-555555555555",
-        orderNumber: "MK-20260402-OPEN01",
-        totalCents: 11000,
-        currencyCode: "USD",
-        status: "READY_TO_FULFILL",
-      },
-    ],
+    orderCount,
+    orders:
+      orderCount > 0
+        ? [
+          {
+            orderId: "o1111111-2222-3333-4444-555555555555",
+            orderNumber: "MK-20260402-OPEN01",
+            totalCents: 11000,
+            currencyCode: "USD",
+            status: "READY_TO_FULFILL",
+          },
+        ]
+        : [],
   }
 }
 
@@ -90,13 +93,14 @@ function buildShippedGroup() {
   }
 }
 
-function buildInvoice() {
+function buildInvoice(status: "UNPAID" | "PAID" = "UNPAID") {
   return {
     shippingInvoiceId: "1b3a4b9d-6b1f-4d9b-8d54-7b2f1e88aa11",
     fulfillmentGroupId: "f1111111-2222-3333-4444-555555555555",
     amountCents: 4200,
     currencyCode: "USD",
-    status: "UNPAID",
+    status,
+    paidAt: status === "PAID" ? "2026-04-02T16:00:00.000000+00:00" : null,
   }
 }
 
@@ -162,10 +166,10 @@ test.describe("open box", () => {
     )
   })
 
-  test("closed group with invoice shows pay shipping CTA", async ({ page }) => {
+  test("closed group with unpaid invoice shows pay shipping CTA", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockOpenBox(page, buildClosedGroup())
-    await mockOpenBoxInvoice(page, buildInvoice())
+    await mockOpenBoxInvoice(page, buildInvoice("UNPAID"))
 
     await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
 
@@ -176,7 +180,25 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-order-row")).toHaveCount(2)
 
     await expect(page.getByTestId("open-box-pay-shipping")).toBeVisible()
+    await expect(page.getByTestId("open-box-pay-shipping")).toContainText(/pay shipping/i)
     await expect(page.getByTestId("open-box-invoice-section")).toContainText("$42.00")
+    await expect(page.getByTestId("open-box-pay-shipping")).toHaveAttribute(
+      "href",
+      "/shipping-invoices/1b3a4b9d-6b1f-4d9b-8d54-7b2f1e88aa11",
+    )
+  })
+
+  test("closed group with paid invoice shows view invoice CTA", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOpenBox(page, buildClosedGroup())
+    await mockOpenBoxInvoice(page, buildInvoice("PAID"))
+
+    await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
+
+    await expect(page.getByTestId("open-box-status")).toContainText("CLOSED")
+    await expect(page.getByTestId("open-box-invoice-section")).toContainText("Status: PAID")
+    await expect(page.getByTestId("open-box-pay-shipping")).toBeVisible()
+    await expect(page.getByTestId("open-box-pay-shipping")).toContainText(/view invoice/i)
     await expect(page.getByTestId("open-box-pay-shipping")).toHaveAttribute(
       "href",
       "/shipping-invoices/1b3a4b9d-6b1f-4d9b-8d54-7b2f1e88aa11",
@@ -263,19 +285,16 @@ test.describe("open box", () => {
     )
   })
 
-  test("closed group with paid invoice shows view invoice instead of pay shipping", async ({ page }) => {
+  test("open group with no orders does not show close or shipment CTA", async ({ page }) => {
     await mockAuthenticatedSession(page)
-    await mockOpenBox(page, buildClosedGroup())
-    await mockOpenBoxInvoice(page, {
-      ...buildInvoice(),
-      status: "PAID",
-      paidAt: "2026-04-02T16:00:00.000000+00:00",
-    })
+    await mockOpenBox(page, buildOpenGroup(0))
+    await mockOpenBoxInvoice(page, { error: "NO_INVOICE_FOR_OPEN_BOX" }, 404)
 
     await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
 
-    await expect(page.getByTestId("open-box-status")).toContainText("CLOSED")
-    await expect(page.getByTestId("open-box-invoice-section")).toContainText("Status: PAID")
-    await expect(page.getByTestId("open-box-pay-shipping")).toContainText(/view invoice/i)
+    await expect(page.getByTestId("open-box-status")).toContainText("OPEN")
+    await expect(page.getByTestId("open-box-items-empty")).toBeVisible()
+    await expect(page.getByTestId("open-box-close-button")).toHaveCount(0)
+    await expect(page.getByTestId("open-box-request-shipment")).toHaveCount(0)
   })
 })

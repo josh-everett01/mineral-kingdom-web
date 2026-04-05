@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type {
   OpenBoxDto,
   OpenBoxOrderItemDto,
@@ -126,87 +126,88 @@ export function OpenBoxClient() {
   const [errorStatus, setErrorStatus] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [isClosingBox, setIsClosingBox] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let isMounted = true
+  const load = useCallback(async (isMounted?: () => boolean) => {
+    setIsLoading(true)
+    setError(null)
+    setErrorStatus(null)
+    setSessionExpired(false)
 
-    async function load() {
-      setIsLoading(true)
-      setError(null)
-      setErrorStatus(null)
-      setSessionExpired(false)
+    try {
+      const [openBoxRes, invoiceRes] = await Promise.all([
+        fetch("/api/bff/me/open-box", { cache: "no-store" }),
+        fetch("/api/bff/me/open-box/shipping-invoice", { cache: "no-store" }),
+      ])
 
-      try {
-        const [openBoxRes, invoiceRes] = await Promise.all([
-          fetch("/api/bff/me/open-box", { cache: "no-store" }),
-          fetch("/api/bff/me/open-box/shipping-invoice", { cache: "no-store" }),
-        ])
+      const openBoxBody = (await openBoxRes.json().catch(() => null)) as
+        | OpenBoxDto
+        | LoadableError
+        | null
 
-        const openBoxBody = (await openBoxRes.json().catch(() => null)) as
-          | OpenBoxDto
-          | LoadableError
-          | null
+      const invoiceBody = (await invoiceRes.json().catch(() => null)) as
+        | OpenBoxShippingInvoiceDto
+        | LoadableError
+        | null
 
-        const invoiceBody = (await invoiceRes.json().catch(() => null)) as
-          | OpenBoxShippingInvoiceDto
-          | LoadableError
-          | null
+      if (isMounted && !isMounted()) return
 
-        if (!isMounted) return
+      if (openBoxRes.status === 401 || invoiceRes.status === 401) {
+        setSessionExpired(true)
+        setErrorStatus(401)
+        setError("Your session expired. Please sign in again.")
+        setIsLoading(false)
+        return
+      }
 
-        if (openBoxRes.status === 401 || invoiceRes.status === 401) {
-          setSessionExpired(true)
-          setErrorStatus(401)
-          setError("Your session expired. Please sign in again.")
-          setIsLoading(false)
-          return
-        }
-
-        if (openBoxRes.status === 404) {
-          setOpenBox(null)
-          setInvoice(
-            invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null,
-          )
-          setIsLoading(false)
-          return
-        }
-
-        if (!openBoxRes.ok || !openBoxBody || !("fulfillmentGroupId" in openBoxBody)) {
-          setErrorStatus(openBoxRes.status)
-          setError(
-            (openBoxBody &&
-              "message" in openBoxBody &&
-              typeof openBoxBody.message === "string" &&
-              openBoxBody.message) ||
-            (openBoxBody &&
-              "error" in openBoxBody &&
-              typeof openBoxBody.error === "string" &&
-              openBoxBody.error) ||
-            "We couldn’t load your Open Box.",
-          )
-          setIsLoading(false)
-          return
-        }
-
-        setOpenBox(openBoxBody)
+      if (openBoxRes.status === 404) {
+        setOpenBox(null)
         setInvoice(
           invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null,
         )
         setIsLoading(false)
-      } catch {
-        if (!isMounted) return
-        setErrorStatus(500)
-        setError("We couldn’t load your Open Box.")
-        setIsLoading(false)
+        return
       }
-    }
 
-    void load()
+      if (!openBoxRes.ok || !openBoxBody || !("fulfillmentGroupId" in openBoxBody)) {
+        setErrorStatus(openBoxRes.status)
+        setError(
+          (openBoxBody &&
+            "message" in openBoxBody &&
+            typeof openBoxBody.message === "string" &&
+            openBoxBody.message) ||
+          (openBoxBody &&
+            "error" in openBoxBody &&
+            typeof openBoxBody.error === "string" &&
+            openBoxBody.error) ||
+          "We couldn’t load your Open Box.",
+        )
+        setIsLoading(false)
+        return
+      }
 
-    return () => {
-      isMounted = false
+      setOpenBox(openBoxBody)
+      setInvoice(
+        invoiceRes.ok && invoiceBody && "shippingInvoiceId" in invoiceBody ? invoiceBody : null,
+      )
+      setIsLoading(false)
+    } catch {
+      if (isMounted && !isMounted()) return
+      setErrorStatus(500)
+      setError("We couldn’t load your Open Box.")
+      setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+    void load(() => mounted)
+
+    return () => {
+      mounted = false
+    }
+  }, [load])
 
   const openBoxStatus = useMemo(() => displayOpenBoxStatus(openBox), [openBox])
   const toneClasses = statusToneClasses(openBoxStatus)
@@ -216,6 +217,46 @@ export function OpenBoxClient() {
   const hasInvoice = visibleInvoice != null
   const isInvoicePayable = invoiceStatus === "UNPAID"
   const isInvoicePaid = invoiceStatus === "PAID"
+  const canRequestShipment = openBoxStatus === "OPEN" && (openBox?.orderCount ?? 0) > 0
+
+  async function handleCloseBox() {
+    setCloseError(null)
+    setIsClosingBox(true)
+
+    try {
+      const res = await fetch("/api/bff/me/open-box/close", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      })
+
+      const body = (await res.json().catch(() => null)) as LoadableError | null
+
+      if (res.status === 401) {
+        setSessionExpired(true)
+        setErrorStatus(401)
+        setError("Your session expired. Please sign in again.")
+        return
+      }
+
+      if (!res.ok) {
+        setCloseError(
+          body?.message ||
+          body?.error ||
+          "We couldn’t request shipment for this Open Box right now.",
+        )
+        return
+      }
+
+      await load()
+    } catch {
+      setCloseError("We couldn’t request shipment for this Open Box right now.")
+    } finally {
+      setIsClosingBox(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -272,8 +313,8 @@ export function OpenBoxClient() {
             You do not have an Open Box yet
           </h1>
           <p className="mt-2 text-sm text-stone-600 sm:text-base">
-            Open Box lets you combine eligible purchases into one shipment. When you keep an item
-            in Open Box, it will appear here.
+            Open Box lets you combine eligible purchases into one shipment. When you keep an item in
+            Open Box, it will appear here.
           </p>
         </div>
 
@@ -353,6 +394,40 @@ export function OpenBoxClient() {
           </p>
         )}
       </section>
+
+      {canRequestShipment ? (
+        <section
+          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          data-testid="open-box-request-shipment"
+        >
+          <h2 className="text-lg font-semibold text-stone-900">Ready to ship these items?</h2>
+          <p className="mt-2 text-sm text-stone-600">
+            This will close your current Open Box and prepare shipping for the items shown here.
+            Shipping will be billed after your box is closed.
+          </p>
+
+          {closeError ? (
+            <div
+              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              data-testid="open-box-close-error"
+            >
+              {closeError}
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void handleCloseBox()}
+              disabled={isClosingBox}
+              className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+              data-testid="open-box-close-button"
+            >
+              {isClosingBox ? "Preparing shipment…" : "Ship all items now"}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section
         className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
