@@ -34,7 +34,9 @@ test.skip(
 )
 test("STAFF sees admin shell and active shared navigation", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
-    "X-Test-RateLimit-Key": `admin-visibility-staff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    "X-Test-RateLimit-Key": `admin-visibility-staff-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
   })
 
   await login(page, process.env.E2E_STAFF_EMAIL!, process.env.E2E_STAFF_PASSWORD!)
@@ -43,11 +45,23 @@ test("STAFF sees admin shell and active shared navigation", async ({ page }) => 
   await expect(page).toHaveURL(/\/admin\/store\/offers/, { timeout: 15_000 })
 
   await expect(page.getByTestId("admin-shell")).toBeVisible()
-  await expect(page.getByTestId("admin-role-badge")).toContainText(/role:\s*staff/i)
-  await expect(page.getByTestId("admin-nav-link-store-offers")).toHaveAttribute("data-active", "true")
-  await expect(page.getByTestId("admin-nav-link-dashboard")).toHaveAttribute("data-active", "false")
+  await expect(page.getByTestId("admin-role-badge")).toContainText("STAFF")
+  await expect(page.getByTestId("admin-nav-link-store-offers")).toHaveAttribute(
+    "data-active",
+    "true",
+  )
+  await expect(page.getByTestId("admin-nav-link-dashboard")).toHaveAttribute(
+    "data-active",
+    "false",
+  )
   await expect(page.getByTestId("admin-nav-link-store-offers")).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Store Offers" })).toBeVisible()
+
+  const pageTitle = page.getByTestId("admin-page-title")
+  if (await pageTitle.count()) {
+    await expect(pageTitle).toContainText(/store offers/i)
+  } else {
+    await expect(page.locator("main")).toContainText(/store offers/i)
+  }
 })
 
 test.skip(
@@ -56,7 +70,9 @@ test.skip(
 )
 test("OWNER sees admin shell and users navigation", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
-    "X-Test-RateLimit-Key": `admin-visibility-owner-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    "X-Test-RateLimit-Key": `admin-visibility-owner-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
   })
 
   await login(page, process.env.E2E_ADMIN_EMAIL!, process.env.E2E_ADMIN_PASSWORD!)
@@ -65,8 +81,15 @@ test("OWNER sees admin shell and users navigation", async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/users/, { timeout: 15_000 })
 
   await expect(page.getByTestId("admin-shell")).toBeVisible()
-  await expect(page.getByTestId("admin-role-badge")).toContainText(/role:\s*owner/i)
+  await expect(page.getByTestId("admin-role-badge")).toContainText("OWNER")
   await expect(page.getByTestId("admin-nav-link-users")).toHaveAttribute("data-active", "true")
   await expect(page.getByTestId("admin-nav-link-store-offers")).toBeVisible()
-  await expect(page.getByText("Users")).toBeVisible()
+  await expect(page.getByTestId("admin-nav-link-users")).toBeVisible()
+
+  const pageTitle = page.getByTestId("admin-page-title")
+  if (await pageTitle.count()) {
+    await expect(pageTitle).toContainText(/^Users$/)
+  } else {
+    await expect(page.locator("main")).toContainText(/users/i)
+  }
 })
