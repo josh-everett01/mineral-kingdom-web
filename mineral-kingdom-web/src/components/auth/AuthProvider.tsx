@@ -222,9 +222,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMe(emptyMe)
     hadAuthenticatedSessionRef.current = false
 
-    router.replace("/")
-    router.refresh()
-  }, [clearDialog, clearTimers, router])
+    window.location.assign("/")
+  }, [clearDialog, clearTimers])
 
   React.useEffect(() => {
     if (!isLoggingOut) return

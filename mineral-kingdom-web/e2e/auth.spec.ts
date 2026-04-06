@@ -70,7 +70,8 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
   }
 
   await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
-  await expect(page.getByText("Authenticated:")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("account-session-card")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", { timeout: 15_000 })
 
   await page.getByTestId("nav-logout").click()
   await expect(page).toHaveURL(/\/$/, { timeout: 15_000 })
