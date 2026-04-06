@@ -14,7 +14,6 @@ test("authenticated USER visiting admin route sees 403", async ({ page }) => {
   const email = `admin-forbidden-${Date.now()}@example.com`
   const password = "Password123!"
 
-  // Register
   await page.goto("/register")
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(password)
@@ -36,7 +35,6 @@ test("authenticated USER visiting admin route sees 403", async ({ page }) => {
   const token = registerData.verificationToken?.trim() ?? ""
   expect(token).toBeTruthy()
 
-  // Verify
   const verifyResponsePromise = page.waitForResponse((resp) => {
     return resp.url().includes("/api/bff/auth/verify-email") && resp.request().method() === "POST"
   })
@@ -50,7 +48,6 @@ test("authenticated USER visiting admin route sees 403", async ({ page }) => {
     throw new Error(`Verify failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  // Login as normal USER
   await page.goto("/login")
   await page.getByTestId("login-email").fill(email)
   await page.getByTestId("login-password").fill(password)
@@ -70,8 +67,7 @@ test("authenticated USER visiting admin route sees 403", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
 
-  // Forbidden admin access
-  await page.goto("/admin")
+  await page.goto("/admin/store/offers")
   await expect(page).toHaveURL(/\/403/, { timeout: 15_000 })
   await expect(page.getByTestId("forbidden-page")).toBeVisible()
   await expect(page.getByTestId("forbidden-page")).toContainText(/access denied/i)

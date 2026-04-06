@@ -27,22 +27,26 @@ function AccountContent() {
         </Button>
       </div>
 
-      <Card className="mt-6">
+      <Card className="mt-6" data-testid="account-session-card">
         <CardHeader>
           <CardTitle>Session</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {isLoading ? (
-            <div>Loading...</div>
+            <div data-testid="account-loading">Loading...</div>
           ) : (
             <>
-              <div>
+              <div data-testid="account-authenticated-row">
                 <span className="text-muted-foreground">Authenticated:</span>{" "}
-                <span className="font-medium">{me.isAuthenticated ? "Yes" : "No"}</span>
+                <span className="font-medium" data-testid="account-authenticated-value">
+                  {me.isAuthenticated ? "Yes" : "No"}
+                </span>
               </div>
-              <div>
+              <div data-testid="account-email-row">
                 <span className="text-muted-foreground">Email:</span>{" "}
-                <span className="font-medium">{me.user?.email ?? "—"}</span>
+                <span className="font-medium" data-testid="account-email-value">
+                  {me.user?.email ?? "—"}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground">UserId:</span>{" "}
