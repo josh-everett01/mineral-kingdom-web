@@ -46,7 +46,8 @@ test("STAFF sees admin shell and active shared navigation", async ({ page }) => 
   await expect(page.getByTestId("admin-role-badge")).toContainText(/role:\s*staff/i)
   await expect(page.getByTestId("admin-nav-link-store-offers")).toHaveAttribute("data-active", "true")
   await expect(page.getByTestId("admin-nav-link-dashboard")).toHaveAttribute("data-active", "false")
-  await expect(page.getByText("Store Offers")).toBeVisible()
+  await expect(page.getByTestId("admin-nav-link-store-offers")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Store Offers" })).toBeVisible()
 })
 
 test.skip(

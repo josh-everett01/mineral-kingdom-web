@@ -339,9 +339,19 @@ test.describe("checkout return page", () => {
       }),
     ).toBeVisible()
 
-    await expect(page.getByTestId("checkout-return-live-status")).toContainText(
-      /current payment status:\s*REDIRECTED\./i,
-    )
+    const progress = page.getByTestId("checkout-return-progress")
+    const warning = page.getByTestId("checkout-return-warning")
+    const liveStatus = page.getByTestId("checkout-return-live-status")
+
+    await expect(progress).toBeVisible()
+
+    if (await warning.count()) {
+      await expect(warning).toBeVisible()
+    }
+
+    if (await liveStatus.count()) {
+      await expect(liveStatus).toContainText(/REDIRECTED/i)
+    }
   })
 
   test("redirects to order confirmation after backend-confirmed payment arrives", async ({

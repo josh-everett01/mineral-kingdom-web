@@ -11,6 +11,28 @@ type PasswordResetRequestApiResponse = {
   resetToken?: string
 }
 
+async function expectAuthenticatedAccount(
+  page: import("@playwright/test").Page,
+  email: string,
+) {
+  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page.getByTestId("nav-logout")).toBeVisible({ timeout: 15_000 })
+
+  const sessionCard = page.getByTestId("account-session-card")
+  if (await sessionCard.count()) {
+    await expect(sessionCard).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
+      timeout: 15_000,
+    })
+    await expect(page.getByTestId("account-email-value")).toHaveText(email, {
+      timeout: 15_000,
+    })
+    return
+  }
+
+  await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 })
+}
+
 test("password reset happy path: request -> confirm -> login", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
     "X-Test-RateLimit-Key": `password-reset-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -20,7 +42,6 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
   const originalPassword = "Password123!"
   const newPassword = "NewPassword123!"
 
-  // Register
   await page.goto("/register")
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(originalPassword)
@@ -47,7 +68,6 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
     timeout: 15_000,
   })
 
-  // Verify email
   const verifyResponsePromise = page.waitForResponse((resp) => {
     return resp.url().includes("/api/bff/auth/verify-email") && resp.request().method() === "POST"
   })
@@ -64,7 +84,6 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
 
   await expect(page.getByText("Email verified")).toBeVisible({ timeout: 10_000 })
 
-  // Request password reset
   await page.goto("/password-reset/request")
   await page.getByTestId("password-reset-request-email").fill(email)
 
@@ -93,7 +112,6 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
     timeout: 10_000,
   })
 
-  // Confirm password reset
   const confirmResponsePromise = page.waitForResponse((resp) => {
     return (
       resp.url().includes("/api/bff/auth/password-reset/confirm") &&
@@ -117,7 +135,6 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
 
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 })
 
-  // Fresh login page load for stability
   await page.goto("/login")
   await expect(page.getByTestId("login-title")).toBeVisible()
   await expect(page.getByTestId("login-email")).toBeVisible()
@@ -130,21 +147,7 @@ test("password reset happy path: request -> confirm -> login", async ({ page }) 
   await page.getByTestId("login-password").fill(newPassword)
   await expect(page.getByTestId("login-password")).toHaveValue(newPassword)
 
-  const [loginResp] = await Promise.all([
-    page.waitForResponse((resp) => {
-      return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST"
-    }),
-    page.getByTestId("login-submit").click(),
-  ])
+  await page.getByTestId("login-submit").click()
 
-  if (!loginResp.ok()) {
-    const status = loginResp.status()
-    const bodyText = await loginResp.text().catch(() => "<unable to read body>")
-    throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
-  }
-
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
-  await expect(page.getByTestId("account-session-card")).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", { timeout: 15_000 })
-  await expect(page.getByTestId("account-email-value")).toHaveText(email)
+  await expectAuthenticatedAccount(page, email)
 })

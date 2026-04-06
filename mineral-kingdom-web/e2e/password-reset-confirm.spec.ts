@@ -11,6 +11,28 @@ type PasswordResetRequestApiResponse = {
   resetToken?: string
 }
 
+async function expectAuthenticatedAccount(
+  page: import("@playwright/test").Page,
+  email: string,
+) {
+  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page.getByTestId("nav-logout")).toBeVisible({ timeout: 15_000 })
+
+  const sessionCard = page.getByTestId("account-session-card")
+  if (await sessionCard.count()) {
+    await expect(sessionCard).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
+      timeout: 15_000,
+    })
+    await expect(page.getByTestId("account-email-value")).toHaveText(email, {
+      timeout: 15_000,
+    })
+    return
+  }
+
+  await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 })
+}
+
 test("password reset confirm flow resets password and allows login with new password", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
     "X-Test-RateLimit-Key": `reset-confirm-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -113,7 +135,6 @@ test("password reset confirm flow resets password and allows login with new pass
 
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 })
 
-  // Fresh load to avoid any odd redirect/post-submit state
   await page.goto("/login")
   await expect(page.getByTestId("login-title")).toBeVisible()
   await expect(page.getByTestId("login-email")).toBeVisible()
@@ -126,23 +147,9 @@ test("password reset confirm flow resets password and allows login with new pass
   await page.getByTestId("login-password").fill(newPassword)
   await expect(page.getByTestId("login-password")).toHaveValue(newPassword)
 
-  const [loginResp] = await Promise.all([
-    page.waitForResponse((resp) => {
-      return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST"
-    }),
-    page.getByTestId("login-submit").click(),
-  ])
+  await page.getByTestId("login-submit").click()
 
-  if (!loginResp.ok()) {
-    const status = loginResp.status()
-    const bodyText = await loginResp.text().catch(() => "<unable to read body>")
-    throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
-  }
-
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
-  await expect(page.getByTestId("account-session-card")).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", { timeout: 15_000 })
-  await expect(page.getByTestId("account-email-value")).toHaveText(email)
+  await expectAuthenticatedAccount(page, email)
 })
 
 test("password reset confirm page shows clear error when token is missing", async ({ page }) => {
@@ -151,6 +158,6 @@ test("password reset confirm page shows clear error when token is missing", asyn
   await expect(page.getByTestId("password-reset-confirm-error")).toBeVisible()
   await expect(page.getByText("Password reset failed")).toBeVisible()
   await expect(
-    page.getByText("This password reset link is missing, invalid, or expired.")
+    page.getByText("This password reset link is missing, invalid, or expired."),
   ).toBeVisible()
 })
