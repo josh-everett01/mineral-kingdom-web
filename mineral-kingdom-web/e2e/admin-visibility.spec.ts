@@ -55,13 +55,7 @@ test("STAFF sees admin shell and active shared navigation", async ({ page }) => 
     "false",
   )
   await expect(page.getByTestId("admin-nav-link-store-offers")).toBeVisible()
-
-  const pageTitle = page.getByTestId("admin-page-title")
-  if (await pageTitle.count()) {
-    await expect(pageTitle).toContainText(/store offers/i)
-  } else {
-    await expect(page.locator("main")).toContainText(/store offers/i)
-  }
+  await expect(page.locator("main")).toContainText(/store offers/i)
 })
 
 test.skip(
@@ -85,11 +79,5 @@ test("OWNER sees admin shell and users navigation", async ({ page }) => {
   await expect(page.getByTestId("admin-nav-link-users")).toHaveAttribute("data-active", "true")
   await expect(page.getByTestId("admin-nav-link-store-offers")).toBeVisible()
   await expect(page.getByTestId("admin-nav-link-users")).toBeVisible()
-
-  const pageTitle = page.getByTestId("admin-page-title")
-  if (await pageTitle.count()) {
-    await expect(pageTitle).toContainText(/^Users$/)
-  } else {
-    await expect(page.locator("main")).toContainText(/users/i)
-  }
+  await expect(page.locator("main")).toContainText(/users/i)
 })
