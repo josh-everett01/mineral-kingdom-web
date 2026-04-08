@@ -396,6 +396,89 @@ jobs:
           echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
           echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
 
+      - name: Seed verified admin listings E2E user
+        id: seed_admin_listings
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EMAIL="mk-admin-listings-ci-$(date +%s)-${RANDOM}@example.com"
+          PASSWORD="Str0ngPass!123"
+
+          echo "Creating admin listings fixture user: $EMAIL"
+
+          register_json=""
+          for i in {1..10}; do
+            echo "Register attempt $i..."
+            http_and_body="$(curl -sS -w "\n%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/register" \
+              -H "content-type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" || true)"
+
+            body="$(echo "$http_and_body" | head -n -1)"
+            code="$(echo "$http_and_body" | tail -n 1)"
+
+            echo "HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+              register_json="$body"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable register failure. Body:"
+            echo "$body"
+            exit 1
+          done
+
+          if [ -z "$register_json" ]; then
+            echo "Register never succeeded after retries."
+            exit 1
+          fi
+
+          TOKEN="$(echo "$register_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verificationToken",""))')"
+          if [ -z "$TOKEN" ]; then
+            echo "Register response did not include verificationToken. Response was:"
+            echo "$register_json"
+            exit 1
+          fi
+
+          verify_ok=""
+          for i in {1..10}; do
+            code="$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "http://localhost:8080/api/auth/verify-email" \
+              -H "content-type: application/json" \
+              -d "{\"token\":\"$TOKEN\"}" || true)"
+
+            echo "Verify attempt $i: HTTP $code"
+            if [ "$code" = "200" ] || [ "$code" = "204" ]; then
+              verify_ok="1"
+              break
+            fi
+
+            if [ "$code" = "503" ] || [ "$code" = "502" ] || [ "$code" = "000" ]; then
+              sleep 2
+              continue
+            fi
+
+            echo "Non-retryable verify failure (HTTP $code)."
+            exit 1
+          done
+
+          if [ -z "$verify_ok" ]; then
+            echo "Verify never succeeded after retries."
+            exit 1
+          fi
+
+          docker exec mk_postgres psql -U mk -d mk -c \
+            "UPDATE users SET \"Role\"='OWNER', \"EmailVerified\"=TRUE, \"UpdatedAt\"=NOW() WHERE \"Email\"='${EMAIL}';"
+
+          echo "email=$EMAIL" >> "$GITHUB_OUTPUT"
+          echo "password=$PASSWORD" >> "$GITHUB_OUTPUT"
+
       - name: Seed verified staff E2E user
         id: seed_staff
         shell: bash
@@ -510,6 +593,8 @@ jobs:
           E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
           E2E_ADMIN_EMAIL: ${{ steps.seed_admin.outputs.email }}
           E2E_ADMIN_PASSWORD: ${{ steps.seed_admin.outputs.password }}
+          E2E_ADMIN_LISTINGS_EMAIL: ${{ steps.seed_admin_listings.outputs.email }}
+          E2E_ADMIN_LISTINGS_PASSWORD: ${{ steps.seed_admin_listings.outputs.password }}
           E2E_STAFF_EMAIL: ${{ steps.seed_staff.outputs.email }}
           E2E_STAFF_PASSWORD: ${{ steps.seed_staff.outputs.password }}
           API_BASE_URL: http://localhost:8080
