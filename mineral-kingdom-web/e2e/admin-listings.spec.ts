@@ -66,13 +66,37 @@ async function createDraftAndOpenEditor(page: Page) {
 
   await expect(page).toHaveURL(/\/admin\/listings\/[0-9a-fA-F-]{36}$/, { timeout: 15_000 })
 
-  const editorPage = page.getByTestId("admin-listing-editor-page")
-  if (await editorPage.count()) {
-    await expect(editorPage).toBeVisible({ timeout: 15_000 })
+  const currentUrl = page.url()
+  const match = currentUrl.match(/\/admin\/listings\/([0-9a-fA-F-]{36})$/)
+  if (!match) {
+    throw new Error(`Expected listing detail URL, got: ${currentUrl}`)
   }
 
-  await expect(page.getByTestId("admin-listing-title")).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId("admin-listing-save")).toBeVisible({ timeout: 15_000 })
+  const listingId = match[1]
+
+  const detailResp = await page.waitForResponse(
+    (resp: Response) =>
+      resp.url().includes(`/api/bff/admin/listings/${listingId}`) &&
+      resp.request().method() === "GET",
+    { timeout: 15_000 },
+  ).catch(() => null)
+
+  if (detailResp && !detailResp.ok()) {
+    const status = detailResp.status()
+    const bodyText = await detailResp.text().catch(() => "<unable to read body>")
+    throw new Error(`Load listing detail failed: HTTP ${status}\nBody:\n${bodyText}`)
+  }
+
+  const title = page.getByTestId("admin-listing-title")
+  const save = page.getByTestId("admin-listing-save")
+
+  if ((await title.count()) === 0) {
+    const bodyText = await page.locator("body").innerText().catch(() => "<unable to read page body>")
+    throw new Error(`Listing detail page loaded but editor controls were missing.\nURL: ${page.url()}\nBody snippet:\n${bodyText.slice(0, 2000)}`)
+  }
+
+  await expect(title).toBeVisible({ timeout: 15_000 })
+  await expect(save).toBeVisible({ timeout: 15_000 })
 }
 
 test("admin listings page loads and explains listing vs store offer vs auction", async ({
