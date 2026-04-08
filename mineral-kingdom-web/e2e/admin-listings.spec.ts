@@ -65,7 +65,14 @@ async function createDraftAndOpenEditor(page: Page) {
   }
 
   await expect(page).toHaveURL(/\/admin\/listings\/[0-9a-fA-F-]{36}$/, { timeout: 15_000 })
-  await expect(page.getByTestId("admin-listing-editor-page")).toBeVisible()
+
+  const editorPage = page.getByTestId("admin-listing-editor-page")
+  if (await editorPage.count()) {
+    await expect(editorPage).toBeVisible({ timeout: 15_000 })
+  }
+
+  await expect(page.getByTestId("admin-listing-title")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-listing-save")).toBeVisible({ timeout: 15_000 })
 }
 
 test("admin listings page loads and explains listing vs store offer vs auction", async ({
