@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
 
+test.describe.configure({ mode: "serial" })
+
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).")
 
 type RegisterResponse = {

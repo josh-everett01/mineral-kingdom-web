@@ -7,6 +7,11 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { label: "Dashboard", href: "/admin", matchMode: "exact", testId: "admin-nav-link-dashboard" },
+  {
+    href: "/admin/minerals",
+    label: "Minerals",
+    testId: "admin-nav-link-minerals",
+  },
   { label: "Listings", href: "/admin/listings", matchMode: "startsWith", testId: "admin-nav-link-listings" },
   {
     label: "Store Offers",
