@@ -2,16 +2,31 @@ import { NextRequest } from "next/server"
 import { forwardAdminJson } from "@/lib/api/adminUpstream"
 
 export async function GET(req: NextRequest) {
-  const query = req.nextUrl.searchParams.get("query")?.trim() ?? ""
-  const upstreamQuery = new URLSearchParams()
+  const { searchParams } = new URL(req.url)
 
-  if (query.length > 0) {
-    upstreamQuery.set("query", query)
+  const query = searchParams.get("query")
+  const search = searchParams.get("search")
+
+  const upstream = new URL("/api/admin/minerals", "http://placeholder")
+
+  if (query !== null) {
+    upstream.searchParams.set("query", query)
   }
 
-  const qs = upstreamQuery.toString()
+  if (search !== null) {
+    upstream.searchParams.set("search", search)
+  }
 
-  return forwardAdminJson(req, `/api/admin/minerals${qs ? `?${qs}` : ""}`, {
+  return forwardAdminJson(req, `${upstream.pathname}${upstream.search}`, {
     method: "GET",
+  })
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null)
+
+  return forwardAdminJson(req, "/api/admin/minerals", {
+    method: "POST",
+    body,
   })
 }
