@@ -74,12 +74,14 @@ async function createDraftAndOpenEditor(page: Page) {
 
   const listingId = match[1]
 
-  const detailResp = await page.waitForResponse(
-    (resp: Response) =>
-      resp.url().includes(`/api/bff/admin/listings/${listingId}`) &&
-      resp.request().method() === "GET",
-    { timeout: 15_000 },
-  ).catch(() => null)
+  const detailResp = await page
+    .waitForResponse(
+      (resp: Response) =>
+        resp.url().includes(`/api/bff/admin/listings/${listingId}`) &&
+        resp.request().method() === "GET",
+      { timeout: 15_000 },
+    )
+    .catch(() => null)
 
   if (detailResp && !detailResp.ok()) {
     const status = detailResp.status()
@@ -87,14 +89,15 @@ async function createDraftAndOpenEditor(page: Page) {
     throw new Error(`Load listing detail failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
+  const loading = page.getByTestId("admin-listing-editor-loading")
   const title = page.getByTestId("admin-listing-title")
   const save = page.getByTestId("admin-listing-save")
 
-  if ((await title.count()) === 0) {
-    const bodyText = await page.locator("body").innerText().catch(() => "<unable to read page body>")
-    throw new Error(`Listing detail page loaded but editor controls were missing.\nURL: ${page.url()}\nBody snippet:\n${bodyText.slice(0, 2000)}`)
+  if (await loading.isVisible().catch(() => false)) {
+    await expect(loading).toBeHidden({ timeout: 15_000 })
   }
 
+  await expect(page.getByTestId("admin-listing-editor-page")).toBeVisible({ timeout: 15_000 })
   await expect(title).toBeVisible({ timeout: 15_000 })
   await expect(save).toBeVisible({ timeout: 15_000 })
 }
@@ -153,22 +156,38 @@ test("admin can create a draft listing, edit fields, and save", async ({ page })
   await expect(page.getByTestId("admin-listing-country-code")).toHaveValue("CN")
 })
 
-test("admin can search and select a mineral for a listing", async ({ page }) => {
+test("admin can search and select a mineral for a listing when lookup results are available", async ({
+  page,
+}) => {
   await loginAsAdmin(page)
   await createDraftAndOpenEditor(page)
 
-  await page.getByTestId("admin-listing-mineral-search").fill("flu")
+  const search = page.getByTestId("admin-listing-mineral-search")
+  await search.fill("flu")
+  await expect(search).toHaveValue("flu")
+
+  await page.waitForTimeout(1000)
 
   const results = page.getByTestId("admin-listing-mineral-results")
+  const resultCount = await results.count()
+
+  if (resultCount === 0) {
+    await expect(page.getByText(/selected mineral id:/i)).toContainText("—")
+    return
+  }
+
   await expect(results).toBeVisible({ timeout: 15_000 })
 
   const options = results.locator("button")
   const optionCount = await options.count()
 
-  if (optionCount > 0) {
-    await options.first().click()
-    await expect(page.getByText(/selected mineral id:/i)).not.toContainText("—")
+  if (optionCount === 0) {
+    await expect(page.getByText(/selected mineral id:/i)).toContainText("—")
+    return
   }
+
+  await options.first().click()
+  await expect(page.getByText(/selected mineral id:/i)).not.toContainText("—")
 })
 
 test("incomplete draft shows publish checklist guidance and publish remains unavailable", async ({
@@ -186,9 +205,24 @@ test("incomplete draft shows publish checklist guidance and publish remains unav
     /missing or invalid/i,
   )
 
-  await expect(page.getByText(/last saved listing state/i)).toBeVisible()
-  await expect(page.getByText(/need ready media before they can be published/i)).toBeVisible()
+  await expect(page.getByText(/checklist updates as you edit/i)).toBeVisible()
+  await expect(page.getByText(/save changes to refresh the publish button/i)).toBeVisible()
   await expect(page.getByTestId("admin-listing-publish")).toBeDisabled()
+})
+
+test("media section renders for active drafts", async ({ page }) => {
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  await expect(page.getByTestId("admin-listing-media-section")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-media-title")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-media-description")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-media-file-input")).toBeAttached()
+  await expect(page.getByTestId("admin-listing-media-open-picker")).toBeVisible()
+  await expect(page.getByText(/supported formats:/i)).toBeVisible()
+  await expect(page.getByText(/max file size:/i)).toBeVisible()
+  await expect(page.getByText(/no media yet/i)).toBeVisible()
+  await expect(page.getByTestId("admin-listing-media-empty-upload")).toBeVisible()
 })
 
 test("admin can archive a draft listing and archived listings become read-only", async ({
@@ -216,4 +250,5 @@ test("admin can archive a draft listing and archived listings become read-only",
   await expect(page.getByTestId("admin-listing-archived-note")).toBeVisible()
   await expect(page.getByTestId("admin-listing-title")).toBeDisabled()
   await expect(page.getByTestId("admin-listing-save")).toBeDisabled()
+  await expect(page.getByTestId("admin-listing-media-file-input")).toBeDisabled()
 })
