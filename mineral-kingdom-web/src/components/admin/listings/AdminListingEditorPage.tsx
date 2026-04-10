@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   archiveAdminListing,
@@ -15,6 +15,7 @@ import {
   AdminMineralLookupItem,
 } from "@/lib/admin/listings/types"
 import { AdminListingDefinitionNotice } from "@/components/admin/listings/AdminListingDefinitionNotice"
+import { AdminListingMediaSection } from "@/components/admin/listings/AdminListingMediaSection"
 
 type Props = {
   id: string
@@ -138,6 +139,42 @@ function formatDate(value: string | null) {
   return date.toLocaleString()
 }
 
+function buildClientChecklist(
+  form: FormState,
+  detail: AdminListingDetail,
+): AdminListingPublishChecklist {
+  const missing: string[] = []
+
+  if (!form.title.trim()) missing.push("TITLE")
+  if (!form.description.trim()) missing.push("DESCRIPTION")
+  if (!form.primaryMineralId.trim()) missing.push("PRIMARY_MINERAL")
+  if (!form.countryCode.trim()) missing.push("COUNTRY")
+
+  const length = Number(form.lengthCm)
+  const width = Number(form.widthCm)
+  const height = Number(form.heightCm)
+
+  if (!(Number.isFinite(length) && length > 0)) missing.push("LENGTH_CM")
+  if (!(Number.isFinite(width) && width > 0)) missing.push("WIDTH_CM")
+  if (!(Number.isFinite(height) && height > 0)) missing.push("HEIGHT_CM")
+
+  if (detail.mediaSummary.readyImageCount < 1) missing.push("IMAGE_REQUIRED")
+  if (
+    detail.mediaSummary.readyImageCount > 0 &&
+    detail.mediaSummary.primaryReadyImageCount !== 1
+  ) {
+    missing.push("PRIMARY_IMAGE_REQUIRED_EXACTLY_ONE")
+  }
+  if (detail.mediaSummary.hasPrimaryVideoViolation) {
+    missing.push("VIDEO_CANNOT_BE_PRIMARY")
+  }
+
+  return {
+    canPublish: missing.length === 0,
+    missing,
+  }
+}
+
 export function AdminListingEditorPage({ id }: Props) {
   const router = useRouter()
   const [detail, setDetail] = useState<AdminListingDetail | null>(null)
@@ -153,7 +190,7 @@ export function AdminListingEditorPage({ id }: Props) {
   const [isArchiving, startArchiveTransition] = useTransition()
   const initialSnapshotRef = useRef<string>("")
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -168,11 +205,21 @@ export function AdminListingEditorPage({ id }: Props) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
+
+  const refreshDetailOnly = useCallback(async () => {
+    try {
+      setError(null)
+      const data = await getAdminListing(id)
+      setDetail(data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refresh listing details.")
+    }
+  }, [id])
 
   useEffect(() => {
     void load()
-  }, [id])
+  }, [load])
 
   useEffect(() => {
     if (!form) return
@@ -229,6 +276,11 @@ export function AdminListingEditorPage({ id }: Props) {
 
   const archived = detail ? isArchived(detail.status) : false
 
+  const liveChecklist = useMemo(() => {
+    if (!form || !detail) return null
+    return buildClientChecklist(form, detail)
+  }, [form, detail])
+
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => (current ? { ...current, [key]: value } : current))
     setSuccess(null)
@@ -249,12 +301,19 @@ export function AdminListingEditorPage({ id }: Props) {
         setError(null)
         setSuccess(null)
 
+        const normalizedCountryCode = form.countryCode.trim().toUpperCase()
+
+        if (normalizedCountryCode.length > 0 && normalizedCountryCode.length !== 2) {
+          setError("Country code must be exactly 2 letters, like US or CN.")
+          return
+        }
+
         const payload = {
           title: emptyToNull(form.title),
           description: emptyToNull(form.description),
           primaryMineralId: emptyToNull(form.primaryMineralId),
           localityDisplay: emptyToNull(form.localityDisplay),
-          countryCode: emptyToNull(form.countryCode)?.toUpperCase(),
+          countryCode: emptyToNull(normalizedCountryCode),
           adminArea1: emptyToNull(form.adminArea1),
           adminArea2: emptyToNull(form.adminArea2),
           mineName: emptyToNull(form.mineName),
@@ -562,9 +621,15 @@ export function AdminListingEditorPage({ id }: Props) {
                 <input
                   data-testid="admin-listing-country-code"
                   value={form.countryCode}
-                  onChange={(e) => setField("countryCode", e.target.value)}
+                  onChange={(e) =>
+                    setField(
+                      "countryCode",
+                      e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2),
+                    )
+                  }
                   disabled={archived}
                   placeholder="US"
+                  maxLength={2}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm uppercase outline-none disabled:opacity-60"
                 />
               </div>
@@ -693,6 +758,14 @@ export function AdminListingEditorPage({ id }: Props) {
               </div>
             </div>
           </section>
+
+          <AdminListingMediaSection
+            listingId={detail.id}
+            archived={archived}
+            onChanged={async () => {
+              await refreshDetailOnly()
+            }}
+          />
         </div>
 
         <aside className="space-y-6">
@@ -701,7 +774,11 @@ export function AdminListingEditorPage({ id }: Props) {
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Status</span>
-                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(detail.status)}`}>
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                    detail.status,
+                  )}`}
+                >
                   {detail.status}
                 </span>
               </div>
@@ -756,16 +833,16 @@ export function AdminListingEditorPage({ id }: Props) {
 
             <div className="mb-4 rounded-lg border bg-muted/30 p-3 text-sm">
               <div className="font-medium">
-                {detail.publishChecklist.canPublish ? "Ready to publish" : "Missing requirements"}
+                {liveChecklist?.canPublish ? "Ready to publish once saved" : "Live draft checklist"}
               </div>
               <div className="mt-1 text-muted-foreground">
-                Publish readiness is based on the last saved listing state. Save changes to refresh the
-                checklist. Listings also need ready media before they can be published, and media is managed
-                in the listing media workflow.
+                Checklist updates as you edit. Final publish readiness is still validated from the
+                saved listing state, so save changes to refresh the publish button and backend
+                checklist.
               </div>
             </div>
 
-            <ChecklistList checklist={detail.publishChecklist} />
+            <ChecklistList checklist={liveChecklist ?? detail.publishChecklist} />
           </section>
 
           <section className="rounded-xl border bg-card p-5 text-sm">

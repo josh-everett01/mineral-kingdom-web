@@ -58,3 +58,37 @@ export type AdminMineralLookupItem = {
   id: string
   name: string
 }
+
+export type AdminListingMediaItem = {
+  id: string
+  mediaType: string
+  status: string
+  url: string
+  isPrimary: boolean
+  sortOrder: number
+  caption: string | null
+  originalFileName: string | null
+  contentType: string | null
+  contentLengthBytes: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type AdminInitiateListingMediaUploadRequest = {
+  mediaType: string
+  fileName: string
+  contentType: string
+  contentLengthBytes: number
+  isPrimary?: boolean
+  sortOrder?: number
+  caption?: string | null
+}
+
+export type AdminInitiateListingMediaUploadResponse = {
+  mediaId: string
+  storageKey: string
+  uploadUrl: string
+  requiredHeaders: Record<string, string>
+  expiresAt: string
+  publicUrl: string
+}
