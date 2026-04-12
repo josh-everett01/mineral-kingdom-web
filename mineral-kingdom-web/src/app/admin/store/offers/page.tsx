@@ -1,16 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminStoreOffersPage } from "@/components/admin/store-offers/AdminStoreOffersPage"
 
-export default function AdminStoreOffersPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Store Offers</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Store offer pricing, discount, and activation workflows land in S16-4.
-        </p>
-      </CardContent>
-    </Card>
-  )
+export default function Page() {
+  return <AdminStoreOffersPage />
 }

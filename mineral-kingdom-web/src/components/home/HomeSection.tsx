@@ -8,9 +8,35 @@ type HomeSectionProps = {
   kind: "listing" | "auction"
 }
 
+function getSavingsLabel(item: HomeSectionDto["items"][number], kind: "listing" | "auction") {
+  if (kind === "auction") return null
+
+  if (
+    typeof item.priceCents !== "number" ||
+    typeof item.effectivePriceCents !== "number" ||
+    item.effectivePriceCents >= item.priceCents
+  ) {
+    return null
+  }
+
+  if (item.discountType === "PERCENT" && typeof item.discountPercentBps === "number") {
+    return `${(item.discountPercentBps / 100).toFixed(0)}% off`
+  }
+
+  const savingsCents = item.priceCents - item.effectivePriceCents
+  if (savingsCents > 0) {
+    return `Save ${formatMoney(savingsCents) ?? "—"}`
+  }
+
+  return null
+}
+
 export function HomeSection({ section, kind }: HomeSectionProps) {
   return (
-    <section className="space-y-4" data-testid={`home-section-${section.title.toLowerCase().replace(/\s+/g, "-")}`}>
+    <section
+      className="space-y-4"
+      data-testid={`home-section-${section.title.toLowerCase().replace(/\s+/g, "-")}`}
+    >
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">{section.title}</h2>
@@ -43,10 +69,22 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                 ? formatMoney(item.currentBidCents)
                 : formatMoney(item.effectivePriceCents ?? item.priceCents)
 
+            const originalPrice =
+              kind === "listing" &&
+                typeof item.priceCents === "number" &&
+                typeof item.effectivePriceCents === "number" &&
+                item.effectivePriceCents < item.priceCents
+                ? formatMoney(item.priceCents)
+                : null
+
+            const savingsLabel = getSavingsLabel(item, kind)
             const endsAt = kind === "auction" ? formatEndsAt(item.endsAt) : null
 
             return (
-              <Card key={`${item.listingId}-${item.auctionId ?? "listing"}`} className="overflow-hidden">
+              <Card
+                key={`${item.listingId}-${item.auctionId ?? "listing"}`}
+                className="flex h-full flex-col overflow-hidden"
+              >
                 {item.primaryImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -64,19 +102,36 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                   <CardTitle className="line-clamp-2 text-base">{item.title}</CardTitle>
                 </CardHeader>
 
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
                   {displayPrice ? (
-                    <div className="font-medium">
-                      {kind === "auction" ? `Current bid: ${displayPrice}` : displayPrice}
-                    </div>
-                  ) : null}
-
-                  {endsAt ? (
-                    <div className="text-muted-foreground">Ends: {endsAt}</div>
+                    kind === "auction" ? (
+                      <div className="min-h-[56px] space-y-1">
+                        <div className="font-medium">{`Current bid: ${displayPrice}`}</div>
+                        {endsAt ? (
+                          <div className="text-muted-foreground">Ends: {endsAt}</div>
+                        ) : (
+                          <div className="h-[20px]" />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="min-h-[72px] space-y-1">
+                        <div className="font-medium">{displayPrice}</div>
+                        <div
+                          className={`text-sm text-muted-foreground ${originalPrice ? "line-through" : "invisible"}`}
+                        >
+                          {originalPrice ?? "$0.00"}
+                        </div>
+                        <div
+                          className={`text-xs font-medium text-emerald-700 ${savingsLabel ? "" : "invisible"}`}
+                        >
+                          {savingsLabel ?? "placeholder"}
+                        </div>
+                      </div>
+                    )
                   ) : null}
                 </CardContent>
 
-                <CardFooter>
+                <CardFooter className="mt-auto">
                   <Button asChild className="w-full">
                     <Link href={item.href}>
                       {kind === "auction" ? "View Auction" : "View Listing"}

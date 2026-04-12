@@ -146,14 +146,40 @@ export default async function ListingDetailPage({ params }: Props) {
                 <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
                   Fixed price
                 </p>
-                <p className="text-2xl font-bold text-emerald-900" data-testid="listing-store-offer-price">
-                  {formatMoney(storeOffer.effectivePriceCents) ?? "—"}
-                </p>
+
                 {storeOffer.effectivePriceCents < storeOffer.priceCents ? (
-                  <p className="text-sm text-emerald-800">
-                    <span className="line-through">{formatMoney(storeOffer.priceCents)}</span>
+                  <div className="space-y-1">
+                    <p
+                      className="text-2xl font-bold text-emerald-900"
+                      data-testid="listing-store-offer-price"
+                    >
+                      {formatMoney(storeOffer.effectivePriceCents) ?? "—"}
+                    </p>
+                    <p
+                      className="text-sm text-emerald-800 line-through"
+                      data-testid="listing-store-offer-original-price"
+                    >
+                      {formatMoney(storeOffer.priceCents)}
+                    </p>
+                    <p
+                      className="text-sm font-medium text-emerald-700"
+                      data-testid="listing-store-offer-savings"
+                    >
+                      {storeOffer.discountType === "PERCENT" && storeOffer.discountPercentBps
+                        ? `${(storeOffer.discountPercentBps / 100).toFixed(0)}% off`
+                        : storeOffer.discountType === "FLAT" && storeOffer.discountCents
+                          ? `Save ${formatMoney(storeOffer.discountCents)}`
+                          : null}
+                    </p>
+                  </div>
+                ) : (
+                  <p
+                    className="text-2xl font-bold text-emerald-900"
+                    data-testid="listing-store-offer-price"
+                  >
+                    {formatMoney(storeOffer.effectivePriceCents) ?? "—"}
                   </p>
-                ) : null}
+                )}
               </div>
 
               <ListingPurchaseActions offerId={storeOffer.offerId} />
