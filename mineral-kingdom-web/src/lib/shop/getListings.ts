@@ -13,6 +13,9 @@ export type ListingBrowseItemDto = {
   effectivePriceCents?: number | null
   currentBidCents?: number | null
   endsAt?: string | null
+  discountType?: string | null
+  discountCents?: number | null
+  discountPercentBps?: number | null
 }
 
 export type ListingBrowseAvailableFiltersDto = {
@@ -78,6 +81,7 @@ export async function fetchListings(
 ): Promise<ListingBrowseResponseDto | null> {
   const origin = await getAppOrigin()
   const query = toQueryString(searchParams)
+
 
   const res = await fetch(`${origin}/api/bff/listings${query}`, {
     cache: "no-store",
