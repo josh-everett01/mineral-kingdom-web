@@ -12,6 +12,10 @@ type Props = {
   testId?: string
 }
 
+function normalizeStatus(status: string | null | undefined) {
+  return (status ?? "").trim().toUpperCase()
+}
+
 export function AuctionBrowseView({
   data,
   eyebrow = "Mineral Kingdom Auctions",
@@ -32,7 +36,14 @@ export function AuctionBrowseView({
     )
   }
 
-  const endingSoonItems = data.items.filter((item) =>
+  const liveItems = data.items.filter((item) => {
+    const status = normalizeStatus(item.status)
+    return status === "LIVE" || status === "CLOSING"
+  })
+
+  const scheduledItems = data.items.filter((item) => normalizeStatus(item.status) === "SCHEDULED")
+
+  const endingSoonItems = liveItems.filter((item) =>
     isEndingSoon(item.closingTimeUtc, data.serverTimeUtc),
   )
 
@@ -72,31 +83,52 @@ export function AuctionBrowseView({
         </section>
       ) : null}
 
-      {data.items.length === 0 ? (
+      {liveItems.length === 0 && scheduledItems.length === 0 ? (
         <section
           className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm"
           data-testid="auctions-empty-state"
         >
-          <h2 className="text-lg font-semibold text-stone-900">No live auctions right now</h2>
+          <h2 className="text-lg font-semibold text-stone-900">No auctions right now</h2>
           <p className="mt-2 text-sm text-stone-600">
-            Check back soon for newly launched and closing auctions.
+            Check back soon for newly launched and upcoming auctions.
           </p>
         </section>
       ) : (
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight text-stone-900">All auctions</h2>
-            <p className="text-sm text-stone-600">
-              Live and closing mineral auctions sorted by closing time.
-            </p>
-          </div>
+        <>
+          {liveItems.length > 0 ? (
+            <section className="space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold tracking-tight text-stone-900">Live auctions</h2>
+                <p className="text-sm text-stone-600">
+                  Active and closing mineral auctions sorted by closing time.
+                </p>
+              </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4" data-testid="auctions-results-grid">
-            {data.items.map((item) => (
-              <AuctionCard key={item.id} item={item} />
-            ))}
-          </div>
-        </section>
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4" data-testid="auctions-results-grid">
+                {liveItems.map((item) => (
+                  <AuctionCard key={item.id} item={item} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {scheduledItems.length > 0 ? (
+            <section className="space-y-4" data-testid="auctions-upcoming-section">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold tracking-tight text-stone-900">Upcoming auctions</h2>
+                <p className="text-sm text-stone-600">
+                  Scheduled auctions that will open for bidding soon.
+                </p>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                {scheduledItems.map((item) => (
+                  <AuctionCard key={`scheduled-${item.id}`} item={item} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </>
       )}
     </main>
   )

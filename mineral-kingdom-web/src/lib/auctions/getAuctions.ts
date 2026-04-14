@@ -1,3 +1,5 @@
+import { headers } from "next/headers"
+
 export type AuctionBrowseItemDto = {
   id: string
   listingId: string
@@ -9,7 +11,9 @@ export type AuctionBrowseItemDto = {
   sizeClass?: string | null
   isFluorescent: boolean
   currentPriceCents: number
+  startingPriceCents: number
   bidCount: number
+  startTimeUtc?: string | null
   closingTimeUtc: string
   status: string
 }
@@ -21,7 +25,6 @@ export type AuctionBrowseResponseDto = {
 }
 
 async function getAppOrigin(): Promise<string> {
-  const { headers } = await import("next/headers")
   const h = await headers()
 
   const proto =
@@ -73,18 +76,31 @@ export function formatEndsAt(value?: string | null): string | null {
   }).format(date)
 }
 
+export function formatStartsAt(value?: string | null): string | null {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+}
+
 export function isEndingSoon(
-  closingTimeUtc: string,
-  serverTimeUtc: string,
-  thresholdMinutes = 60,
+  closingTimeUtc?: string | null,
+  serverTimeUtc?: string | null,
 ): boolean {
-  const closingTime = new Date(closingTimeUtc)
-  const serverTime = new Date(serverTimeUtc)
+  if (!closingTimeUtc || !serverTimeUtc) return false
 
-  if (Number.isNaN(closingTime.getTime()) || Number.isNaN(serverTime.getTime())) {
-    return false
-  }
+  const close = new Date(closingTimeUtc)
+  const server = new Date(serverTimeUtc)
 
-  const diffMs = closingTime.getTime() - serverTime.getTime()
-  return diffMs > 0 && diffMs <= thresholdMinutes * 60 * 1000
+  if (Number.isNaN(close.getTime()) || Number.isNaN(server.getTime())) return false
+
+  const diffMs = close.getTime() - server.getTime()
+  return diffMs > 0 && diffMs <= 60 * 60 * 1000
 }

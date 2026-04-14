@@ -8,7 +8,10 @@ export type HomeSectionItemDto = {
   priceCents?: number | null
   effectivePriceCents?: number | null
   currentBidCents?: number | null
+  startingPriceCents?: number | null
   endsAt?: string | null
+  startTime?: string | null
+  status?: string | null
   href: string
   discountType?: string | null
   discountCents?: number | null
@@ -25,6 +28,7 @@ export type HomeSectionDto = {
 export type HomeSectionsDto = {
   featuredListings: HomeSectionDto
   endingSoonAuctions: HomeSectionDto
+  upcomingAuctions: HomeSectionDto
   newArrivals: HomeSectionDto
 }
 
@@ -66,6 +70,20 @@ export function formatMoney(cents?: number | null): string | null {
 }
 
 export function formatEndsAt(value?: string | null): string | null {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+}
+
+export function formatStartsAt(value?: string | null): string | null {
   if (!value) return null
 
   const date = new Date(value)

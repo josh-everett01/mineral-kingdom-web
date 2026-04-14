@@ -10,7 +10,7 @@ export default async function HomePage() {
       <section className="space-y-3">
         <h1 className="text-4xl font-bold tracking-tight">Mineral Kingdom</h1>
         <p className="max-w-2xl text-muted-foreground">
-          Discover featured minerals, browse newly added pieces, and watch auctions that are ending soon.
+          Discover featured minerals, browse newly added pieces, watch auctions ending soon, and preview upcoming auctions.
         </p>
       </section>
 
@@ -18,6 +18,7 @@ export default async function HomePage() {
         <>
           <HomeSection section={sections.featuredListings} kind="listing" />
           <HomeSection section={sections.endingSoonAuctions} kind="auction" />
+          <HomeSection section={sections.upcomingAuctions} kind="auction" />
           <HomeSection section={sections.newArrivals} kind="listing" />
         </>
       ) : (

@@ -1,5 +1,10 @@
 import Link from "next/link"
-import { HomeSectionDto, formatEndsAt, formatMoney } from "@/lib/home/getHomeSections"
+import {
+  HomeSectionDto,
+  formatEndsAt,
+  formatMoney,
+  formatStartsAt,
+} from "@/lib/home/getHomeSections"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -29,6 +34,10 @@ function getSavingsLabel(item: HomeSectionDto["items"][number], kind: "listing" 
   }
 
   return null
+}
+
+function isScheduledAuction(item: HomeSectionDto["items"][number], kind: "listing" | "auction") {
+  return kind === "auction" && (item.status ?? "").toUpperCase() === "SCHEDULED"
 }
 
 export function HomeSection({ section, kind }: HomeSectionProps) {
@@ -64,9 +73,13 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {section.items.map((item) => {
+            const scheduledAuction = isScheduledAuction(item, kind)
+
             const displayPrice =
               kind === "auction"
-                ? formatMoney(item.currentBidCents)
+                ? scheduledAuction
+                  ? formatMoney(item.startingPriceCents ?? item.currentBidCents)
+                  : formatMoney(item.currentBidCents)
                 : formatMoney(item.effectivePriceCents ?? item.priceCents)
 
             const originalPrice =
@@ -78,7 +91,8 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                 : null
 
             const savingsLabel = getSavingsLabel(item, kind)
-            const endsAt = kind === "auction" ? formatEndsAt(item.endsAt) : null
+            const endsAt = kind === "auction" && !scheduledAuction ? formatEndsAt(item.endsAt) : null
+            const startsAt = kind === "auction" && scheduledAuction ? formatStartsAt(item.startTime) : null
 
             return (
               <Card
@@ -99,20 +113,38 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                 )}
 
                 <CardHeader>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {kind === "auction"
+                      ? scheduledAuction
+                        ? "Upcoming Auction"
+                        : item.status ?? "Auction"
+                      : "Listing"}
+                  </div>
                   <CardTitle className="line-clamp-2 text-base">{item.title}</CardTitle>
                 </CardHeader>
 
                 <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
                   {displayPrice ? (
                     kind === "auction" ? (
-                      <div className="min-h-[56px] space-y-1">
-                        <div className="font-medium">{`Current bid: ${displayPrice}`}</div>
-                        {endsAt ? (
-                          <div className="text-muted-foreground">Ends: {endsAt}</div>
-                        ) : (
-                          <div className="h-[20px]" />
-                        )}
-                      </div>
+                      scheduledAuction ? (
+                        <div className="min-h-[56px] space-y-1">
+                          <div className="font-medium">{`Opening bid: ${displayPrice}`}</div>
+                          {startsAt ? (
+                            <div className="text-muted-foreground">Starts: {startsAt}</div>
+                          ) : (
+                            <div className="h-[20px]" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="min-h-[56px] space-y-1">
+                          <div className="font-medium">{`Current bid: ${displayPrice}`}</div>
+                          {endsAt ? (
+                            <div className="text-muted-foreground">Ends: {endsAt}</div>
+                          ) : (
+                            <div className="h-[20px]" />
+                          )}
+                        </div>
+                      )
                     ) : (
                       <div className="min-h-[72px] space-y-1">
                         <div className="font-medium">{displayPrice}</div>
@@ -134,7 +166,11 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                 <CardFooter className="mt-auto">
                   <Button asChild className="w-full">
                     <Link href={item.href}>
-                      {kind === "auction" ? "View Auction" : "View Listing"}
+                      {kind === "auction"
+                        ? scheduledAuction
+                          ? "View upcoming auction"
+                          : "View auction"
+                        : "View listing"}
                     </Link>
                   </Button>
                 </CardFooter>

@@ -1,16 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminAuctionsPage } from "@/components/admin/auctions/AdminAuctionsPage"
 
-export default function AdminAuctionsPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Auctions</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Auctions workflows will be implemented in upcoming S16 stories.
-        </p>
-      </CardContent>
-    </Card>
-  )
+export default function Page() {
+  return <AdminAuctionsPage />
 }
