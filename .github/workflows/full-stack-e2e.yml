@@ -169,13 +169,43 @@ jobs:
           exit 1
 
       - name: Seed deterministic E2E catalog fixtures
+        id: seed_catalog
         shell: bash
         run: |
           set -euo pipefail
 
-          curl -fsS \
+          response="$(curl -fsS \
             -X POST "http://localhost:8080/api/testing/e2e/seed" \
-            -H "content-type: application/json"
+            -H "content-type: application/json")"
+
+          echo "$response" > /tmp/e2e-seed.json
+          cat /tmp/e2e-seed.json
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open('/tmp/e2e-seed.json') as f:
+              data = json.load(f)
+
+          pairs = {
+              "store_listing_id": data["storeListingId"],
+              "store_listing2_id": data["storeListing2Id"],
+              "store_listing3_id": data["storeListing3Id"],
+              "auction_listing_id": data["auctionListingId"],
+              "auction_id": data["auctionId"],
+              "admin_auction_draft_listing_id": data["adminAuctionDraftListingId"],
+              "admin_auction_draft_listing_title": data["adminAuctionDraftListingTitle"],
+              "admin_auction_scheduled_listing_id": data["adminAuctionScheduledListingId"],
+              "admin_auction_scheduled_listing_title": data["adminAuctionScheduledListingTitle"],
+              "admin_auction_live_listing_id": data["adminAuctionLiveListingId"],
+              "admin_auction_live_listing_title": data["adminAuctionLiveListingTitle"],
+          }
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              for k, v in pairs.items():
+                  out.write(f"{k}={v}\n")
+          PY
 
       - name: Wait for app endpoints to stabilize
         shell: bash
@@ -597,6 +627,14 @@ jobs:
           E2E_ADMIN_LISTINGS_PASSWORD: ${{ steps.seed_admin_listings.outputs.password }}
           E2E_STAFF_EMAIL: ${{ steps.seed_staff.outputs.email }}
           E2E_STAFF_PASSWORD: ${{ steps.seed_staff.outputs.password }}
+          E2E_ADMIN_STORE_OFFERS_LISTING_ID: ${{ steps.seed_catalog.outputs.store_listing_id }}
+          E2E_ADMIN_STORE_OFFERS_LISTING_TITLE: Rainbow Fluorite Tower
+          E2E_ADMIN_AUCTIONS_DRAFT_LISTING_ID: ${{ steps.seed_catalog.outputs.admin_auction_draft_listing_id }}
+          E2E_ADMIN_AUCTIONS_DRAFT_LISTING_TITLE: ${{ steps.seed_catalog.outputs.admin_auction_draft_listing_title }}
+          E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_ID: ${{ steps.seed_catalog.outputs.admin_auction_scheduled_listing_id }}
+          E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE: ${{ steps.seed_catalog.outputs.admin_auction_scheduled_listing_title }}
+          E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID: ${{ steps.seed_catalog.outputs.admin_auction_live_listing_id }}
+          E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE: ${{ steps.seed_catalog.outputs.admin_auction_live_listing_title }}
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e

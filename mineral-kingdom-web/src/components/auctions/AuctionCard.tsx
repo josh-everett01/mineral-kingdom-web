@@ -2,6 +2,7 @@ import Link from "next/link"
 import {
   formatEndsAt,
   formatMoney,
+  formatStartsAt,
   type AuctionBrowseItemDto,
 } from "@/lib/auctions/getAuctions"
 
@@ -11,6 +12,8 @@ type Props = {
 }
 
 export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
+  const isScheduled = (item.status ?? "").toUpperCase() === "SCHEDULED"
+
   return (
     <article
       className={[
@@ -40,7 +43,7 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-stone-500">
-              {item.status}
+              {isScheduled ? "Upcoming auction" : item.status}
             </div>
             <h3
               className="line-clamp-2 text-base font-semibold text-stone-900"
@@ -70,15 +73,31 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
         </div>
 
         <div className="space-y-1 border-t border-stone-100 pt-3 text-sm">
-          <p className="font-medium text-stone-900" data-testid="auction-card-price">
-            Current bid: {formatMoney(item.currentPriceCents) ?? "—"}
-          </p>
-          <p className="text-stone-600" data-testid="auction-card-bid-count">
-            {item.bidCount} bid{item.bidCount === 1 ? "" : "s"}
-          </p>
-          <p className="text-stone-600" data-testid="auction-card-closing-time">
-            Ends: {formatEndsAt(item.closingTimeUtc) ?? "—"}
-          </p>
+          {isScheduled ? (
+            <>
+              <p className="font-medium text-stone-900" data-testid="auction-card-price">
+                Opening bid: {formatMoney(item.startingPriceCents) ?? "—"}
+              </p>
+              <p className="text-stone-600" data-testid="auction-card-bid-count">
+                Starts: {formatStartsAt(item.startTimeUtc) ?? "—"}
+              </p>
+              <p className="text-stone-600" data-testid="auction-card-closing-time">
+                Ends: {formatEndsAt(item.closingTimeUtc) ?? "—"}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-stone-900" data-testid="auction-card-price">
+                Current bid: {formatMoney(item.currentPriceCents) ?? "—"}
+              </p>
+              <p className="text-stone-600" data-testid="auction-card-bid-count">
+                {item.bidCount} bid{item.bidCount === 1 ? "" : "s"}
+              </p>
+              <p className="text-stone-600" data-testid="auction-card-closing-time">
+                Ends: {formatEndsAt(item.closingTimeUtc) ?? "—"}
+              </p>
+            </>
+          )}
         </div>
 
         <Link
@@ -86,7 +105,7 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
           className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
           data-testid="auction-card-link"
         >
-          View auction
+          {isScheduled ? "View upcoming auction" : "View auction"}
         </Link>
       </div>
     </article>
