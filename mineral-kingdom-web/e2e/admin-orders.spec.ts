@@ -11,10 +11,10 @@ const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? ""
 const hasAdminFixture = !!process.env.E2E_ADMIN_EMAIL && !!process.env.E2E_ADMIN_PASSWORD
 const hasStaffFixture = !!process.env.E2E_STAFF_EMAIL && !!process.env.E2E_STAFF_PASSWORD
 
-const ORDER_NUMBER = process.env.E2E_ADMIN_ORDERS_ORDER_NUMBER ?? "MK-20260404-93677D"
+const ORDER_NUMBER = process.env.E2E_ADMIN_ORDERS_ORDER_NUMBER ?? "MK-E2E-ADMIN-ORDER-1"
 const ORDER_EMAIL = process.env.E2E_ADMIN_ORDERS_ORDER_EMAIL ?? "smoke_user1@example.com"
 const ORDER_ID =
-  process.env.E2E_ADMIN_ORDERS_ORDER_ID ?? "912e11b1-1a2b-4018-a0b8-7afcb96b5d12"
+  process.env.E2E_ADMIN_ORDERS_ORDER_ID ?? "f1111111-1111-1111-1111-111111111111"
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).")
 test.skip(
