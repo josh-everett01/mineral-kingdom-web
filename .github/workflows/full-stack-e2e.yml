@@ -200,6 +200,9 @@ jobs:
               "admin_auction_scheduled_listing_title": data["adminAuctionScheduledListingTitle"],
               "admin_auction_live_listing_id": data["adminAuctionLiveListingId"],
               "admin_auction_live_listing_title": data["adminAuctionLiveListingTitle"],
+              "admin_order_id": data["adminOrderId"],
+              "admin_order_number": data["adminOrderNumber"],
+              "admin_order_email": data["adminOrderEmail"],
           }
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
@@ -635,6 +638,9 @@ jobs:
           E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE: ${{ steps.seed_catalog.outputs.admin_auction_scheduled_listing_title }}
           E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID: ${{ steps.seed_catalog.outputs.admin_auction_live_listing_id }}
           E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE: ${{ steps.seed_catalog.outputs.admin_auction_live_listing_title }}
+          E2E_ADMIN_ORDERS_ORDER_ID: ${{ steps.seed_catalog.outputs.admin_order_id }}
+          E2E_ADMIN_ORDERS_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_order_number }}
+          E2E_ADMIN_ORDERS_ORDER_EMAIL: ${{ steps.seed_catalog.outputs.admin_order_email }}
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e
