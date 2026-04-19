@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { OpenBoxShipmentStatusNotice } from "@/components/open-box/OpenBoxShipmentStatusNotice"
 import type {
   OpenBoxDto,
   OpenBoxOrderItemDto,
@@ -13,6 +14,10 @@ type LoadableError = {
   message?: string
   error?: string
   code?: string
+}
+
+type OpenBoxWithShipmentStatus = OpenBoxDto & {
+  shipmentRequestStatus?: string | null
 }
 
 function formatMoney(cents?: number | null, currencyCode?: string | null) {
@@ -40,7 +45,12 @@ function displayOpenBoxStatus(openBox: OpenBoxDto | null) {
   const boxStatus = (openBox?.boxStatus ?? "").trim().toUpperCase()
   const fulfillmentStatus = (openBox?.fulfillmentStatus ?? "").trim().toUpperCase()
 
-  if (boxStatus === "OPEN" || boxStatus === "CLOSED" || boxStatus === "SHIPPED") {
+  if (
+    boxStatus === "OPEN" ||
+    boxStatus === "CLOSED" ||
+    boxStatus === "LOCKED_FOR_REVIEW" ||
+    boxStatus === "SHIPPED"
+  ) {
     return boxStatus
   }
 
@@ -54,6 +64,7 @@ function statusToneClasses(status: string) {
     case "OPEN":
       return "border-blue-200 bg-blue-50 text-blue-950"
     case "CLOSED":
+    case "LOCKED_FOR_REVIEW":
       return "border-amber-200 bg-amber-50 text-amber-950"
     case "SHIPPED":
       return "border-green-200 bg-green-50 text-green-950"
@@ -68,6 +79,8 @@ function statusTitle(status: string) {
       return "Your Open Box is active"
     case "CLOSED":
       return "Your Open Box has been closed"
+    case "LOCKED_FOR_REVIEW":
+      return "Your shipment request has been submitted"
     case "SHIPPED":
       return "Your Open Box shipment has shipped"
     default:
@@ -83,6 +96,10 @@ function statusDescription(status: string, hasInvoice: boolean) {
       return hasInvoice
         ? "Your shipment has been finalized and shipping is now ready to be paid."
         : "Your shipment has been closed and is being finalized. A shipping invoice will appear here when ready."
+    case "LOCKED_FOR_REVIEW":
+      return hasInvoice
+        ? "Your shipment request has been reviewed and a shipping invoice is now available."
+        : "We received your shipment request. Our team will review the items in your box and create a shipping invoice next."
     case "SHIPPED":
       return "This Open Box shipment has already gone out. Detailed tracking belongs to the fulfillment flow."
     default:
@@ -95,7 +112,62 @@ function normalizeInvoiceStatus(value?: string | null) {
 }
 
 function shouldShowInvoiceForOpenBox(status: string) {
-  return status === "CLOSED" || status === "SHIPPED"
+  return status === "CLOSED" || status === "LOCKED_FOR_REVIEW" || status === "SHIPPED"
+}
+
+function normalizeStatus(value?: string | null) {
+  return (value ?? "").trim().toUpperCase()
+}
+
+function normalizeShippingMode(value?: string | null) {
+  return (value ?? "").trim().toUpperCase()
+}
+
+function formatOrderStatus(value?: string | null) {
+  switch (normalizeStatus(value)) {
+    case "AWAITING_PAYMENT":
+      return "Awaiting payment"
+    case "READY_TO_FULFILL":
+      return "Ready to fulfill"
+    case "PACKED":
+      return "Packed"
+    case "SHIPPED":
+      return "Shipped"
+    case "DELIVERED":
+      return "Delivered"
+    case "COMPLETED":
+      return "Completed"
+    default:
+      return value ?? "—"
+  }
+}
+
+function formatShippingMode(value?: string | null) {
+  switch (normalizeShippingMode(value)) {
+    case "UNSELECTED":
+      return "Shipping choice needed"
+    case "SHIP_NOW":
+      return "Direct shipment"
+    case "OPEN_BOX":
+      return "Open Box"
+    default:
+      return "Shipping details pending"
+  }
+}
+
+function buildOrderTitle(order: OpenBoxOrderItemDto) {
+  const title = order.previewTitle?.trim()
+  const count = order.itemCount ?? 0
+
+  if (title && count > 1) {
+    return `${title} + ${count - 1} more`
+  }
+
+  if (title) return title
+  if (count > 1) return `${count} items`
+  if (count === 1) return "1 item"
+
+  return order.orderNumber
 }
 
 function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
@@ -105,16 +177,41 @@ function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
       data-testid="open-box-order-row"
     >
       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-        <span className="px-2 text-center text-[11px] font-medium text-stone-500">Order</span>
+        {order.previewImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={order.previewImageUrl}
+            alt={order.previewTitle ?? order.orderNumber}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="px-2 text-center text-[11px] font-medium text-stone-500">Order</span>
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-stone-900">{order.orderNumber}</p>
-        <p className="mt-1 text-sm text-stone-600">Status: {order.status}</p>
+        <p className="truncate text-sm font-semibold text-stone-900">
+          {buildOrderTitle(order)}
+        </p>
+        <p className="mt-1 text-sm text-stone-600">
+          Order {order.orderNumber} • {order.sourceType === "AUCTION" ? "Auction" : "Store"}
+        </p>
+        <p className="mt-1 text-sm text-stone-600">
+          {formatOrderStatus(order.status)}
+          {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
+        </p>
         <p className="mt-1 text-sm text-stone-700">
           {formatMoney(order.totalCents, order.currencyCode)}
         </p>
       </div>
+
+      <Link
+        href={`/orders/${order.orderId}`}
+        className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+        data-testid={`open-box-order-${order.orderId}-view`}
+      >
+        View
+      </Link>
     </li>
   )
 }
@@ -128,6 +225,7 @@ export function OpenBoxClient() {
   const [sessionExpired, setSessionExpired] = useState(false)
   const [isClosingBox, setIsClosingBox] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
+  const [closeSuccess, setCloseSuccess] = useState<string | null>(null)
 
   const load = useCallback(async (isMounted?: () => boolean) => {
     setIsLoading(true)
@@ -218,9 +316,14 @@ export function OpenBoxClient() {
   const isInvoicePayable = invoiceStatus === "UNPAID"
   const isInvoicePaid = invoiceStatus === "PAID"
   const canRequestShipment = openBoxStatus === "OPEN" && (openBox?.orderCount ?? 0) > 0
+  const isBoxLocked = openBoxStatus === "LOCKED_FOR_REVIEW" || openBoxStatus === "SHIPPED"
+
+  const shipmentRequestStatus =
+    ((openBox as OpenBoxWithShipmentStatus | null)?.shipmentRequestStatus ?? null)
 
   async function handleCloseBox() {
     setCloseError(null)
+    setCloseSuccess(null)
     setIsClosingBox(true)
 
     try {
@@ -249,6 +352,10 @@ export function OpenBoxClient() {
         )
         return
       }
+
+      setCloseSuccess(
+        "Your shipment request has been submitted. We’ll review it and create a shipping invoice next.",
+      )
 
       await load()
     } catch {
@@ -354,6 +461,15 @@ export function OpenBoxClient() {
         </p>
       </div>
 
+      {closeSuccess ? (
+        <div
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          data-testid="open-box-close-success"
+        >
+          {closeSuccess}
+        </div>
+      ) : null}
+
       <section
         className={`rounded-2xl border p-5 shadow-sm ${toneClasses}`}
         data-testid="open-box-status-card"
@@ -370,6 +486,14 @@ export function OpenBoxClient() {
           </p>
         ) : null}
       </section>
+
+      {isBoxLocked ? (
+        <OpenBoxShipmentStatusNotice
+          shipmentRequestStatus={shipmentRequestStatus}
+          hasInvoice={hasInvoice}
+          invoicePaid={isInvoicePaid}
+        />
+      ) : null}
 
       <section
         className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
@@ -402,8 +526,8 @@ export function OpenBoxClient() {
         >
           <h2 className="text-lg font-semibold text-stone-900">Ready to ship these items?</h2>
           <p className="mt-2 text-sm text-stone-600">
-            This will close your current Open Box and prepare shipping for the items shown here.
-            Shipping will be billed after your box is closed.
+            This will submit your shipment request for the items shown here. Shipping is not charged
+            yet. We’ll review your box and create a shipping invoice next.
           </p>
 
           {closeError ? (
@@ -423,7 +547,7 @@ export function OpenBoxClient() {
               className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="open-box-close-button"
             >
-              {isClosingBox ? "Preparing shipment…" : "Ship all items now"}
+              {isClosingBox ? "Submitting request…" : "Ship all items now"}
             </button>
           </div>
         </section>
@@ -437,7 +561,7 @@ export function OpenBoxClient() {
 
         {!showInvoiceForCurrentBox ? (
           <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
-            Shipping will be billed once your Open Box is closed.
+            Shipping will be billed after you request shipment for your Open Box.
           </p>
         ) : visibleInvoice ? (
           <>
@@ -445,7 +569,7 @@ export function OpenBoxClient() {
               {isInvoicePayable
                 ? "Your Open Box shipping invoice is ready."
                 : isInvoicePaid
-                  ? "Shipping has already been paid for this closed Open Box shipment."
+                  ? "Shipping has already been paid for this Open Box shipment."
                   : "Your Open Box shipping invoice is available."}
             </p>
 
@@ -468,11 +592,13 @@ export function OpenBoxClient() {
           </>
         ) : (
           <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
-            {openBoxStatus === "CLOSED"
-              ? "Your shipment is being finalized. A shipping invoice will appear here when ready."
-              : openBoxStatus === "SHIPPED"
-                ? "Shipping payment is no longer needed for this Open Box shipment."
-                : "Shipping will be billed once your Open Box is closed."}
+            {openBoxStatus === "LOCKED_FOR_REVIEW"
+              ? "Your shipment request is under review. A shipping invoice will appear here when ready."
+              : openBoxStatus === "CLOSED"
+                ? "Your shipment is being finalized. A shipping invoice will appear here when ready."
+                : openBoxStatus === "SHIPPED"
+                  ? "Shipping payment is no longer needed for this Open Box shipment."
+                  : "Shipping will be billed after you request shipment for your Open Box."}
           </p>
         )}
       </section>

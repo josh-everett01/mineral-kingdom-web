@@ -41,7 +41,7 @@ async function forwardOnce(accessToken: string | null) {
   }
 
   return fetch(`${API_BASE_URL}/api/me/open-box`, {
-    method: "POST",
+    method: "GET",
     headers,
     cache: "no-store",
   })

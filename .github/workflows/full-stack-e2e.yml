@@ -188,7 +188,7 @@ jobs:
           with open('/tmp/e2e-seed.json') as f:
               data = json.load(f)
 
-          pairs = {
+                    pairs = {
               "store_listing_id": data["storeListingId"],
               "store_listing2_id": data["storeListing2Id"],
               "store_listing3_id": data["storeListing3Id"],
@@ -203,6 +203,10 @@ jobs:
               "admin_order_id": data["adminOrderId"],
               "admin_order_number": data["adminOrderNumber"],
               "admin_order_email": data["adminOrderEmail"],
+              "admin_fulfillment_requested_group_id": data["adminFulfillmentRequestedGroupId"],
+              "admin_fulfillment_requested_order_number": data["adminFulfillmentRequestedOrderNumber"],
+              "admin_fulfillment_direct_group_id": data["adminFulfillmentDirectGroupId"],
+              "admin_fulfillment_direct_order_number": data["adminFulfillmentDirectOrderNumber"],
           }
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
@@ -641,6 +645,12 @@ jobs:
           E2E_ADMIN_ORDERS_ORDER_ID: ${{ steps.seed_catalog.outputs.admin_order_id }}
           E2E_ADMIN_ORDERS_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_order_number }}
           E2E_ADMIN_ORDERS_ORDER_EMAIL: ${{ steps.seed_catalog.outputs.admin_order_email }}
+          E2E_ADMIN_FULFILLMENT_EMAIL: ${{ steps.seed_admin_listings.outputs.email }}
+          E2E_ADMIN_FULFILLMENT_PASSWORD: ${{ steps.seed_admin_listings.outputs.password }}
+          E2E_ADMIN_FULFILLMENT_REQUESTED_GROUP_ID: ${{ steps.seed_catalog.outputs.admin_fulfillment_requested_group_id }}
+          E2E_ADMIN_FULFILLMENT_REQUESTED_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_fulfillment_requested_order_number }}
+          E2E_ADMIN_FULFILLMENT_DIRECT_GROUP_ID: ${{ steps.seed_catalog.outputs.admin_fulfillment_direct_group_id }}
+          E2E_ADMIN_FULFILLMENT_DIRECT_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_fulfillment_direct_order_number }}
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e

@@ -259,7 +259,7 @@ test.describe("dashboard", () => {
         .getByText(/shipping invoice • open box • order mk-20260325-d013ec/i),
     ).toBeVisible()
 
-    await expect(page.getByText(/shipping not selected/i)).toBeVisible()
+    await expect(page.getByText(/shipping choice needed/i)).toBeVisible()
     await expect(page.getByText(/\$28\.00 due/i)).toBeVisible()
 
     await expect(
@@ -322,7 +322,7 @@ test.describe("dashboard", () => {
       page.getByText(/you do not have any past auction wins to show yet/i),
     ).toBeVisible()
     await expect(
-      page.getByText(/you do not have any paid orders to review right now/i),
+      page.getByText(/you do not have any recent non-completed paid orders right now/i),
     ).toBeVisible()
     await expect(
       page.getByText(/you do not have any shipping invoices right now/i),

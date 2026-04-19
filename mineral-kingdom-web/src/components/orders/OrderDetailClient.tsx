@@ -50,6 +50,7 @@ type OrderDto = {
   updatedAt?: string | null
   paymentDueAt?: string | null
   shippingMode?: string | null
+  requiresShippingInvoice?: boolean
   shippingAmountCents?: number
   subtotalCents?: number
   discountTotalCents?: number
@@ -60,6 +61,18 @@ type OrderDto = {
   paymentProvider?: string | null
   paidAt?: string | null
   fulfillmentGroupId?: string | null
+
+  fulfillmentStatus?: string | null
+  boxStatus?: string | null
+  shipmentRequestStatus?: string | null
+  packedAt?: string | null
+  shippedAt?: string | null
+  deliveredAt?: string | null
+  shippingCarrier?: string | null
+  trackingNumber?: string | null
+  shippingInvoiceId?: string | null
+  shippingInvoiceStatus?: string | null
+
   statusHistory?: OrderStatusHistoryDto | null
   lines?: OrderLineDto[] | null
 }
@@ -206,6 +219,63 @@ function formatShippingMode(value?: string | null) {
     default:
       return value.replaceAll("_", " ")
   }
+}
+
+function formatFulfillmentStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "READY_TO_FULFILL":
+      return "Ready to fulfill"
+    case "PACKED":
+      return "Packed"
+    case "SHIPPED":
+      return "Shipped"
+    case "DELIVERED":
+      return "Delivered"
+    default:
+      return value.replaceAll("_", " ")
+  }
+}
+
+function formatShipmentRequestStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "NONE":
+      return "No shipping invoice needed"
+    case "REQUESTED":
+      return "Shipment requested"
+    case "UNDER_REVIEW":
+      return "Under review"
+    case "INVOICED":
+      return "Shipping invoice created"
+    case "PAID":
+      return "Shipping invoice paid"
+    default:
+      return value.replaceAll("_", " ")
+  }
+}
+
+function formatBoxStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "OPEN":
+      return "Open Box"
+    case "LOCKED_FOR_REVIEW":
+      return "Open Box locked for review"
+    case "CLOSED":
+      return "Direct shipment / closed group"
+    case "SHIPPED":
+      return "Shipped"
+    default:
+      return value.replaceAll("_", " ")
+  }
+}
+
+function isOpenBoxOrder(order: OrderDto | null) {
+  return (order?.shippingMode ?? "").toUpperCase() === "OPEN_BOX"
 }
 
 function isAwaitingPayment(order: OrderDto | null) {
@@ -385,11 +455,102 @@ function deriveSseFallbackTimelineEntry(
 }
 
 function timelineEntriesFromOrder(order: OrderDto | null) {
-  return (order?.statusHistory?.entries ?? []).slice().sort((a, b) => {
+  const sorted = (order?.statusHistory?.entries ?? []).slice().sort((a, b) => {
     const aTime = a.occurredAt ? new Date(a.occurredAt).getTime() : 0
     const bTime = b.occurredAt ? new Date(b.occurredAt).getTime() : 0
     return aTime - bTime
   })
+
+  const seen = new Set<string>()
+
+  return sorted.filter((entry) => {
+    const key = [
+      entry.type ?? "",
+      entry.title ?? "",
+      entry.description ?? "",
+      entry.occurredAt ?? "",
+    ].join("|")
+
+    if (seen.has(key)) {
+      return false
+    }
+
+    seen.add(key)
+    return true
+  })
+}
+
+function shipmentTimelineEntriesFromOrder(order: OrderDto | null) {
+  const entries: Array<{
+    key: string
+    title: string
+    description?: string
+    occurredAt?: string | null
+  }> = []
+
+  if (!order?.fulfillmentGroupId) return entries
+
+  entries.push({
+    key: "shipment-group",
+    title: isOpenBoxOrder(order) ? "Added to Open Box" : "Shipment created",
+    description: isOpenBoxOrder(order)
+      ? "This order is part of your Open Box shipment workflow."
+      : "This order is moving through direct fulfillment.",
+    occurredAt: order.paidAt ?? order.updatedAt ?? null,
+  })
+
+  if (isOpenBoxOrder(order) && order.shipmentRequestStatus && order.shipmentRequestStatus.toUpperCase() !== "NONE") {
+    entries.push({
+      key: "shipment-request-status",
+      title: formatShipmentRequestStatus(order.shipmentRequestStatus),
+      description: "Shipping invoice progress for this Open Box shipment.",
+      occurredAt: order.updatedAt ?? null,
+    })
+  }
+
+  if (order.shippingInvoiceId) {
+    entries.push({
+      key: "shipping-invoice",
+      title:
+        order.shippingInvoiceStatus?.toUpperCase() === "PAID"
+          ? "Shipping invoice paid"
+          : "Shipping invoice available",
+      description: `Shipping invoice status: ${order.shippingInvoiceStatus ?? "Unknown"}`,
+      occurredAt: order.updatedAt ?? null,
+    })
+  }
+
+  if (order.packedAt) {
+    entries.push({
+      key: "packed",
+      title: "Packed",
+      description: "Your order has been packed for shipment.",
+      occurredAt: order.packedAt,
+    })
+  }
+
+  if (order.shippedAt) {
+    entries.push({
+      key: "shipped",
+      title: "Shipped",
+      description:
+        order.shippingCarrier || order.trackingNumber
+          ? `Carrier: ${order.shippingCarrier ?? "—"} • Tracking: ${order.trackingNumber ?? "—"}`
+          : "Your order has shipped.",
+      occurredAt: order.shippedAt,
+    })
+  }
+
+  if (order.deliveredAt) {
+    entries.push({
+      key: "delivered",
+      title: "Delivered",
+      description: "Your order was marked delivered.",
+      occurredAt: order.deliveredAt,
+    })
+  }
+
+  return entries
 }
 
 function listingHref(line: OrderLineDto) {
@@ -599,6 +760,32 @@ export function OrderDetailClient({ orderId }: Props) {
     }
   }
 
+  function isOpenBoxOrder(order: OrderDto | null) {
+    return (order?.shippingMode ?? "").toUpperCase() === "OPEN_BOX"
+  }
+
+  function isDirectShipOrder(order: OrderDto | null) {
+    return (order?.shippingMode ?? "").toUpperCase() === "SHIP_NOW"
+  }
+
+  function shipmentStateLabel(order: OrderDto | null) {
+    if (isOpenBoxOrder(order)) return "Open Box shipping state"
+    if (isDirectShipOrder(order)) return "Shipping invoice state"
+    return "Shipment state"
+  }
+
+  function shipmentGroupTypeLabel(order: OrderDto | null) {
+    if (isOpenBoxOrder(order)) return "Open Box group"
+    if (isDirectShipOrder(order)) return "Shipment type"
+    return "Shipment group type"
+  }
+
+  function shippingInvoiceEmptyLabel(order: OrderDto | null) {
+    if (isDirectShipOrder(order)) return "Not needed for Ship Now orders"
+    if (isOpenBoxOrder(order)) return "No shipping invoice yet"
+    return "No shipping invoice"
+  }
+
   async function handleStartPayment() {
     if (!liveOrder || !isAwaitingPayment(liveOrder) || isSubmittingPayment) return
 
@@ -683,6 +870,8 @@ export function OrderDetailClient({ orderId }: Props) {
       ? selectedShippingMode
       : ((liveOrder?.shippingMode as ShippingMode | undefined) ?? "UNSELECTED")
 
+  const requiresShippingInvoice = liveOrder?.requiresShippingInvoice === true
+
   const total = formatMoney(liveOrder?.totalCents, liveOrder?.currencyCode)
   const subtotal = formatMoney(liveOrder?.subtotalCents, liveOrder?.currencyCode)
   const discount = formatMoney(liveOrder?.discountTotalCents, liveOrder?.currencyCode)
@@ -694,6 +883,10 @@ export function OrderDetailClient({ orderId }: Props) {
   const paymentProvider = formatPaymentProvider(liveOrder?.paymentProvider)
   const timelineEntries = useMemo(() => timelineEntriesFromOrder(liveOrder), [liveOrder])
   const shippingChoiceRequired = isAuctionAwaitingShippingChoice(liveOrder)
+  const shipmentTimelineEntries = useMemo(
+    () => shipmentTimelineEntriesFromOrder(liveOrder),
+    [liveOrder],
+  )
 
   if (isLoading) {
     return (
@@ -1119,7 +1312,9 @@ export function OrderDetailClient({ orderId }: Props) {
           >
             <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
             <p className="mt-2 text-sm leading-6 text-green-800">
-              Payment has been confirmed and this order is moving into fulfillment.
+              {isOpenBoxOrder(liveOrder)
+                ? "Payment has been confirmed. This order is now part of your Open Box shipment workflow."
+                : "Payment has been confirmed and this order is moving through direct fulfillment."}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
@@ -1144,7 +1339,135 @@ export function OrderDetailClient({ orderId }: Props) {
           </section>
         </>
       ) : null}
+      {liveOrder?.fulfillmentGroupId ? (
+        <section
+          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          data-testid="order-detail-shipment-progress"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-stone-900">Shipment progress</h2>
+            <p className="text-xs text-stone-500">
+              Fulfillment group {liveOrder.fulfillmentGroupId}
+            </p>
+          </div>
 
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Fulfillment status
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatFulfillmentStatus(liveOrder.fulfillmentStatus)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                {shipmentStateLabel(liveOrder)}
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatShipmentRequestStatus(liveOrder.shipmentRequestStatus)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                {shipmentGroupTypeLabel(liveOrder)}
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatBoxStatus(liveOrder.boxStatus)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Packed at
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatDateTime(liveOrder.packedAt) ?? "—"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Shipped at
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatDateTime(liveOrder.shippedAt) ?? "—"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Delivered at
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {formatDateTime(liveOrder.deliveredAt) ?? "—"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Carrier
+              </p>
+              <p className="mt-1 text-sm text-stone-900">
+                {liveOrder.shippingCarrier ?? "—"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Tracking number
+              </p>
+              <p className="mt-1 break-all text-sm text-stone-900">
+                {liveOrder.trackingNumber ?? "—"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Shipping invoice
+              </p>
+              {requiresShippingInvoice && liveOrder.shippingInvoiceId ? (
+                <Link
+                  href={`/shipping-invoices/${encodeURIComponent(liveOrder.shippingInvoiceId)}`}
+                  className="mt-1 inline-flex text-sm text-stone-900 underline underline-offset-4 hover:text-stone-700"
+                  data-testid="order-detail-shipping-invoice-link"
+                >
+                  View invoice ({liveOrder.shippingInvoiceStatus ?? "Unknown"})
+                </Link>
+              ) : (
+                <p
+                  className="mt-1 text-sm text-stone-900"
+                  data-testid="order-detail-shipping-invoice-none"
+                >
+                  {shippingInvoiceEmptyLabel(liveOrder)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {shipmentTimelineEntries.length ? (
+            <ol className="mt-6 space-y-4">
+              {shipmentTimelineEntries.map((entry) => (
+                <li
+                  key={entry.key}
+                  className="border-l-2 border-stone-200 pl-4"
+                  data-testid="order-detail-shipment-timeline-entry"
+                >
+                  <p className="text-sm font-semibold text-stone-900">{entry.title}</p>
+                  {entry.description ? (
+                    <p className="mt-1 text-sm text-stone-600">{entry.description}</p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-stone-500">
+                    {formatDateTime(entry.occurredAt) ?? "—"}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </section>
+      ) : null}
       <section
         className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
         data-testid="order-detail-lines"
@@ -1237,7 +1560,7 @@ export function OrderDetailClient({ orderId }: Props) {
           <ol className="mt-4 space-y-4">
             {timelineEntries.map((entry, index) => (
               <li
-                key={`${entry.type ?? "entry"}-${entry.occurredAt ?? index}-${entry.title ?? ""}`}
+                key={`${entry.type ?? "entry"}-${entry.occurredAt ?? index}-${entry.title ?? ""}-${entry.description ?? ""}-${index}`}
                 className="border-l-2 border-stone-200 pl-4"
                 data-testid="order-detail-timeline-entry"
               >

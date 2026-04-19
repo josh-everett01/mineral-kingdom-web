@@ -224,6 +224,25 @@ function formatMoney(cents?: number | null, currencyCode?: string | null) {
   }).format(cents / 100)
 }
 
+function formatDashboardOrderStatus(value?: string | null) {
+  switch (normalizeStatus(value)) {
+    case "READY_TO_FULFILL":
+      return "Ready to fulfill"
+    case "PACKED":
+      return "Packed"
+    case "SHIPPED":
+      return "Shipped"
+    case "DELIVERED":
+      return "Delivered"
+    case "COMPLETED":
+      return "Completed"
+    case "AWAITING_PAYMENT":
+      return "Awaiting payment"
+    default:
+      return value ?? "—"
+  }
+}
+
 function formatDate(value?: string | null) {
   if (!value) return null
 
@@ -247,11 +266,11 @@ function normalizeShippingMode(value?: string | null) {
 function formatShippingMode(value?: string | null) {
   switch (normalizeShippingMode(value)) {
     case "UNSELECTED":
-      return "Shipping not selected"
+      return "Shipping choice needed"
     case "SHIP_NOW":
-      return "Ship now selected"
+      return "Direct shipment"
     case "OPEN_BOX":
-      return "Open Box selected"
+      return "Open Box"
     default:
       return "Shipping details pending"
   }
@@ -262,6 +281,11 @@ function isOrderPayable(order: DashboardOrderSummaryDto) {
   return status === "AWAITING_PAYMENT" || status === "UNPAID" || status === "PAYMENT_REQUIRED"
 }
 
+function isCompletedOrder(order: DashboardOrderSummaryDto) {
+  const status = normalizeStatus(order.status)
+  return status === "DELIVERED" || status === "COMPLETED"
+}
+
 function isOrderFulfillmentState(order: DashboardOrderSummaryDto) {
   const status = normalizeStatus(order.status)
   return (
@@ -269,8 +293,8 @@ function isOrderFulfillmentState(order: DashboardOrderSummaryDto) {
     status === "READY_TO_FULFILL" ||
     status === "WAITING_FULFILLMENT" ||
     status === "FULFILLING" ||
-    status === "SHIPPED" ||
-    status === "DELIVERED"
+    status === "PACKED" ||
+    status === "SHIPPED"
   )
 }
 
@@ -307,7 +331,7 @@ function orderContext(order: DashboardOrderSummaryDto) {
 
 function openBoxOrderContext(order: DashboardOrderSummaryDto) {
   const type = order.sourceType === "AUCTION" ? "Auction" : "Store"
-  return `Order ${order.orderNumber} • ${type} • ${order.status}`
+  return `Order ${order.orderNumber} • ${type} • ${formatDashboardOrderStatus(order.status)}`
 }
 
 function shippingInvoiceContext(invoice: DashboardShippingInvoiceDto) {
@@ -539,7 +563,8 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                       {buildTitle(order.previewTitle, order.itemCount)}
                     </p>
                     <p className="mt-1 text-sm text-stone-600">
-                      Order {order.orderNumber} • {order.status}
+                      Order {order.orderNumber} • {formatDashboardOrderStatus(order.status)}
+                      {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
                     </p>
                   </div>
                   <Link
@@ -590,6 +615,62 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
   )
 }
 
+function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
+  const completedOrders = data.paidOrders.filter(isCompletedOrder).slice(0, 6)
+
+  if (completedOrders.length === 0) {
+    return null
+  }
+
+  return (
+    <section
+      className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      data-testid="dashboard-completed-orders"
+    >
+      <h2 className="text-lg font-semibold text-stone-900">Completed orders</h2>
+      <p className="mt-1 text-sm text-stone-600">
+        Orders that have been delivered or fully completed.
+      </p>
+
+      <div className="mt-4 space-y-3">
+        {completedOrders.map((order) => (
+          <div
+            key={order.orderId}
+            className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+            data-testid={`dashboard-completed-order-${order.orderId}`}
+          >
+            <Thumbnail
+              src={order.previewImageUrl}
+              alt={order.previewTitle ?? order.orderNumber}
+              fallback="Order"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-stone-900">
+                {buildTitle(order.previewTitle, order.itemCount)}
+              </p>
+              <p className="mt-1 text-sm text-stone-600">
+                Order {order.orderNumber} • {formatDashboardOrderStatus(order.status)}
+                {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
+              </p>
+              <p className="mt-1 text-sm text-stone-700">
+                {formatMoney(order.totalCents, order.currencyCode)}
+              </p>
+            </div>
+
+            <Link
+              href={`/orders/${order.orderId}`}
+              className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            >
+              View
+            </Link>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function buildAuctionsWidget(data: MemberDashboardDto): DashboardWidgetModel {
   return {
     title: "Won auctions",
@@ -608,22 +689,26 @@ function buildAuctionsWidget(data: MemberDashboardDto): DashboardWidgetModel {
 }
 
 function buildOrdersWidget(data: MemberDashboardDto): DashboardWidgetModel {
+  const recentNonCompletedOrders = data.paidOrders
+    .filter((order) => !isCompletedOrder(order))
+    .slice(0, 4)
+
   return {
-    title: "Paid orders",
+    title: "Recent paid orders",
     countLabel: "orders",
-    countValue: data.paidOrders.length,
-    description: "Recent paid orders in your account history.",
-    rows: data.paidOrders.slice(0, 4).map((order) => ({
+    countValue: recentNonCompletedOrders.length,
+    description: "Recent paid orders that are not yet in the completed bucket.",
+    rows: recentNonCompletedOrders.map((order) => ({
       id: order.orderId,
       title: order.orderNumber,
-      subtitle: `${order.status} • ${formatMoney(order.totalCents, order.currencyCode)}`,
+      subtitle: `${formatDashboardOrderStatus(order.status)} • ${formatMoney(order.totalCents, order.currencyCode)}`,
       meta: `Created ${formatDate(order.createdAt)}`,
       action: {
         label: "View order",
         href: `/orders/${order.orderId}`,
       },
     })),
-    emptyMessage: "You do not have any paid orders to review right now.",
+    emptyMessage: "You do not have any recent non-completed paid orders right now.",
   }
 }
 
@@ -697,6 +782,15 @@ export function DashboardClient() {
   const payableInvoices = useMemo(
     () => (data ? data.shippingInvoices.filter(isInvoicePayable).slice(0, 4) : []),
     [data],
+  )
+
+  console.log(
+    "dashboard paidOrders",
+    data?.paidOrders?.map((order) => ({
+      orderNumber: order.orderNumber,
+      status: order.status,
+      shippingMode: order.shippingMode,
+    })),
   )
 
   const isCompletelyEmpty =
@@ -808,6 +902,8 @@ export function DashboardClient() {
       ) : null}
 
       <InProgressSection data={data!} />
+
+      <CompletedOrdersSection data={data!} />
 
       {isCompletelyEmpty ? <DashboardEmptyState /> : null}
 

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 type Props = {
   initialHoldId?: string | null
+  isAuthenticated: boolean
 }
 
 type PaymentInitiationResponse = {
@@ -59,8 +60,11 @@ function formatCountdown(expiresAt?: string | null, nowMs?: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
 }
 
-export function CheckoutPayClient({ initialHoldId }: Props) {
+export function CheckoutPayClient({ initialHoldId, isAuthenticated }: Props) {
   const [selectedProvider, setSelectedProvider] = useState<"stripe" | "paypal">("stripe")
+  const [selectedShippingMode, setSelectedShippingMode] = useState<"SHIP_NOW" | "OPEN_BOX">(
+    "SHIP_NOW",
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isExtending, setIsExtending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -279,6 +283,7 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
         body: JSON.stringify({
           holdId,
           provider: selectedProvider,
+          shippingMode: isAuthenticated ? selectedShippingMode : "SHIP_NOW",
         }),
       })
 
@@ -342,7 +347,7 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Payment</p>
         <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-          Choose a payment provider
+          Choose payment and shipping preference
         </h1>
         <p className="text-sm text-stone-600 sm:text-base">
           Payment can only start from an active checkout hold. Final paid status is confirmed by
@@ -391,6 +396,54 @@ export function CheckoutPayClient({ initialHoldId }: Props) {
           {extensionMessage}
         </div>
       ) : null}
+
+      {isAuthenticated ? (
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-stone-900">Shipping preference</legend>
+
+          <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-4">
+            <input
+              type="radio"
+              name="shipping-mode"
+              value="SHIP_NOW"
+              checked={selectedShippingMode === "SHIP_NOW"}
+              onChange={() => setSelectedShippingMode("SHIP_NOW")}
+              data-testid="checkout-pay-shipping-ship-now"
+            />
+            <span className="text-sm text-stone-800">
+              <span className="block font-medium">Ship now</span>
+              <span className="block text-stone-600">
+                Complete this purchase for normal shipment now.
+              </span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-4">
+            <input
+              type="radio"
+              name="shipping-mode"
+              value="OPEN_BOX"
+              checked={selectedShippingMode === "OPEN_BOX"}
+              onChange={() => setSelectedShippingMode("OPEN_BOX")}
+              data-testid="checkout-pay-shipping-open-box"
+            />
+            <span className="text-sm text-stone-800">
+              <span className="block font-medium">Add to Open Box</span>
+              <span className="block text-stone-600">
+                Keep this order with your Open Box so it can be grouped with other eligible
+                purchases.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+      ) : (
+        <div
+          className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-700"
+          data-testid="checkout-pay-guest-shipping-mode"
+        >
+          Guest checkout always uses normal shipment. Sign in if you want to use Open Box.
+        </div>
+      )}
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium text-stone-900">Payment method</legend>

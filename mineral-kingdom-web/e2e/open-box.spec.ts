@@ -157,12 +157,12 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-status-card")).toContainText(/active/i)
 
     await expect(page.getByTestId("open-box-items")).toContainText("MK-20260402-OPEN01")
-    await expect(page.getByTestId("open-box-items")).toContainText("READY_TO_FULFILL")
+    await expect(page.getByTestId("open-box-items")).toContainText(/ready to fulfill/i)
     await expect(page.getByTestId("open-box-items")).toContainText("$110.00")
 
     await expect(page.getByTestId("open-box-pay-shipping")).toHaveCount(0)
     await expect(page.getByTestId("open-box-no-invoice")).toContainText(
-      /shipping will be billed once your open box is closed/i,
+      /shipping will be billed after you request shipment for your open box/i,
     )
   })
 
@@ -281,7 +281,7 @@ test.describe("open box", () => {
     await expect(page.getByTestId("open-box-status")).toContainText("OPEN")
     await expect(page.getByTestId("open-box-pay-shipping")).toHaveCount(0)
     await expect(page.getByTestId("open-box-no-invoice")).toContainText(
-      /shipping will be billed once your open box is closed/i,
+      /shipping will be billed after you request shipment for your open box/i,
     )
   })
 

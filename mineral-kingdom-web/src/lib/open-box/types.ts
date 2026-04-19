@@ -1,16 +1,22 @@
 export type OpenBoxOrderItemDto = {
   orderId: string
   orderNumber: string
+  sourceType: string
   totalCents: number
   currencyCode: string
   status: string
+  shippingMode?: string | null
+  itemCount: number
+  previewTitle?: string | null
+  previewImageUrl?: string | null
 }
 
 export type OpenBoxDto = {
   fulfillmentGroupId: string
-  boxStatus?: string | null
-  fulfillmentStatus?: string | null
-  closedAt?: string | null
+  boxStatus: string
+  shipmentRequestStatus: string
+  fulfillmentStatus: string
+  closedAt: string | null
   orderCount: number
   orders: OpenBoxOrderItemDto[]
 }
