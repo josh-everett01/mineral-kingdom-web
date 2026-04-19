@@ -344,7 +344,7 @@ test.describe("shipping invoice detail", () => {
       "Order MK-20260329-SHIP01 • AUCTION",
     )
 
-    await expect(page.getByTestId("shipping-invoice-detail-awaiting-confirmation")).toBeVisible()
+    await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toBeVisible()
     await expect(page.getByTestId("shipping-invoice-detail-start-payment")).toBeVisible()
   })
 

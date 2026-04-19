@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { getAdminAuction, startAdminAuction, updateAdminAuction } from "@/lib/admin/auctions/api"
 import { AdminAuctionDetail } from "@/lib/admin/auctions/types"
 
@@ -80,23 +80,26 @@ export function AdminAuctionDetailPage({ id }: Props) {
   const [isSaving, setIsSaving] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
+
       const data = await getAdminAuction(id)
       setDetail(data)
       setForm(toForm(data))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load auction.")
+      setDetail(null)
+      setForm(null)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     void load()
-  }, [id])
+  }, [load])
 
   const canLaunchNow =
     detail?.status?.toUpperCase() === "DRAFT" || detail?.status?.toUpperCase() === "SCHEDULED"

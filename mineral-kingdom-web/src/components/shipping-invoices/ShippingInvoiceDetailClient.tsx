@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import { PaymentContextRow } from "@/components/payments/PaymentContextRow"
 import { PaymentStatusPanel } from "@/components/payments/PaymentStatusPanel"
 import { useSse } from "@/lib/sse/useSse"
@@ -75,6 +75,39 @@ type LoadableError = {
 
 const SHIPPING_RETURN_PAYMENT_ID_KEY = "mk_shipping_invoice_payment_return_payment_id"
 const SHIPPING_RETURN_INVOICE_ID_KEY = "mk_shipping_invoice_payment_return_invoice_id"
+const SHIPPING_RETURN_SESSION_EVENT = "mk:shipping-return-session-changed"
+
+function getShippingReturnSessionSnapshot() {
+  if (typeof window === "undefined") return ""
+
+  const invoiceId = window.sessionStorage.getItem(SHIPPING_RETURN_INVOICE_ID_KEY) ?? ""
+  const paymentId = window.sessionStorage.getItem(SHIPPING_RETURN_PAYMENT_ID_KEY) ?? ""
+
+  return `${invoiceId}::${paymentId}`
+}
+
+function getShippingReturnSessionServerSnapshot() {
+  return ""
+}
+
+function subscribeToShippingReturnSession(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => { }
+  }
+
+  const onCustomEvent = () => onStoreChange()
+
+  window.addEventListener(SHIPPING_RETURN_SESSION_EVENT, onCustomEvent)
+
+  return () => {
+    window.removeEventListener(SHIPPING_RETURN_SESSION_EVENT, onCustomEvent)
+  }
+}
+
+function notifyShippingReturnSessionChanged() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new Event(SHIPPING_RETURN_SESSION_EVENT))
+}
 
 function formatMoney(cents?: number | null, currencyCode?: string | null) {
   if (cents == null) return null
@@ -245,6 +278,29 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
     },
   )
 
+  const shippingReturnSessionRaw = useSyncExternalStore(
+    subscribeToShippingReturnSession,
+    getShippingReturnSessionSnapshot,
+    getShippingReturnSessionServerSnapshot,
+  )
+
+  const shippingReturnSession = useMemo(() => {
+    const [invoiceId, paymentId] = shippingReturnSessionRaw.split("::")
+    return {
+      invoiceId: invoiceId || null,
+      paymentId: paymentId || null,
+    }
+  }, [shippingReturnSessionRaw])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!isPaid(invoice)) return
+
+    window.sessionStorage.removeItem(SHIPPING_RETURN_PAYMENT_ID_KEY)
+    window.sessionStorage.removeItem(SHIPPING_RETURN_INVOICE_ID_KEY)
+    notifyShippingReturnSessionChanged()
+  }, [invoice])
+
   useEffect(() => {
     let isMounted = true
 
@@ -360,6 +416,12 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
     }
   }, [invoice, sse.snapshot])
 
+  const hasReturnContext =
+    shippingReturnSession.invoiceId === invoiceId &&
+    Boolean(shippingReturnSession.paymentId)
+
+  const isAwaitingBackendConfirmation = hasReturnContext && !isPaid(liveInvoice)
+
   async function handleStartPayment() {
     if (!liveInvoice || isSubmittingPayment || isPaid(liveInvoice) || isVoid(liveInvoice)) return
 
@@ -417,11 +479,9 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         return
       }
 
-      window.sessionStorage.setItem(
-        SHIPPING_RETURN_PAYMENT_ID_KEY,
-        body.providerCheckoutId,
-      )
+      window.sessionStorage.setItem(SHIPPING_RETURN_PAYMENT_ID_KEY, body.providerCheckoutId)
       window.sessionStorage.setItem(SHIPPING_RETURN_INVOICE_ID_KEY, invoiceId)
+      notifyShippingReturnSessionChanged()
 
       const redirectUrl = new URL(body.redirectUrl, window.location.origin)
       redirectUrl.searchParams.set("paymentId", body.providerCheckoutId)
@@ -544,11 +604,11 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                 {
                   label: "Go to current shipping invoice",
                   href: `/shipping-invoices/${encodeURIComponent(currentOpenBoxInvoice.shippingInvoiceId)}`,
-                  variant: "primary",
+                  variant: "primary" as const,
                 },
-                { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
+                { label: "Back to dashboard", href: "/dashboard", variant: "secondary" as const },
               ]
-              : [{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]
+              : [{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" as const }]
           }
         />
       </section>
@@ -566,10 +626,12 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-              {isPaid(liveInvoice) ? "Shipping payment confirmed" : "Complete shipping payment"}
+              {isPaid(liveInvoice) ? "Shipping payment confirmed" : "Your shipping invoice is ready"}
             </h1>
             <p className="mt-2 text-sm text-stone-600 sm:text-base">
-              This page shows backend-confirmed shipping invoice status and updates live when that status changes.
+              {isPaid(liveInvoice)
+                ? "This shipping payment has been confirmed. Your Open Box shipment can continue through packing and fulfillment."
+                : "Pay shipping to allow your Open Box shipment to continue through packing and fulfillment."}
             </p>
           </div>
 
@@ -752,12 +814,21 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
 
       {!isPaid(liveInvoice) ? (
         <>
-          <PaymentStatusPanel
-            testId="shipping-invoice-detail-awaiting-confirmation"
-            tone="info"
-            title="Waiting for backend-confirmed shipping payment"
-            body="If you return from Stripe or PayPal before backend confirmation is visible, that return does not itself finalize shipping payment. This page will update when the backend confirms the payment."
-          />
+          {isAwaitingBackendConfirmation ? (
+            <PaymentStatusPanel
+              testId="shipping-invoice-detail-awaiting-confirmation"
+              tone="info"
+              title="Waiting for backend-confirmed shipping payment"
+              body="If you’ve just returned from Stripe or PayPal, this page will update when the backend confirms the payment."
+            />
+          ) : (
+            <PaymentStatusPanel
+              testId="shipping-invoice-detail-ready-for-payment"
+              tone="info"
+              title="Your shipping invoice is ready for payment"
+              body="Pay shipping to allow your Open Box shipment to continue through packing and fulfillment."
+            />
+          )}
 
           <section
             className="rounded-2xl border border-blue-200 bg-blue-50 p-6"
@@ -765,7 +836,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
           >
             <h2 className="text-lg font-semibold text-blue-950">Pay shipping</h2>
             <p className="mt-2 text-sm leading-6 text-blue-900">
-              This payment covers shipping only. Your shipment will move forward after the backend confirms the payment.
+              This payment covers shipping only.
+              {isAwaitingBackendConfirmation
+                ? " If you already completed payment with Stripe or PayPal, this page will update when backend confirmation is received."
+                : " Once payment is confirmed, your shipment can continue through packing and fulfillment."}
             </p>
 
             <fieldset className="mt-4 space-y-2">

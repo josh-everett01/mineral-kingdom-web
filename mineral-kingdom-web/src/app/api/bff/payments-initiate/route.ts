@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { getAccessToken } from "@/lib/auth/cookies"
 import { toProxyError } from "@/lib/api/proxyError"
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
@@ -6,6 +7,7 @@ const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
 type InitiatePaymentRequest = {
   holdId?: string
   provider?: string
+  shippingMode?: string
 }
 
 function safeJsonParse(text: string): unknown {
@@ -19,6 +21,7 @@ function safeJsonParse(text: string): unknown {
 export async function POST(req: Request) {
   const origin = new URL(req.url).origin
   const body = (await req.json().catch(() => null)) as InitiatePaymentRequest | null
+  const accessToken = await getAccessToken()
 
   if (!body?.holdId || !body?.provider) {
     return NextResponse.json(
@@ -34,14 +37,21 @@ export async function POST(req: Request) {
   let upstream: Response
 
   try {
+    const headers = new Headers({
+      "content-type": "application/json",
+    })
+
+    if (accessToken) {
+      headers.set("authorization", `Bearer ${accessToken}`)
+    }
+
     upstream = await fetch(`${API_BASE_URL}/api/payments/start`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         holdId: body.holdId,
         provider: body.provider,
+        shippingMode: body.shippingMode ?? null,
         successUrl: `${origin}/checkout/return`,
         cancelUrl: `${origin}/checkout/return?cancelled=1`,
       }),

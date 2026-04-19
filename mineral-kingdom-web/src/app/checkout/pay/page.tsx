@@ -1,3 +1,4 @@
+import { cookies } from "next/headers"
 import { CheckoutPayClient } from "@/components/checkout/CheckoutPayClient"
 
 type Props = {
@@ -8,13 +9,28 @@ type Props = {
 
 export default async function CheckoutPayPage({ searchParams }: Props) {
   const { holdId } = await searchParams
+  const cookieStore = await cookies()
+
+  const accessCookie = await cookieStore.get("mk_access")
+  const secureAccessCookie = await cookieStore.get("__Secure-mk_access")
+
+  const hasAuthCookie =
+    Boolean(accessCookie?.value) ||
+    Boolean(secureAccessCookie?.value)
 
   return (
     <main
       className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8"
       data-testid="checkout-pay-page"
     >
-      <CheckoutPayClient initialHoldId={holdId ?? null} />
+      <div data-testid="checkout-pay-auth-debug">
+        Auth cookie present: {hasAuthCookie ? "yes" : "no"}
+      </div>
+
+      <CheckoutPayClient
+        initialHoldId={holdId ?? null}
+        isAuthenticated={hasAuthCookie}
+      />
     </main>
   )
 }

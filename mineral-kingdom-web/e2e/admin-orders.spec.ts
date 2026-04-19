@@ -2,12 +2,6 @@ import { test, expect, type Page, type Response } from "@playwright/test"
 
 test.describe.configure({ mode: "serial" })
 
-const OWNER_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "smoke_user1@example.com"
-const OWNER_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Str0ngPass!123"
-
-const STAFF_EMAIL = process.env.E2E_STAFF_EMAIL ?? ""
-const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD ?? ""
-
 const hasAdminFixture = !!process.env.E2E_ADMIN_EMAIL && !!process.env.E2E_ADMIN_PASSWORD
 const hasStaffFixture = !!process.env.E2E_STAFF_EMAIL && !!process.env.E2E_STAFF_PASSWORD
 

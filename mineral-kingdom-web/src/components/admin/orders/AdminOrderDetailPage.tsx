@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { AdminOrderPaymentWindowCard } from "@/components/admin/orders/AdminOrderPaymentWindowCard"
 import { AdminOrderRefundPanel } from "@/components/admin/orders/AdminOrderRefundPanel"
 import { getAdminOrder } from "@/lib/admin/orders/api"
 import type { AdminOrderDetail } from "@/lib/admin/orders/types"
@@ -77,8 +78,9 @@ export function AdminOrderDetailPage({ id }: Props) {
   const [detail, setDetail] = useState<AdminOrderDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [paymentDueAtOverride, setPaymentDueAtOverride] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -89,18 +91,22 @@ export function AdminOrderDetailPage({ id }: Props) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     void load()
-  }, [id])
+  }, [load])
+
+  const effectivePaymentDueAt = paymentDueAtOverride ?? detail?.paymentDueAt ?? null
 
   const paymentSummary = useMemo(() => {
     if (!detail) return null
     const paidLabel = detail.paidAt ? `Paid ${formatDate(detail.paidAt)}` : "Not paid"
-    const dueLabel = detail.paymentDueAt ? `Due ${formatDate(detail.paymentDueAt)}` : "No payment due date"
+    const dueLabel = effectivePaymentDueAt
+      ? `Due ${formatDate(effectivePaymentDueAt)}`
+      : "No payment due date"
     return { paidLabel, dueLabel }
-  }, [detail])
+  }, [detail, effectivePaymentDueAt])
 
   if (isLoading) {
     return (
@@ -255,12 +261,16 @@ export function AdminOrderDetailPage({ id }: Props) {
 
                         <div>
                           <div className="text-muted-foreground">Checkout id</div>
-                          <div className="break-all text-xs">{payment.providerCheckoutId || "—"}</div>
+                          <div className="break-all text-xs">
+                            {payment.providerCheckoutId || "—"}
+                          </div>
                         </div>
 
                         <div>
                           <div className="text-muted-foreground">Payment id</div>
-                          <div className="break-all text-xs">{payment.providerPaymentId || "—"}</div>
+                          <div className="break-all text-xs">
+                            {payment.providerPaymentId || "—"}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -268,6 +278,16 @@ export function AdminOrderDetailPage({ id }: Props) {
                 </div>
               )}
             </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-5">
+            <AdminOrderPaymentWindowCard
+              orderId={detail.id}
+              paymentDueAt={effectivePaymentDueAt}
+              sourceType={detail.sourceType}
+              canEdit={true}
+              onUpdated={(value) => setPaymentDueAtOverride(value)}
+            />
           </section>
 
           <section className="rounded-xl border bg-card p-5">
@@ -281,10 +301,7 @@ export function AdminOrderDetailPage({ id }: Props) {
               ) : (
                 <div className="space-y-3">
                   {detail.refundHistory.map((refund) => (
-                    <div
-                      key={refund.refundId}
-                      className="rounded-lg border p-4 text-sm"
-                    >
+                    <div key={refund.refundId} className="rounded-lg border p-4 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="font-medium">
                           {formatMoney(refund.amountCents, refund.currencyCode)}
@@ -297,9 +314,7 @@ export function AdminOrderDetailPage({ id }: Props) {
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <div>Provider: {refund.provider}</div>
                         <div>Refund id: {refund.providerRefundId || "—"}</div>
-                        <div className="md:col-span-2">
-                          Reason: {refund.reason || "—"}
-                        </div>
+                        <div className="md:col-span-2">Reason: {refund.reason || "—"}</div>
                       </div>
                     </div>
                   ))}

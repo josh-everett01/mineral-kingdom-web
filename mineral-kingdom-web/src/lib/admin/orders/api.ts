@@ -56,6 +56,35 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail> {
   return readJson<AdminOrderDetail>(response)
 }
 
+export async function updateAdminOrderPaymentDue(
+  orderId: string,
+  paymentDueAt: string,
+): Promise<void> {
+  const res = await fetch(`/api/bff/admin/orders/${orderId}/payment-due`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ paymentDueAt }),
+  })
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`
+
+    try {
+      const body = (await res.json()) as {
+        message?: string
+        details?: { error?: string }
+      }
+      message = body.details?.error ?? body.message ?? message
+    } catch {
+      // ignore
+    }
+
+    throw new Error(message)
+  }
+}
+
 export async function createAdminRefund(
   id: string,
   request: CreateAdminRefundRequest,
