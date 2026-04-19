@@ -188,7 +188,7 @@ jobs:
           with open('/tmp/e2e-seed.json') as f:
               data = json.load(f)
 
-                    pairs = {
+          pairs = {
               "store_listing_id": data["storeListingId"],
               "store_listing2_id": data["storeListing2Id"],
               "store_listing3_id": data["storeListing3Id"],
