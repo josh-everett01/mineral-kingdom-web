@@ -32,7 +32,13 @@ test("STAFF/OWNER can access admin route", async ({ page }) => {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await page.goto("/admin")
+  await expect(page).toHaveURL(/\/account|\/admin/, { timeout: 15_000 })
+  await page.waitForLoadState("domcontentloaded")
+
+  if (!page.url().includes("/admin")) {
+    await page.goto("/admin", { waitUntil: "domcontentloaded" })
+  }
+
   await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 })
   await expect(page.getByTestId("admin-shell")).toBeVisible()
   await expect(page.getByTestId("admin-topbar")).toBeVisible()

@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Response } from "@playwright/test"
+import { expect, test, type APIRequestContext, type Page, type Response } from "@playwright/test"
 
 test.describe.configure({ mode: "serial" })
 
@@ -17,11 +17,35 @@ const hasLiveFixture =
   !!process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID &&
   !!process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE
 
+const BACKEND_BASE_URL = process.env.API_BASE_URL ?? "http://127.0.0.1:8080"
+
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).")
 test.skip(
   !hasAdminFixture,
   "Requires seeded admin fixture (set E2E_ADMIN_LISTINGS_EMAIL and E2E_ADMIN_LISTINGS_PASSWORD).",
 )
+
+async function reseedCatalog(request: APIRequestContext) {
+  const response = await request.post(`${BACKEND_BASE_URL}/api/testing/e2e/seed`, {
+    headers: {
+      "content-type": "application/json",
+    },
+  })
+
+  expect(response.ok()).toBeTruthy()
+}
+
+function formatLocalDateTimeInput(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
 
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login")
@@ -89,6 +113,7 @@ test("admin can create an auction draft", async ({ page }) => {
   const listingId = process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_ID!
   const listingTitle = process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_TITLE!
 
+  await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
   await searchAndSelectListing(page, listingId, listingTitle)
@@ -133,6 +158,9 @@ test("admin can schedule a future auction", async ({ page }) => {
   const listingId = process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_ID!
   const listingTitle = process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE!
 
+  const scheduledStart = new Date(Date.now() + 2 * 60 * 60 * 1000)
+
+  await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
   await searchAndSelectListing(page, listingId, listingTitle)
@@ -140,7 +168,7 @@ test("admin can schedule a future auction", async ({ page }) => {
   await page.getByRole("button", { name: /schedule for later/i }).click()
   await page.getByRole("button", { name: /preset duration/i }).click()
 
-  await page.getByTestId("admin-auction-start-time").fill("2026-04-20T18:00")
+  await page.getByTestId("admin-auction-start-time").fill(formatLocalDateTimeInput(scheduledStart))
   await page.getByRole("button", { name: "3 days" }).click()
 
   await page.getByTestId("admin-auction-starting-price").fill("175.00")
@@ -177,6 +205,7 @@ test("admin can launch an auction now", async ({ page }) => {
   const listingId = process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID!
   const listingTitle = process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE!
 
+  await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
   await searchAndSelectListing(page, listingId, listingTitle)
