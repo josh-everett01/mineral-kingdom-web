@@ -159,7 +159,6 @@ test("admin can schedule a future auction", async ({ page }) => {
   const listingTitle = process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE!
 
   const scheduledStart = new Date(Date.now() + 2 * 60 * 60 * 1000)
-  const scheduledClose = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
 
   await reseedCatalog(page.request)
   await loginAsAdmin(page)
@@ -171,9 +170,6 @@ test("admin can schedule a future auction", async ({ page }) => {
 
   await page.getByTestId("admin-auction-start-time").fill(formatLocalDateTimeInput(scheduledStart))
   await page.getByRole("button", { name: "3 days" }).click()
-
-  // Re-apply close time explicitly in case UI presets are timing-sensitive in CI.
-  await page.getByTestId("admin-auction-close-time").fill(formatLocalDateTimeInput(scheduledClose))
 
   await page.getByTestId("admin-auction-starting-price").fill("175.00")
   await page.getByTestId("admin-auction-reserve-price").fill("200.00")
