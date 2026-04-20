@@ -207,6 +207,9 @@ jobs:
               "admin_fulfillment_requested_order_number": data["adminFulfillmentRequestedOrderNumber"],
               "admin_fulfillment_direct_group_id": data["adminFulfillmentDirectGroupId"],
               "admin_fulfillment_direct_order_number": data["adminFulfillmentDirectOrderNumber"],
+              "admin_support_ticket_id": data["adminSupportTicketId"],
+              "admin_support_ticket_number": data["adminSupportTicketNumber"],
+              "admin_support_ticket_email": data["adminSupportTicketEmail"],
           }
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
@@ -651,6 +654,11 @@ jobs:
           E2E_ADMIN_FULFILLMENT_REQUESTED_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_fulfillment_requested_order_number }}
           E2E_ADMIN_FULFILLMENT_DIRECT_GROUP_ID: ${{ steps.seed_catalog.outputs.admin_fulfillment_direct_group_id }}
           E2E_ADMIN_FULFILLMENT_DIRECT_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_fulfillment_direct_order_number }}
+          E2E_ADMIN_SUPPORT_TICKET_ID: ${{ steps.seed_catalog.outputs.admin_support_ticket_id }}
+          E2E_ADMIN_SUPPORT_TICKET_NUMBER: ${{ steps.seed_catalog.outputs.admin_support_ticket_number }}
+          E2E_ADMIN_SUPPORT_TICKET_EMAIL: ${{ steps.seed_catalog.outputs.admin_support_ticket_email }}
+          E2E_ADMIN_SUPPORT_FILTER_STATUS: OPEN
+          E2E_ADMIN_SUPPORT_FILTER_PRIORITY: HIGH
           API_BASE_URL: http://localhost:8080
           ASPNETCORE_ENVIRONMENT: Testing
         run: npm run test:e2e

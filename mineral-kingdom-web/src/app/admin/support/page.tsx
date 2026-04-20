@@ -1,16 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminSupportInboxPage } from "@/components/admin/support/AdminSupportInboxPage"
 
 export default function AdminSupportPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Support</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Support workflows will be implemented in upcoming S16 stories.
-        </p>
-      </CardContent>
-    </Card>
-  )
+  return <AdminSupportInboxPage />
 }
