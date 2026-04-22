@@ -121,7 +121,7 @@ export function AdminSystemQueuesPage() {
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Last error</dt>
-                      <dd className="mt-1 break-words">{job.lastError || "—"}</dd>
+                      <dd className="mt-1 wrap-break-word">{job.lastError || "—"}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <dt className="text-muted-foreground">Updated</dt>

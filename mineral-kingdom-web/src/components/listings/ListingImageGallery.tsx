@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 type ListingGalleryImage = {
   id: string
@@ -37,16 +37,7 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
     })
   }, [images])
 
-  const imageSignature = useMemo(
-    () => orderedImages.map((image) => image.id).join("|"),
-    [orderedImages],
-  )
-
   const [selectedIndex, setSelectedIndex] = useState(0)
-
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [imageSignature])
 
   const hasImages = orderedImages.length > 0
 

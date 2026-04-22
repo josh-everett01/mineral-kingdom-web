@@ -53,7 +53,7 @@ export function AuctionDetailView({ data }: Props) {
         isPrimary: media.isPrimary,
         sortOrder: media.sortOrder,
       }))
-  }, [detail.media])
+  }, [detail])
 
   const activityIdRef = useRef(0)
 
@@ -292,7 +292,11 @@ export function AuctionDetailView({ data }: Props) {
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div data-testid="auction-detail-media">
-            <ListingImageGallery images={galleryImages} title={detail.title} />
+            <ListingImageGallery
+              key={galleryImages.map((image) => image.id).join("|")}
+              images={galleryImages}
+              title={detail.title}
+            />
           </div>
 
           <section

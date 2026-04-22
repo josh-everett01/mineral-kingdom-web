@@ -123,7 +123,7 @@ export function AdminCmsPagesPage() {
                         <Link
                           data-testid="admin-cms-open-link"
                           href={`/admin/cms/${item.slug}`}
-                          className="inline-flex min-w-[100px] justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+                          className="inline-flex min-w-25 justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
                         >
                           Open
                         </Link>

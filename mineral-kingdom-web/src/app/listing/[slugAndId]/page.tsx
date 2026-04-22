@@ -48,7 +48,11 @@ export default async function ListingDetailPage({ params }: Props) {
     >
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
-          <ListingImageGallery images={galleryImages} title={listing.title ?? "Listing"} />
+          <ListingImageGallery
+            key={galleryImages.map((image) => image.id).join("|")}
+            images={galleryImages}
+            title={listing.title ?? "Listing"}
+          />
         </div>
 
         <div className="space-y-6">
