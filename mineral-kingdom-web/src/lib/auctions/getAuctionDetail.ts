@@ -3,6 +3,8 @@ import { emitAuthExpired } from "@/lib/auth/clientSessionEvents"
 export type AuctionDetailMediaDto = {
   id: string
   url: string
+  mediaType: string
+  caption?: string | null
   isPrimary: boolean
   sortOrder: number
 }

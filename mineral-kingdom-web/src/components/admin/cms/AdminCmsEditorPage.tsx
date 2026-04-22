@@ -400,7 +400,7 @@ export function AdminCmsEditorPage({ slug }: { slug: string }) {
                   onChange={(e) => setMarkdown(e.target.value)}
                   disabled={!canEdit || isSaving || isPublishing}
                   rows={22}
-                  className="min-h-[500px] w-full rounded-xl border bg-background px-3 py-3 font-mono text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-125 w-full rounded-xl border bg-background px-3 py-3 font-mono text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 

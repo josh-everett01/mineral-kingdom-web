@@ -1,9 +1,9 @@
 "use client"
 
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { AuctionBidPanel } from "@/components/auctions/AuctionBidPanel"
+import { ListingImageGallery } from "@/components/listings/ListingImageGallery"
 import {
   type AuctionDetailDto,
   fetchAuctionDetailClient,
@@ -43,7 +43,18 @@ export function AuctionDetailView({ data }: Props) {
     "Your session expired. Please sign in again.",
   )
 
-  const primaryMedia = detail.media.find((m) => m.isPrimary) ?? detail.media[0] ?? null
+  const galleryImages = useMemo(() => {
+    return [...detail.media]
+      .filter((media: (typeof detail.media)[number]) => media.mediaType === "IMAGE")
+      .map((media: (typeof detail.media)[number]) => ({
+        id: media.id,
+        url: media.url,
+        caption: media.caption,
+        isPrimary: media.isPrimary,
+        sortOrder: media.sortOrder,
+      }))
+  }, [detail])
+
   const activityIdRef = useRef(0)
 
   const lastPublicStateRef = useRef({
@@ -280,25 +291,12 @@ export function AuctionDetailView({ data }: Props) {
 
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
-          <div
-            className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
-            data-testid="auction-detail-media"
-          >
-            <div className="relative aspect-square bg-stone-100">
-              {primaryMedia ? (
-                <Image
-                  src={primaryMedia.url}
-                  alt={detail.title}
-                  fill
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-stone-500">
-                  No media available
-                </div>
-              )}
-            </div>
+          <div data-testid="auction-detail-media">
+            <ListingImageGallery
+              key={galleryImages.map((image) => image.id).join("|")}
+              images={galleryImages}
+              title={detail.title}
+            />
           </div>
 
           <section

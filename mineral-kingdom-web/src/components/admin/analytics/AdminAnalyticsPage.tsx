@@ -366,7 +366,7 @@ export function AdminAnalyticsPage() {
       <div className="grid gap-6 xl:grid-cols-2 print:grid-cols-2">
         <section className="rounded-xl border bg-card p-5 break-inside-avoid">
           <h2 className="mb-4 text-lg font-semibold">Sales over time</h2>
-          <div data-testid="admin-analytics-sales-chart" className="h-[320px] print:h-[260px]">
+          <div data-testid="admin-analytics-sales-chart" className="h-80 print:h-65">
             {salesChartData.length === 0 ? (
               <div className="rounded-lg border p-4 text-sm text-muted-foreground">
                 Not enough data to display chart yet.
@@ -387,7 +387,7 @@ export function AdminAnalyticsPage() {
 
         <section className="rounded-xl border bg-card p-5 break-inside-avoid">
           <h2 className="mb-4 text-lg font-semibold">Auctions over time</h2>
-          <div data-testid="admin-analytics-auctions-chart" className="h-[320px] print:h-[260px]">
+          <div data-testid="admin-analytics-auctions-chart" className="h-80 print:h-65">
             {auctionChartData.length === 0 ? (
               <div className="rounded-lg border p-4 text-sm text-muted-foreground">
                 Not enough data to display chart yet.

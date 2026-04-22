@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { ListingImageGallery } from "@/components/listings/ListingImageGallery"
 import { ListingPurchaseActions } from "@/components/listings/ListingPurchaseActions"
 import { fetchListingDetail, formatDateTime, formatMoney } from "@/lib/listings/getListingDetail"
 
@@ -29,13 +30,16 @@ export default async function ListingDetailPage({ params }: Props) {
   }
 
   const { listing, storeOffer, auction, purchaseContext } = data
-  const media = [...listing.media].sort((a, b) => {
-    if (a.isPrimary === b.isPrimary) return a.sortOrder - b.sortOrder
-    return a.isPrimary ? -1 : 1
-  })
 
-  const primaryImage = media[0]
-  const galleryImages = media.slice(1)
+  const galleryImages = [...listing.media]
+    .filter((media: (typeof listing.media)[number]) => media.mediaType === "IMAGE")
+    .map((media: (typeof listing.media)[number]) => ({
+      id: media.id,
+      url: media.url,
+      caption: media.caption,
+      isPrimary: media.isPrimary,
+      sortOrder: media.sortOrder,
+    }))
 
   return (
     <main
@@ -44,46 +48,11 @@ export default async function ListingDetailPage({ params }: Props) {
     >
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-            <div className="aspect-square bg-stone-100">
-              {primaryImage?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={primaryImage.url}
-                  alt={listing.title ?? "Listing image"}
-                  className="h-full w-full object-cover"
-                  data-testid="listing-detail-primary-image"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-stone-500">
-                  No image available
-                </div>
-              )}
-            </div>
-          </div>
-
-          {galleryImages.length > 0 ? (
-            <div
-              className="grid grid-cols-2 gap-4 sm:grid-cols-3"
-              data-testid="listing-detail-gallery"
-            >
-              {galleryImages.map((image) => (
-                <div
-                  key={image.id}
-                  className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm"
-                >
-                  <div className="aspect-square bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={image.url}
-                      alt={image.caption ?? listing.title ?? "Listing gallery image"}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <ListingImageGallery
+            key={galleryImages.map((image) => image.id).join("|")}
+            images={galleryImages}
+            title={listing.title ?? "Listing"}
+          />
         </div>
 
         <div className="space-y-6">
