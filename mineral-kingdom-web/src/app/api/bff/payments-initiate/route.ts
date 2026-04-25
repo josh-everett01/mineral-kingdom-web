@@ -8,6 +8,7 @@ type InitiatePaymentRequest = {
   holdId?: string
   provider?: string
   shippingMode?: string
+  selectedRegionCode?: string | null
 }
 
 function safeJsonParse(text: string): unknown {
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
         holdId: body.holdId,
         provider: body.provider,
         shippingMode: body.shippingMode ?? null,
+        selectedRegionCode: body.selectedRegionCode ?? null,
         successUrl: `${origin}/checkout/return`,
         cancelUrl: `${origin}/checkout/return?cancelled=1`,
       }),

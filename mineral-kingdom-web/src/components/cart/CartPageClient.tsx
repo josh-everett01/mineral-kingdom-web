@@ -67,6 +67,10 @@ export function CartPageClient() {
     void loadCart()
   }, [loadCart])
 
+  const handleRealtimeSnapshot = useCallback(() => {
+    void loadCart({ background: true })
+  }, [loadCart])
+
   const lineCount = useMemo(() => cart?.lines.length ?? 0, [cart])
 
   if (isLoading) {
@@ -102,9 +106,7 @@ export function CartPageClient() {
     >
       <CartRealtimeClient
         cartId={cart.cartId}
-        onSnapshot={() => {
-          void loadCart({ background: true })
-        }}
+        onSnapshot={handleRealtimeSnapshot}
       />
       <CartNoticesToastClient notices={cart.notices} />
 

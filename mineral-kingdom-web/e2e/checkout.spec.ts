@@ -2,9 +2,15 @@ import { test, expect, type Page } from "@playwright/test"
 
 const hasBackend = !!process.env.E2E_BACKEND
 const APP_ORIGIN = "http://127.0.0.1:3005"
+const BACKEND_ORIGIN = "http://127.0.0.1:8080"
 
 const AMETHYST_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"
 const CELESTITE_OFFER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"
+
+async function reseedBackend(request: import("@playwright/test").APIRequestContext) {
+  const response = await request.post(`${BACKEND_ORIGIN}/api/testing/e2e/seed`)
+  expect(response.ok()).toBeTruthy()
+}
 
 async function seedCartLineViaBff(page: Page, offerId: string) {
   const bootstrap = await page.request.get(`${APP_ORIGIN}/api/bff/cart`)
@@ -39,6 +45,66 @@ async function seedCartLineViaBff(page: Page, offerId: string) {
   })
 
   expect(addRes.ok()).toBeTruthy()
+}
+
+async function createGuestCheckoutHoldViaBff(page: Page, offerId: string, email: string) {
+  const bootstrap = await page.request.get(`${APP_ORIGIN}/api/bff/cart`)
+  expect(bootstrap.ok()).toBeTruthy()
+
+  const setCookieHeader = bootstrap.headers()["set-cookie"]
+  const match = setCookieHeader?.match(/mk_cart_id=([^;]+)/)
+  expect(match?.[1]).toBeTruthy()
+
+  const cartId = match![1]
+
+  await page.context().addCookies([
+    {
+      name: "mk_cart_id",
+      value: cartId,
+      url: APP_ORIGIN,
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: false,
+    },
+  ])
+
+  const addRes = await page.request.put(`${APP_ORIGIN}/api/bff/cart`, {
+    headers: {
+      cookie: `mk_cart_id=${cartId}`,
+      "content-type": "application/json",
+    },
+    data: {
+      offerId,
+      quantity: 1,
+    },
+  })
+
+  expect(addRes.ok()).toBeTruthy()
+
+  const startRes = await page.request.post(`${APP_ORIGIN}/api/bff/checkout/start`, {
+    headers: {
+      cookie: `mk_cart_id=${cartId}`,
+      "content-type": "application/json",
+    },
+    data: {
+      cartId,
+      email,
+    },
+  })
+
+  expect(startRes.ok()).toBeTruthy()
+
+  const body = (await startRes.json()) as {
+    cartId: string
+    holdId: string
+    expiresAt: string
+  }
+
+  expect(body.cartId).toBeTruthy()
+  expect(body.holdId).toBeTruthy()
+  expect(body.expiresAt).toBeTruthy()
+
+  return body
 }
 
 async function setStoredCheckoutPaymentId(page: Page, paymentId: string) {
@@ -107,7 +173,18 @@ async function waitForCheckoutPostStartState(page: Page) {
 }
 
 test.describe("checkout flows (backend required)", () => {
+  test.describe.configure({ mode: "serial" })
   test.skip(!hasBackend, "Requires backend running (set E2E_BACKEND=1).")
+
+  test.beforeEach(async ({ request, page, context }) => {
+    await context.clearCookies()
+    await page.goto("/", { waitUntil: "domcontentloaded" })
+    await page.evaluate(() => {
+      localStorage.clear()
+      sessionStorage.clear()
+    })
+    await reseedBackend(request)
+  })
 
   test("guest can proceed from cart to checkout and start a hold", async ({ page }) => {
     await seedCartLineViaBff(page, AMETHYST_OFFER_ID)
@@ -116,7 +193,7 @@ test.describe("checkout flows (backend required)", () => {
 
     await expect(page).toHaveURL(/\/cart$/)
     await expect(page.getByTestId("cart-page")).toBeVisible()
-    await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 })
+    await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 })
     await expect(page.getByTestId("cart-checkout-link")).toBeVisible()
 
     await page.getByTestId("cart-checkout-link").click()
@@ -128,7 +205,7 @@ test.describe("checkout flows (backend required)", () => {
     await page.getByTestId("checkout-guest-email").fill(`guest-${Date.now()}@example.com`)
     await page.getByTestId("checkout-start-button").click()
 
-    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15000 })
+    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15_000 })
 
     const error = page.getByTestId("checkout-start-error")
     if (await error.isVisible().catch(() => false)) {
@@ -145,7 +222,7 @@ test.describe("checkout flows (backend required)", () => {
         Boolean(url.searchParams.get("expiresAt"))
 
       if (await page.getByTestId("checkout-active-hold").isVisible().catch(() => false)) {
-        await expect(page.getByTestId("checkout-active-hold")).toBeVisible({ timeout: 15000 })
+        await expect(page.getByTestId("checkout-active-hold")).toBeVisible({ timeout: 15_000 })
         await expect(page.getByTestId("checkout-cart-id")).toBeVisible()
         await expect(page.getByTestId("checkout-hold-id")).toBeVisible()
         await expect(page.getByTestId("checkout-expires-at")).toBeVisible()
@@ -156,7 +233,7 @@ test.describe("checkout flows (backend required)", () => {
         expect(hasHoldParams).toBeTruthy()
       }
     } else {
-      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15_000 })
       await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
       await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
       await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
@@ -171,7 +248,7 @@ test.describe("checkout flows (backend required)", () => {
 
     await expect(page).toHaveURL(/\/cart$/)
     await expect(page.getByTestId("cart-page")).toBeVisible()
-    await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15000 })
+    await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 })
     await expect(page.getByTestId("cart-checkout-link")).toBeVisible()
 
     await page.getByTestId("cart-checkout-link").click()
@@ -183,7 +260,7 @@ test.describe("checkout flows (backend required)", () => {
     await page.getByTestId("checkout-guest-email").fill(`guest-${Date.now()}-2@example.com`)
     await page.getByTestId("checkout-start-button").click()
 
-    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15000 })
+    await page.waitForURL(/\/checkout(\/pay)?(\?.*)?$/, { timeout: 15_000 })
 
     const startError = page.getByTestId("checkout-start-error")
     if (await startError.isVisible().catch(() => false)) {
@@ -213,7 +290,7 @@ test.describe("checkout flows (backend required)", () => {
     }
 
     if (state === "pay") {
-      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("checkout-pay-page")).toBeVisible({ timeout: 15_000 })
       await expect(page.getByTestId("checkout-pay-hold-id")).toBeVisible()
       await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
       await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
@@ -245,6 +322,147 @@ test.describe("checkout flows (backend required)", () => {
       page.getByRole("heading", { name: /a checkout hold is required before payment can begin/i }),
     ).toBeVisible()
     await expect(page.getByTestId("checkout-pay-return-to-checkout")).toBeVisible()
+  })
+
+  test("store checkout pay page shows summary, hold timer, and region selector", async ({
+    page,
+  }) => {
+    const checkout = await createGuestCheckoutHoldViaBff(
+      page,
+      AMETHYST_OFFER_ID,
+      `guest-${Date.now()}@example.com`,
+    )
+
+    await page.goto(`/checkout/pay?holdId=${encodeURIComponent(checkout.holdId)}`, {
+      waitUntil: "domcontentloaded",
+    })
+
+    await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-summary-card")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-summary-title")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-summary-context")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-hold-id")).toContainText(checkout.holdId)
+    await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-extension-count")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-region-select")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-region-summary")).toBeVisible()
+  })
+
+  test("store checkout pay page updates selected region label when region changes", async ({
+    page,
+  }) => {
+    const checkout = await createGuestCheckoutHoldViaBff(
+      page,
+      AMETHYST_OFFER_ID,
+      `guest-${Date.now()}@example.com`,
+    )
+
+    let previewCallCount = 0
+
+    await page.route("**/api/bff/checkout/preview-pricing", async (route) => {
+      previewCallCount += 1
+
+      const request = route.request()
+      const body = request.postDataJSON() as {
+        holdId?: string
+        shippingMode?: string
+        selectedRegionCode?: string | null
+      }
+
+      const region = body.selectedRegionCode ?? "US"
+
+      if (region === "CA") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            holdId: checkout.holdId,
+            subtotalCents: 24900,
+            shippingAmountCents: 5500,
+            totalCents: 30400,
+            currencyCode: "USD",
+            shippingMode: "SHIP_NOW",
+            selectedRegionCode: "CA",
+          }),
+        })
+        return
+      }
+
+      if (region === "ROW") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            holdId: checkout.holdId,
+            subtotalCents: 24900,
+            shippingAmountCents: 8500,
+            totalCents: 33400,
+            currencyCode: "USD",
+            shippingMode: "SHIP_NOW",
+            selectedRegionCode: "ROW",
+          }),
+        })
+        return
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          holdId: checkout.holdId,
+          subtotalCents: 24900,
+          shippingAmountCents: 4500,
+          totalCents: 29400,
+          currencyCode: "USD",
+          shippingMode: "SHIP_NOW",
+          selectedRegionCode: "US",
+        }),
+      })
+    })
+
+    await page.goto(`/checkout/pay?holdId=${encodeURIComponent(checkout.holdId)}`, {
+      waitUntil: "domcontentloaded",
+    })
+
+    await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-region-select")).toHaveValue("US")
+    await expect(page.getByTestId("checkout-pay-region-label")).toContainText(/US/i)
+    await expect(page.getByTestId("checkout-pay-preview-total")).toContainText("$294.00")
+
+    await page.getByTestId("checkout-pay-region-select").selectOption("CA")
+    await expect(page.getByTestId("checkout-pay-region-select")).toHaveValue("CA")
+    await expect(page.getByTestId("checkout-pay-region-label")).toContainText(/Canada/i)
+    await expect(page.getByTestId("checkout-pay-preview-shipping")).toContainText("$55.00")
+    await expect(page.getByTestId("checkout-pay-preview-total")).toContainText("$304.00")
+
+    await page.getByTestId("checkout-pay-region-select").selectOption("ROW")
+    await expect(page.getByTestId("checkout-pay-region-select")).toHaveValue("ROW")
+    await expect(page.getByTestId("checkout-pay-region-label")).toContainText(/Rest of World/i)
+    await expect(page.getByTestId("checkout-pay-preview-shipping")).toContainText("$85.00")
+    await expect(page.getByTestId("checkout-pay-preview-total")).toContainText("$334.00")
+
+    expect(previewCallCount).toBeGreaterThan(0)
+  })
+
+  test("store checkout pay page does not show expired messaging while active hold is valid", async ({
+    page,
+  }) => {
+    const checkout = await createGuestCheckoutHoldViaBff(
+      page,
+      AMETHYST_OFFER_ID,
+      `guest-${Date.now()}@example.com`,
+    )
+
+    await page.goto(`/checkout/pay?holdId=${encodeURIComponent(checkout.holdId)}`, {
+      waitUntil: "domcontentloaded",
+    })
+
+    await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-hold-id")).toContainText(checkout.holdId)
+    await expect(page.getByTestId("checkout-pay-countdown")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-start")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-missing-hold")).toHaveCount(0)
+    await expect(page.getByTestId("checkout-pay-error")).toHaveCount(0)
   })
 })
 

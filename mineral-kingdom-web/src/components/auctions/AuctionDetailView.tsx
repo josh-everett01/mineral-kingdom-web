@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { AuctionBidPanel } from "@/components/auctions/AuctionBidPanel"
+import { RegionShippingCard } from "@/components/shipping/RegionShippingCard"
 import { ListingImageGallery } from "@/components/listings/ListingImageGallery"
 import {
   type AuctionDetailDto,
@@ -31,6 +32,20 @@ function isClosedAuctionStatus(status?: string | null) {
     status === "CLOSED_PAID" ||
     status === "CLOSED_NOT_SOLD"
   )
+}
+
+function formatBidHistoryTime(value?: string | null) {
+  if (!value) return "—"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
 }
 
 export function AuctionDetailView({ data }: Props) {
@@ -269,26 +284,6 @@ export function AuctionDetailView({ data }: Props) {
         </div>
       </section>
 
-      {typeof detail.quotedShippingCents === "number" ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-          data-testid="auction-detail-shipping-summary"
-        >
-          <h2 className="text-base font-semibold text-stone-900">Shipping</h2>
-          <p className="mt-2 text-sm text-stone-700" data-testid="auction-detail-quoted-shipping">
-            Standard shipping for this auction is{" "}
-            <span className="font-semibold">
-              {formatMoney(detail.quotedShippingCents) ?? "—"}
-            </span>
-            .
-          </p>
-          <p className="mt-2 text-sm text-stone-600">
-            If you win, you can either pay your winning bid plus shipping now, or choose Open Box and
-            pay shipping later when your combined shipment is ready.
-          </p>
-        </section>
-      ) : null}
-
       <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <div data-testid="auction-detail-media">
@@ -313,7 +308,7 @@ export function AuctionDetailView({ data }: Props) {
             className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
             data-testid="auction-detail-activity"
           >
-            <h2 className="text-lg font-semibold text-stone-900">Recent bid activity</h2>
+            <h2 className="text-lg font-semibold text-stone-900">Live activity</h2>
 
             {activity.length === 0 ? (
               <p
@@ -369,6 +364,13 @@ export function AuctionDetailView({ data }: Props) {
                 </dd>
               </div>
 
+              <div>
+                <dt className="font-medium text-stone-500">Bid count</dt>
+                <dd className="mt-1" data-testid="auction-detail-bid-count">
+                  {detail.bidCount}
+                </dd>
+              </div>
+
               {detail.reserveMet !== null && detail.reserveMet !== undefined ? (
                 <div>
                   <dt className="font-medium text-stone-500">Reserve</dt>
@@ -389,6 +391,53 @@ export function AuctionDetailView({ data }: Props) {
                   ? "Connecting to live auction updates…"
                   : "Live updates temporarily disconnected."}
             </div>
+          </section>
+
+          <RegionShippingCard
+            title="Shipping"
+            rates={detail.shippingRates}
+            shippingMessage={detail.shippingMessage}
+            fallbackQuotedShippingCents={detail.quotedShippingCents}
+            emptyMessage="Shipping information has not been configured for this auction yet."
+            testIdPrefix="auction-detail-shipping"
+          />
+
+          <section
+            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+            data-testid="auction-detail-bid-history"
+          >
+            <h2 className="text-lg font-semibold text-stone-900">Recent bid history</h2>
+
+            {detail.bidHistory.length === 0 ? (
+              <p
+                className="mt-3 text-sm text-stone-600"
+                data-testid="auction-detail-bid-history-empty"
+              >
+                No public bid history yet.
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-3" data-testid="auction-detail-bid-history-list">
+                {detail.bidHistory.map((item, index) => (
+                  <li
+                    key={`${item.bidderLabel}-${item.occurredAt}-${index}`}
+                    className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
+                    data-testid={`auction-detail-bid-history-row-${index}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-stone-900">{item.bidderLabel}</p>
+                        <p className="mt-1 text-xs text-stone-500">
+                          {formatBidHistoryTime(item.occurredAt)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-stone-900">
+                        {formatMoney(item.amountCents) ?? "—"}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           {authMismatch ? (

@@ -9,6 +9,14 @@ export type ListingMediaDto = {
   caption?: string | null
 }
 
+export type ListingShippingRateDto = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW"
+  regionLabel: string
+  amountCents?: number | null
+  currencyCode: string
+  displayLabel: string
+}
+
 export type ListingDetailDto = {
   id: string
   title?: string | null
@@ -27,6 +35,8 @@ export type ListingDetailDto = {
   heightCm?: number | null
   weightGrams?: number | null
   publishedAt?: string | null
+  shippingRates: ListingShippingRateDto[]
+  shippingMessage?: string | null
   media: ListingMediaDto[]
 }
 

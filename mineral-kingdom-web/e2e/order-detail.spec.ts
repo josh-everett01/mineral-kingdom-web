@@ -38,6 +38,7 @@ function buildAwaitingPaymentOrder() {
     updatedAt: "2026-03-28T18:15:00.000000+00:00",
     paymentDueAt: "2026-03-30T18:10:00.000000+00:00",
     shippingMode: "UNSELECTED",
+    selectedRegionCode: null,
     shippingAmountCents: 0,
     subtotalCents: 11000,
     discountTotalCents: 0,
@@ -169,10 +170,36 @@ async function mockOrderPaymentStart(page: Page) {
   })
 }
 
-async function mockAuctionShippingChoice(page: Page, options?: { mode?: "SHIP_NOW" | "OPEN_BOX" }) {
+async function mockAuctionShippingChoice(
+  page: Page,
+  options?: {
+    mode?: "SHIP_NOW" | "OPEN_BOX"
+    selectedRegionCode?: "US" | "CA" | "EU" | "AU" | "ROW"
+  },
+) {
   await page.route(`**/api/bff/orders/${ORDER_ID}/auction-shipping-choice`, async (route) => {
-    const requested = route.request().postDataJSON() as { shippingMode?: string } | undefined
-    const mode = options?.mode ?? (requested?.shippingMode === "OPEN_BOX" ? "OPEN_BOX" : "SHIP_NOW")
+    const requested = route.request().postDataJSON() as
+      | { shippingMode?: string; selectedRegionCode?: string | null }
+      | undefined
+
+    const mode =
+      options?.mode ?? (requested?.shippingMode === "OPEN_BOX" ? "OPEN_BOX" : "SHIP_NOW")
+
+    const selectedRegionCode =
+      options?.selectedRegionCode ??
+      (() => {
+        const raw = requested?.selectedRegionCode?.toUpperCase()
+        switch (raw) {
+          case "US":
+          case "CA":
+          case "EU":
+          case "AU":
+          case "ROW":
+            return raw
+          default:
+            return "US"
+        }
+      })()
 
     if (mode === "OPEN_BOX") {
       await route.fulfill({
@@ -181,6 +208,7 @@ async function mockAuctionShippingChoice(page: Page, options?: { mode?: "SHIP_NO
         body: JSON.stringify({
           orderId: ORDER_ID,
           shippingMode: "OPEN_BOX",
+          selectedRegionCode: null,
           subtotalCents: 11000,
           discountTotalCents: 0,
           shippingAmountCents: 0,
@@ -193,19 +221,30 @@ async function mockAuctionShippingChoice(page: Page, options?: { mode?: "SHIP_NO
       return
     }
 
+    const shippingByRegion: Record<string, number> = {
+      US: 2500,
+      CA: 3500,
+      EU: 4500,
+      AU: 5500,
+      ROW: 6500,
+    }
+
+    const shippingAmountCents = shippingByRegion[selectedRegionCode] ?? 2500
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         orderId: ORDER_ID,
         shippingMode: "SHIP_NOW",
+        selectedRegionCode,
         subtotalCents: 11000,
         discountTotalCents: 0,
-        shippingAmountCents: 2500,
-        totalCents: 13500,
+        shippingAmountCents,
+        totalCents: 11000 + shippingAmountCents,
         currencyCode: "USD",
         auctionId: "a7e13d24-c538-4e66-9437-e55e6ef78d08",
-        quotedShippingCents: 2500,
+        quotedShippingCents: shippingAmountCents,
       }),
     })
   })
@@ -260,7 +299,9 @@ data: ${JSON.stringify(buildPaidSnapshot())}
 }
 
 test.describe("order detail", () => {
-  test("initial snapshot render shows payment context, order summary, lines, and timeline", async ({ page }) => {
+  test("initial snapshot render shows payment context, order summary, lines, and timeline", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page)
     await mockOrderDetail(page, buildAwaitingPaymentOrder())
     await mockOrderSsePending(page)
@@ -277,13 +318,13 @@ test.describe("order detail", () => {
 
     await expect(page.getByTestId("order-detail-payment-context")).toBeVisible()
     await expect(page.getByTestId("order-detail-payment-context")).toContainText("Order payment")
-    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Purple Fluorite Cube")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      "Purple Fluorite Cube",
+    )
     await expect(page.getByTestId("order-detail-payment-context")).toContainText(
       "Order MK-20260328-ABC123 • Auction",
     )
-    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
-      /due mar/i,
-    )
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(/due mar/i)
     await expect(page.getByTestId("order-detail-payment-context")).toContainText(
       "Shipping not selected",
     )
@@ -394,7 +435,7 @@ test.describe("order detail", () => {
     await mockOrderDetail(page, buildAwaitingPaymentOrder())
     await mockOrderSsePending(page)
     await mockOrderPaymentStart(page)
-    await mockAuctionShippingChoice(page, { mode: "SHIP_NOW" })
+    await mockAuctionShippingChoice(page, { mode: "SHIP_NOW", selectedRegionCode: "US" })
 
     await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
 
@@ -406,8 +447,31 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-total")).toContainText("$135.00")
     await expect(page.getByTestId("order-detail-shipping-choice-required")).toHaveCount(0)
     await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
-    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Ship now selected")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      "Ship now selected",
+    )
     await expect(page.getByTestId("order-detail-payment-context")).toContainText("$135.00")
+  })
+
+  test("auction ship now saves selected region and updates total", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockOrderDetail(page, buildAwaitingPaymentOrder())
+    await mockOrderSsePending(page)
+    await mockOrderPaymentStart(page)
+    await mockAuctionShippingChoice(page, { mode: "SHIP_NOW", selectedRegionCode: "CA" })
+
+    await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
+
+    await page.getByTestId("order-detail-shipping-mode-ship-now").check()
+    await page.getByTestId("order-detail-selected-region-select").selectOption("CA")
+    await page.getByTestId("order-detail-save-shipping-choice").click()
+
+    await expect(page.getByTestId("order-detail-shipping-mode")).toContainText("Ship now")
+    await expect(page.getByTestId("order-detail-selected-region-value")).toContainText("Canada")
+    await expect(page.getByTestId("order-detail-shipping")).toContainText("$35.00")
+    await expect(page.getByTestId("order-detail-total")).toContainText("$145.00")
+    await expect(page.getByTestId("order-detail-shipping-choice-required")).toHaveCount(0)
+    await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
   })
 
   test("open box keeps shipping deferred and total item-only before payment", async ({ page }) => {
@@ -427,7 +491,9 @@ test.describe("order detail", () => {
     await expect(page.getByTestId("order-detail-total")).toContainText("$110.00")
     await expect(page.getByTestId("order-detail-open-box-note")).toBeVisible()
     await expect(page.getByTestId("order-detail-start-payment")).toBeEnabled()
-    await expect(page.getByTestId("order-detail-payment-context")).toContainText("Open Box selected")
+    await expect(page.getByTestId("order-detail-payment-context")).toContainText(
+      "Open Box selected",
+    )
     await expect(page.getByTestId("order-detail-payment-context")).toContainText("$110.00")
   })
 })

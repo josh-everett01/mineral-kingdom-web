@@ -1,5 +1,4 @@
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
 import { apiRefresh } from "@/lib/auth/api"
 import {
   clearAuthCookies,
@@ -7,6 +6,7 @@ import {
   getRefreshToken,
   setAuthCookies,
 } from "@/lib/auth/cookies"
+import { NextResponse } from "next/server"
 import { toProxyError } from "@/lib/api/proxyError"
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8080"
@@ -20,8 +20,9 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-async function buildHeaders(accessToken?: string | null): Promise<Headers> {
+async function buildHeaders(accessToken?: string | null) {
   const cookieStore = await cookies()
+
   const headers = new Headers({
     "content-type": "application/json",
     accept: "application/json",
@@ -40,7 +41,7 @@ async function buildHeaders(accessToken?: string | null): Promise<Headers> {
 }
 
 async function forwardOnce(bodyText: string, accessToken?: string | null) {
-  return fetch(`${API_BASE_URL}/api/checkout/extend`, {
+  return fetch(`${API_BASE_URL}/api/checkout/preview-pricing`, {
     method: "POST",
     headers: await buildHeaders(accessToken),
     body: bodyText,
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
         code: "UPSTREAM_UNAVAILABLE",
         message: e instanceof Error ? e.message : "Upstream fetch failed",
       },
-      "Checkout service unavailable",
+      "Checkout preview service unavailable",
     )
 
     return NextResponse.json(err, { status: 503 })
