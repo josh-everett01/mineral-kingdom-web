@@ -1,3 +1,5 @@
+import type { AdminShippingAddress } from "@/lib/admin/orders/types"
+
 export type AdminFulfillmentListItem = {
   fulfillmentGroupId: string
   userId: string | null
@@ -24,6 +26,7 @@ export type AdminFulfillmentGroupOrder = {
   totalCents: number
   currencyCode: string
   status: string
+  shippingAddress: AdminShippingAddress | null
 }
 
 export type AdminFulfillmentInvoiceSummary = {

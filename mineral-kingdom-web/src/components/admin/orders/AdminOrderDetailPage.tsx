@@ -80,6 +80,19 @@ export function AdminOrderDetailPage({ id }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [paymentDueAtOverride, setPaymentDueAtOverride] = useState<string | null>(null)
 
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [addressForm, setAddressForm] = useState({
+    fullName: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    stateOrProvince: "",
+    postalCode: "",
+    countryCode: "",
+  })
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [addressError, setAddressError] = useState<string | null>(null)
+
   const load = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -98,6 +111,52 @@ export function AdminOrderDetailPage({ id }: Props) {
   }, [load])
 
   const effectivePaymentDueAt = paymentDueAtOverride ?? detail?.paymentDueAt ?? null
+
+  function openAddressEdit() {
+    setAddressForm({
+      fullName: detail?.shippingAddress?.fullName ?? "",
+      addressLine1: detail?.shippingAddress?.addressLine1 ?? "",
+      addressLine2: detail?.shippingAddress?.addressLine2 ?? "",
+      city: detail?.shippingAddress?.city ?? "",
+      stateOrProvince: detail?.shippingAddress?.stateOrProvince ?? "",
+      postalCode: detail?.shippingAddress?.postalCode ?? "",
+      countryCode: detail?.shippingAddress?.countryCode ?? "",
+    })
+    setAddressError(null)
+    setEditingAddress(true)
+  }
+
+  async function handleSaveAddress(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingAddress(true)
+    setAddressError(null)
+    try {
+      const res = await fetch(`/api/bff/admin/orders/${id}/shipping-address`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: addressForm.fullName,
+          addressLine1: addressForm.addressLine1,
+          addressLine2: addressForm.addressLine2 || null,
+          city: addressForm.city,
+          stateOrProvince: addressForm.stateOrProvince,
+          postalCode: addressForm.postalCode,
+          countryCode: addressForm.countryCode,
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setAddressError(body.error ?? "Failed to save address.")
+        return
+      }
+      setEditingAddress(false)
+      await load()
+    } catch {
+      setAddressError("Network error. Please try again.")
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
 
   const paymentSummary = useMemo(() => {
     if (!detail) return null
@@ -191,6 +250,92 @@ export function AdminOrderDetailPage({ id }: Props) {
               <DetailItem label="Order id" value={detail.id} />
               <DetailItem label="Auction id" value={detail.auctionId} />
               <DetailItem label="Shipping mode" value={detail.shippingMode} />
+              {editingAddress ? (
+                <div className="md:col-span-2">
+                  <p className="mb-2 text-sm font-medium">Edit shipping address</p>
+                  <form onSubmit={(e) => { void handleSaveAddress(e) }} className="space-y-2">
+                    {(["fullName", "addressLine1", "addressLine2", "city", "stateOrProvince", "postalCode", "countryCode"] as const).map((field) => (
+                      <input
+                        key={field}
+                        placeholder={
+                          field === "addressLine2" ? "Address line 2 (optional)"
+                            : field === "countryCode" ? "Country code (e.g. US)"
+                              : field.replace(/([A-Z])/g, " $1").trim()
+                        }
+                        value={addressForm[field]}
+                        onChange={(e) => setAddressForm(prev => ({
+                          ...prev,
+                          [field]: field === "countryCode" ? e.target.value.toUpperCase().slice(0, 2) : e.target.value,
+                        }))}
+                        required={field !== "addressLine2"}
+                        maxLength={field === "countryCode" ? 2 : undefined}
+                        className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        data-testid={`admin-order-address-${field}`}
+                      />
+                    ))}
+                    {addressError && (
+                      <p className="text-sm text-destructive">{addressError}</p>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="submit"
+                        disabled={isSavingAddress}
+                        className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                        data-testid="admin-order-address-save"
+                      >
+                        {isSavingAddress ? "Saving…" : "Save address"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingAddress(false)}
+                        className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : detail.shippingAddress ? (
+                <div>
+                  <p className="mb-1 text-sm font-medium text-muted-foreground">
+                    Ship to
+                  </p>
+                  <address
+                    className="not-italic text-sm"
+                    data-testid="admin-order-detail-shipping-address"
+                  >
+                    <div>{detail.shippingAddress.fullName}</div>
+                    <div>{detail.shippingAddress.addressLine1}</div>
+                    {detail.shippingAddress.addressLine2 && (
+                      <div>{detail.shippingAddress.addressLine2}</div>
+                    )}
+                    <div>
+                      {detail.shippingAddress.city},{" "}
+                      {detail.shippingAddress.stateOrProvince}{" "}
+                      {detail.shippingAddress.postalCode}
+                    </div>
+                    <div>{detail.shippingAddress.countryCode}</div>
+                  </address>
+                  <button
+                    onClick={openAddressEdit}
+                    className="mt-2 text-xs text-primary hover:underline"
+                    data-testid="admin-order-address-edit"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <DetailItem label="Ship to" value={null} />
+                  <button
+                    onClick={openAddressEdit}
+                    className="mt-1 text-xs text-primary hover:underline"
+                    data-testid="admin-order-address-add"
+                  >
+                    + Add address
+                  </button>
+                </div>
+              )}
               <DetailItem label="Created" value={formatDate(detail.createdAt)} />
               <DetailItem label="Updated" value={formatDate(detail.updatedAt)} />
             </div>

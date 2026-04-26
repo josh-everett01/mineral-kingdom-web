@@ -9,6 +9,7 @@ import {
   formatShippingRegionLabel,
   isShippingRegionCode,
 } from "@/components/shipping/shippingRegions"
+import { ShippingAddressForm, type ShippingAddressDto } from "@/components/checkout/ShippingAddressForm"
 
 type Props = {
   initialHoldId?: string | null
@@ -33,6 +34,7 @@ type ActiveCheckoutResponse = {
   canExtend?: boolean
   extensionCount?: number
   maxExtensions?: number
+  shippingAddress?: ShippingAddressDto | null
 }
 
 type CheckoutHeartbeatResponse = {
@@ -122,6 +124,10 @@ export function CheckoutPayClient({
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [pricingPreview, setPricingPreview] = useState<CheckoutPricingPreviewResponse | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddressDto | null>(null)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [addressError, setAddressError] = useState<string | null>(null)
+  const [addressSaved, setAddressSaved] = useState(false)
 
   const intervalRef = useRef<number | null>(null)
   const countdownIntervalRef = useRef<number | null>(null)
@@ -267,6 +273,10 @@ export function CheckoutPayClient({
         setCanExtend(Boolean(body.canExtend))
         setExtensionCount(body.extensionCount ?? 0)
         setMaxExtensions(body.maxExtensions ?? 0)
+        if (body.shippingAddress) {
+          setShippingAddress(body.shippingAddress)
+          setAddressSaved(true)
+        }
       } catch {
         // best effort only
       }
@@ -395,6 +405,54 @@ export function CheckoutPayClient({
     } catch {
       setExtensionMessage("We couldn't extend your reservation.")
       setIsExtending(false)
+    }
+  }
+
+  async function handleSaveAddress(addr: ShippingAddressDto) {
+    if (!holdId || isSavingAddress) return
+
+    setIsSavingAddress(true)
+    setAddressError(null)
+
+    try {
+      const res = await fetch("/api/bff/checkout/shipping-address", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          holdId,
+          fullName: addr.fullName,
+          addressLine1: addr.addressLine1,
+          addressLine2: addr.addressLine2 ?? null,
+          city: addr.city,
+          stateOrProvince: addr.stateOrProvince,
+          postalCode: addr.postalCode,
+          countryCode: addr.countryCode,
+        }),
+        cache: "no-store",
+      })
+
+      const body = (await res.json().catch(() => null)) as
+        | { holdId: string; shippingAddress: ShippingAddressDto }
+        | { message?: string; error?: string }
+        | null
+
+      if (!res.ok || !body || !("shippingAddress" in body)) {
+        setAddressError(
+          (body && "message" in body && body.message) ||
+          (body && "error" in body && body.error) ||
+          "We couldn't save your shipping address.",
+        )
+        setIsSavingAddress(false)
+        return
+      }
+
+      setShippingAddress(body.shippingAddress)
+      setAddressSaved(true)
+      setAddressError(null)
+      setIsSavingAddress(false)
+    } catch {
+      setAddressError("We couldn't save your shipping address.")
+      setIsSavingAddress(false)
     }
   }
 
@@ -917,11 +975,53 @@ export function CheckoutPayClient({
         </div>
       ) : null}
 
+      <section
+        className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-5"
+        data-testid="checkout-pay-shipping-address-section"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+              Shipping address
+            </p>
+            {addressSaved && shippingAddress ? (
+              <p
+                className="mt-1 text-sm text-stone-700"
+                data-testid="checkout-pay-address-summary"
+              >
+                {shippingAddress.fullName} · {shippingAddress.addressLine1},{" "}
+                {shippingAddress.city}, {shippingAddress.stateOrProvince}{" "}
+                {shippingAddress.postalCode} · {shippingAddress.countryCode}
+              </p>
+            ) : null}
+          </div>
+          {addressSaved ? (
+            <button
+              type="button"
+              onClick={() => setAddressSaved(false)}
+              className="shrink-0 text-xs text-stone-500 underline hover:text-stone-700"
+              data-testid="checkout-pay-edit-address"
+            >
+              Edit
+            </button>
+          ) : null}
+        </div>
+
+        {!addressSaved ? (
+          <ShippingAddressForm
+            initialValues={shippingAddress}
+            onSave={handleSaveAddress}
+            isSaving={isSavingAddress}
+            error={addressError}
+          />
+        ) : null}
+      </section>
+
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={handleStartPayment}
-          disabled={isSubmitting || isLoadingPreview}
+          disabled={isSubmitting || isLoadingPreview || !addressSaved}
           className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="checkout-pay-start"
         >

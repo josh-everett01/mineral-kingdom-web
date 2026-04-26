@@ -198,6 +198,27 @@ export default function AdminFulfillmentGroupDetailPage() {
                   <div className="text-muted-foreground">
                     Total: {formatMoney(order.totalCents, order.currencyCode)}
                   </div>
+                  {order.shippingAddress ? (
+                    <address
+                      className="not-italic mt-2 text-muted-foreground"
+                      data-testid={`fulfillment-order-shipping-address-${order.orderId}`}
+                    >
+                      <div className="font-medium text-foreground">Ship to</div>
+                      <div>{order.shippingAddress.fullName}</div>
+                      <div>{order.shippingAddress.addressLine1}</div>
+                      {order.shippingAddress.addressLine2 && (
+                        <div>{order.shippingAddress.addressLine2}</div>
+                      )}
+                      <div>
+                        {order.shippingAddress.city},{" "}
+                        {order.shippingAddress.stateOrProvince}{" "}
+                        {order.shippingAddress.postalCode}
+                      </div>
+                      <div>{order.shippingAddress.countryCode}</div>
+                    </address>
+                  ) : (
+                    <div className="mt-2 text-muted-foreground italic">No shipping address on file</div>
+                  )}
                 </div>
               ))}
             </div>

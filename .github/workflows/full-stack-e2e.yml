@@ -648,6 +648,7 @@ jobs:
           E2E_ADMIN_ORDERS_ORDER_ID: ${{ steps.seed_catalog.outputs.admin_order_id }}
           E2E_ADMIN_ORDERS_ORDER_NUMBER: ${{ steps.seed_catalog.outputs.admin_order_number }}
           E2E_ADMIN_ORDERS_ORDER_EMAIL: ${{ steps.seed_catalog.outputs.admin_order_email }}
+          E2E_ADMIN_ORDERS_ADDR_ORDER_ID: ${{ steps.seed_catalog.outputs.admin_order_id }}
           E2E_ADMIN_FULFILLMENT_EMAIL: ${{ steps.seed_admin_listings.outputs.email }}
           E2E_ADMIN_FULFILLMENT_PASSWORD: ${{ steps.seed_admin_listings.outputs.password }}
           E2E_ADMIN_FULFILLMENT_REQUESTED_GROUP_ID: ${{ steps.seed_catalog.outputs.admin_fulfillment_requested_group_id }}
