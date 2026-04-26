@@ -1688,7 +1688,7 @@ export function OrderDetailClient({ orderId }: Props) {
             Back to dashboard
           </Link>
           <Link
-            href="/support"
+            href={`/support/new?orderId=${encodeURIComponent(orderId)}&category=ORDER_HELP`}
             className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
             data-testid="order-detail-support-link"
           >

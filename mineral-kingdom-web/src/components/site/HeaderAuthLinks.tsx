@@ -27,6 +27,12 @@ export function HeaderAuthLinks() {
         </Link>
       ) : null}
 
+      {isAuthenticated ? (
+        <Link href="/support" className="hover:text-foreground" data-testid="nav-support">
+          Support
+        </Link>
+      ) : null}
+
       {canSeeAdmin ? (
         <Link href="/admin" className="hover:text-foreground" data-testid="nav-admin">
           Admin

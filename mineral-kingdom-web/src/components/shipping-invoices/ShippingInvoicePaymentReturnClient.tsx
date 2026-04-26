@@ -592,7 +592,7 @@ export function ShippingInvoicePaymentReturnClient() {
           body="We couldn’t match this return to a shipping invoice. Returning from the payment provider is never treated as proof of payment. Please go back to your dashboard or shipping invoice to check the current status."
           actions={[
             { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-            { label: "Contact support", href: "/support", variant: "secondary" },
+            { label: "Contact support", href: "/support/new?category=PAYMENT_HELP", variant: "secondary" },
           ]}
         />
       </div>
@@ -727,7 +727,7 @@ export function ShippingInvoicePaymentReturnClient() {
               variant: "secondary",
             },
             { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-            { label: "Contact support", href: "/support", variant: "secondary" },
+            { label: "Contact support", href: invoiceId ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP` : "/support/new?category=PAYMENT_HELP", variant: "secondary" },
           ]}
         />
       ) : null}
@@ -759,7 +759,7 @@ export function ShippingInvoicePaymentReturnClient() {
             Back to dashboard
           </Link>
           <Link
-            href="/support"
+            href={invoiceId ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP` : "/support/new?category=PAYMENT_HELP"}
             className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
             data-testid="shipping-payment-return-support-link"
           >
