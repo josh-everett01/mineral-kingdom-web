@@ -185,3 +185,138 @@ test.describe("admin orders", () => {
     )
   })
 })
+
+// ─── Shipping address editing ─────────────────────────────────────────────────
+// Requires a dedicated fixture order that can have its address freely mutated.
+// Set E2E_ADMIN_ORDERS_ADDR_ORDER_ID to enable these tests.
+
+const ADDR_ORDER_ID = process.env.E2E_ADMIN_ORDERS_ADDR_ORDER_ID ?? ""
+
+test.describe("admin order shipping address", () => {
+  test("owner sees add-address or existing-address when viewing order", async ({ page }) => {
+    test.skip(
+      !ADDR_ORDER_ID,
+      "Set E2E_ADMIN_ORDERS_ADDR_ORDER_ID to run shipping address coverage.",
+    )
+
+    await loginAsAdmin(page)
+    await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+
+    const addLink = page.getByTestId("admin-order-address-add")
+    const existingAddress = page.getByTestId("admin-order-detail-shipping-address")
+
+    const hasAdd = await addLink.isVisible().catch(() => false)
+    const hasAddress = await existingAddress.isVisible().catch(() => false)
+
+    expect(hasAdd || hasAddress).toBe(true)
+  })
+
+  test("owner can open address form and save a new address", async ({ page }) => {
+    test.skip(
+      !ADDR_ORDER_ID,
+      "Set E2E_ADMIN_ORDERS_ADDR_ORDER_ID to run shipping address coverage.",
+    )
+
+    await loginAsAdmin(page)
+    await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+
+    const addLink = page.getByTestId("admin-order-address-add")
+    const editLink = page.getByTestId("admin-order-address-edit")
+
+    if (await addLink.isVisible().catch(() => false)) {
+      await addLink.click()
+    } else {
+      await editLink.click()
+    }
+
+    await expect(page.getByTestId("admin-order-address-fullName")).toBeVisible()
+
+    await page.getByTestId("admin-order-address-fullName").fill("Test Buyer")
+    await page.getByTestId("admin-order-address-addressLine1").fill("456 Elm Ave")
+    await page.getByTestId("admin-order-address-city").fill("Portland")
+    await page.getByTestId("admin-order-address-stateOrProvince").fill("OR")
+    await page.getByTestId("admin-order-address-postalCode").fill("97201")
+    await page.getByTestId("admin-order-address-countryCode").fill("US")
+
+    const [saveResp] = await Promise.all([
+      page.waitForResponse(
+        (resp) =>
+          resp.url().includes(`/api/bff/admin/orders/${ADDR_ORDER_ID}/shipping-address`) &&
+          resp.request().method() === "PATCH",
+      ),
+      page.getByTestId("admin-order-address-save").click(),
+    ])
+
+    expect(saveResp.ok()).toBe(true)
+
+    await expect(page.getByTestId("admin-order-detail-shipping-address")).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByTestId("admin-order-detail-shipping-address")).toContainText("Test Buyer")
+  })
+
+  test("owner can edit an existing shipping address", async ({ page }) => {
+    test.skip(
+      !ADDR_ORDER_ID,
+      "Set E2E_ADMIN_ORDERS_ADDR_ORDER_ID to run shipping address coverage.",
+    )
+
+    await loginAsAdmin(page)
+    await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+
+    // Assumes address was set by the preceding test (serial mode)
+    await expect(page.getByTestId("admin-order-address-edit")).toBeVisible({ timeout: 10_000 })
+    await page.getByTestId("admin-order-address-edit").click()
+
+    await expect(page.getByTestId("admin-order-address-fullName")).toBeVisible()
+    await expect(page.getByTestId("admin-order-address-fullName")).not.toHaveValue("")
+
+    await page.getByTestId("admin-order-address-fullName").fill("Updated Buyer")
+
+    const [saveResp] = await Promise.all([
+      page.waitForResponse(
+        (resp) =>
+          resp.url().includes(`/api/bff/admin/orders/${ADDR_ORDER_ID}/shipping-address`) &&
+          resp.request().method() === "PATCH",
+      ),
+      page.getByTestId("admin-order-address-save").click(),
+    ])
+
+    expect(saveResp.ok()).toBe(true)
+
+    await expect(page.getByTestId("admin-order-detail-shipping-address")).toContainText(
+      "Updated Buyer",
+      { timeout: 10_000 },
+    )
+  })
+
+  test("address form enforces 2-char country code via maxLength", async ({ page }) => {
+    test.skip(
+      !ADDR_ORDER_ID,
+      "Set E2E_ADMIN_ORDERS_ADDR_ORDER_ID to run shipping address coverage.",
+    )
+
+    await loginAsAdmin(page)
+    await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+
+    const addLink = page.getByTestId("admin-order-address-add")
+    const editLink = page.getByTestId("admin-order-address-edit")
+
+    if (await addLink.isVisible().catch(() => false)) {
+      await addLink.click()
+    } else {
+      await editLink.click()
+    }
+
+    const countryInput = page.getByTestId("admin-order-address-countryCode")
+    await expect(countryInput).toBeVisible()
+
+    await countryInput.fill("United States")
+    const value = await countryInput.inputValue()
+    expect(value.length).toBeLessThanOrEqual(2)
+  })
+})

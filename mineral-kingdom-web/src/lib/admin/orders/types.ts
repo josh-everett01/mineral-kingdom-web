@@ -45,6 +45,16 @@ export type AdminOrderRefundHistoryItem = {
   createdAt: string
 }
 
+export type AdminShippingAddress = {
+  fullName: string
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  stateOrProvince: string
+  postalCode: string
+  countryCode: string
+}
+
 export type AdminOrderDetail = {
   id: string
   orderNumber: string
@@ -72,6 +82,7 @@ export type AdminOrderDetail = {
   refundHistory: AdminOrderRefundHistoryItem[]
   createdAt: string
   updatedAt: string
+  shippingAddress: AdminShippingAddress | null
 }
 
 export type CreateAdminRefundRequest = {
