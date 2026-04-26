@@ -106,3 +106,30 @@ test("empty cart page renders cleanly", async ({ page }) => {
     await expect(page.getByTestId("cart-empty-state")).toBeVisible()
   }
 })
+
+// ─── Cart session isolation regression (S16-13) ───────────────────────────────
+// Regression coverage for the bug where mk_cart_id persisted across logout,
+// causing a subsequent user on the same browser to inherit the previous
+// session's cart items.
+test("logout clears the cart cookie so a new session starts with a clean cart", async ({ page }) => {
+  await seedCartLineViaBff(page, RAINBOW_OFFER_ID)
+
+  // Confirm the cart line is present before logout
+  await page.goto("/cart", { waitUntil: "domcontentloaded" })
+  await expect(page.getByTestId("cart-line")).toHaveCount(1, { timeout: 15_000 })
+
+  // Call the logout BFF endpoint directly — this must clear mk_cart_id
+  const logoutRes = await page.request.post(`${FRONTEND_ORIGIN}/api/bff/auth/logout`)
+  expect(logoutRes.ok()).toBeTruthy()
+
+  // After logout the mk_cart_id cookie must be absent
+  const cookies = await page.context().cookies(FRONTEND_ORIGIN)
+  const cartCookie = cookies.find((c) => c.name === "mk_cart_id")
+  expect(cartCookie).toBeUndefined()
+
+  // Re-visiting the cart page should show an empty cart (new session, no cart cookie)
+  await page.goto("/cart", { waitUntil: "domcontentloaded" })
+  await expect(page.getByTestId("cart-page")).toBeVisible()
+  await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15_000 })
+  await expect(page.getByTestId("cart-empty-state")).toBeVisible()
+})
