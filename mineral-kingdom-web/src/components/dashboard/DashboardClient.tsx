@@ -913,7 +913,7 @@ export function DashboardClient() {
       >
         <h2 className="text-lg font-semibold text-stone-900">Support</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Questions about an order, auction, or shipment? We're here to help.
+          Questions about an order, auction, or shipment? We&apos;re here to help.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link

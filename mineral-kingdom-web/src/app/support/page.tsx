@@ -65,7 +65,7 @@ function SupportListContent() {
           data-testid="support-list-empty"
         >
           <p className="text-sm text-stone-500">
-            You haven't submitted any support requests yet.
+            You haven&apos;t submitted any support requests yet.
           </p>
           <Link
             href="/support/new"
