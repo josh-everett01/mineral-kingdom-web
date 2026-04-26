@@ -318,6 +318,10 @@ export function OpenBoxClient() {
   const canRequestShipment = openBoxStatus === "OPEN" && (openBox?.orderCount ?? 0) > 0
   const isBoxLocked = openBoxStatus === "LOCKED_FOR_REVIEW" || openBoxStatus === "SHIPPED"
 
+  const openBoxSupportHref = visibleInvoice?.shippingInvoiceId
+    ? `/support/new?shippingInvoiceId=${encodeURIComponent(visibleInvoice.shippingInvoiceId)}&category=OPEN_BOX_HELP`
+    : "/support/new?category=OPEN_BOX_HELP"
+
   const shipmentRequestStatus =
     ((openBox as OpenBoxWithShipmentStatus | null)?.shipmentRequestStatus ?? null)
 
@@ -622,7 +626,7 @@ export function OpenBoxClient() {
             Back to dashboard
           </Link>
           <Link
-            href="/support"
+            href={openBoxSupportHref}
             className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
             data-testid="open-box-support-link"
           >

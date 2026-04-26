@@ -907,6 +907,32 @@ export function DashboardClient() {
 
       {isCompletelyEmpty ? <DashboardEmptyState /> : null}
 
+      <section
+        className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+        data-testid="dashboard-support-section"
+      >
+        <h2 className="text-lg font-semibold text-stone-900">Support</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Questions about an order, auction, or shipment? We&apos;re here to help.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/support"
+            className="inline-flex rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+            data-testid="dashboard-support-view-tickets"
+          >
+            View my tickets
+          </Link>
+          <Link
+            href="/support/new"
+            className="inline-flex rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+            data-testid="dashboard-support-new-ticket"
+          >
+            Open a ticket
+          </Link>
+        </div>
+      </section>
+
       <section className="space-y-4" data-testid="dashboard-history">
         <div>
           <h2 className="text-lg font-semibold text-stone-900">History</h2>

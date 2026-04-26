@@ -114,6 +114,12 @@ export function HeaderMobileMenu() {
             ) : null}
 
             {!isLoading && isAuthenticated ? (
+              <MobileMenuLink href="/support" testId="nav-support-mobile" onNavigate={closeMenu}>
+                Support
+              </MobileMenuLink>
+            ) : null}
+
+            {!isLoading && isAuthenticated ? (
               <MobileMenuLink href="/account" testId="nav-account-mobile" onNavigate={closeMenu}>
                 Account
               </MobileMenuLink>

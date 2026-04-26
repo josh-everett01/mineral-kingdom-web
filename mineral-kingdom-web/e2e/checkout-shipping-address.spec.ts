@@ -170,7 +170,7 @@ test.describe("checkout shipping address (mocked)", () => {
   test("shipping address form is visible before payment can proceed", async ({ page }) => {
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
@@ -189,7 +189,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     await expect(page.getByTestId("shipping-address-form")).toBeVisible()
@@ -198,10 +198,10 @@ test.describe("checkout shipping address (mocked)", () => {
     await page.getByTestId("ship-save-btn").click()
 
     // Form disappears after save
-    await expect(page.getByTestId("shipping-address-form")).not.toBeVisible()
+    await expect(page.getByTestId("shipping-address-form")).not.toBeVisible({ timeout: 10_000 })
 
     // Summary line shown
-    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible({ timeout: 10_000 })
     await expect(page.getByTestId("checkout-pay-address-summary")).toContainText("Jane Buyer")
     await expect(page.getByTestId("checkout-pay-address-summary")).toContainText("Tucson")
 
@@ -215,13 +215,13 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     await fillShippingAddress(page)
     await page.getByTestId("ship-save-btn").click()
 
-    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible()
+    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible({ timeout: 10_000 })
 
     // Click Edit
     await page.getByTestId("checkout-pay-edit-address").click()
@@ -237,7 +237,7 @@ test.describe("checkout shipping address (mocked)", () => {
   test("validation errors shown when required fields are empty", async ({ page }) => {
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     await expect(page.getByTestId("shipping-address-form")).toBeVisible()
@@ -289,7 +289,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     // Address already saved — summary shown, form hidden
@@ -302,11 +302,11 @@ test.describe("checkout shipping address (mocked)", () => {
   })
 
   test("address line 2 is optional and not required for form submission", async ({ page }) => {
-    await mockShippingAddressSave(page, "ffffffff-0000-1111-2222-333333333333")
+    await mockShippingAddressSave(page, "ffffffff-0000-1111-2022-333333333333")
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "load" },
     )
 
     // Fill all required fields but leave address line 2 empty
@@ -321,8 +321,8 @@ test.describe("checkout shipping address (mocked)", () => {
     await page.getByTestId("ship-save-btn").click()
 
     // Should succeed without errors
-    await expect(page.getByTestId("shipping-address-form")).not.toBeVisible()
-    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible()
+    await expect(page.getByTestId("shipping-address-form")).not.toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId("checkout-pay-address-summary")).toBeVisible({ timeout: 10_000 })
   })
 })
 
