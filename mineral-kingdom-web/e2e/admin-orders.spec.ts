@@ -202,6 +202,8 @@ test.describe("admin order shipping address", () => {
     await loginAsAdmin(page)
     await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
     await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+    // Wait for async detail fetch to complete before checking address elements
+    await expect(page.getByTestId("admin-order-detail-order-number")).toBeVisible({ timeout: 15_000 })
 
     const addLink = page.getByTestId("admin-order-address-add")
     const existingAddress = page.getByTestId("admin-order-detail-shipping-address")
@@ -221,6 +223,8 @@ test.describe("admin order shipping address", () => {
     await loginAsAdmin(page)
     await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
     await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+    // Wait for async detail fetch to complete
+    await expect(page.getByTestId("admin-order-detail-order-number")).toBeVisible({ timeout: 15_000 })
 
     const addLink = page.getByTestId("admin-order-address-add")
     const editLink = page.getByTestId("admin-order-address-edit")
@@ -266,6 +270,8 @@ test.describe("admin order shipping address", () => {
     await loginAsAdmin(page)
     await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
     await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+    // Wait for async detail fetch to complete
+    await expect(page.getByTestId("admin-order-detail-order-number")).toBeVisible({ timeout: 15_000 })
 
     // Assumes address was set by the preceding test (serial mode)
     await expect(page.getByTestId("admin-order-address-edit")).toBeVisible({ timeout: 10_000 })
@@ -302,6 +308,8 @@ test.describe("admin order shipping address", () => {
     await loginAsAdmin(page)
     await page.goto(`/admin/orders/${ADDR_ORDER_ID}`, { waitUntil: "domcontentloaded" })
     await expect(page.getByTestId("admin-order-detail-page")).toBeVisible()
+    // Wait for async detail fetch to complete
+    await expect(page.getByTestId("admin-order-detail-order-number")).toBeVisible({ timeout: 15_000 })
 
     const addLink = page.getByTestId("admin-order-address-add")
     const editLink = page.getByTestId("admin-order-address-edit")
