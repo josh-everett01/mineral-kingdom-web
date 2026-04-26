@@ -20,7 +20,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     testId: "admin-nav-link-store-offers",
   },
   { label: "Auctions", href: "/admin/auctions", matchMode: "startsWith", testId: "admin-nav-link-auctions" },
-  { label: "Orders", href: "/admin/orders", matchMode: "startsWith", testId: "admin-nav-link-orders" },
+  { label: "Orders / Refunds", href: "/admin/orders", matchMode: "startsWith", testId: "admin-nav-link-orders" },
   {
     label: "Fulfillment",
     href: "/admin/fulfillment",

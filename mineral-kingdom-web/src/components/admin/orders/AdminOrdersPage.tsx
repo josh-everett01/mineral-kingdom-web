@@ -108,9 +108,9 @@ export function AdminOrdersPage() {
   return (
     <div data-testid="admin-orders-page" className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Orders</h1>
+        <h1 className="text-2xl font-semibold">Orders / Refunds</h1>
         <p className="text-sm text-muted-foreground">
-          Search and review order/payment context, refund state, and operational details.
+          Search and review orders. Refund actions are available to OWNER accounts from each order’s detail page.
         </p>
       </div>
 

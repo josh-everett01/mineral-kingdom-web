@@ -56,6 +56,32 @@ async function loginAsStaff(page: Page) {
 }
 
 test.describe("admin orders", () => {
+  // ─── S16-13: Orders/Refunds UX clarity ─────────────────────────────────────
+  test("admin nav shows 'Orders / Refunds' label (S16-13)", async ({ page }) => {
+    await loginAsAdmin(page)
+
+    await page.goto("/admin/orders", { waitUntil: "domcontentloaded" })
+
+    // The sidebar nav link should read "Orders / Refunds"
+    await expect(page.getByTestId("admin-nav-link-orders")).toContainText("Orders / Refunds")
+  })
+
+  test("orders page heading shows 'Orders / Refunds' (S16-13)", async ({ page }) => {
+    await loginAsAdmin(page)
+
+    await page.goto("/admin/orders", { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-orders-page")).toBeVisible()
+
+    await expect(page.getByRole("heading", { name: /orders \/ refunds/i })).toBeVisible()
+  })
+
+  test("orders page subtitle mentions refund actions (S16-13)", async ({ page }) => {
+    await loginAsAdmin(page)
+
+    await page.goto("/admin/orders", { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("admin-orders-page")).toContainText(/refund/i)
+  })
+
   test("owner can search orders by number", async ({ page }) => {
     await loginAsAdmin(page)
 
