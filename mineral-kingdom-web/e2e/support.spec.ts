@@ -253,7 +253,7 @@ test.describe("support entry point links", () => {
       })
     })
 
-    await page.goto(`/account/orders/${ORDER_ID}`, {
+    await page.goto(`/orders/${ORDER_ID}`, {
       waitUntil: "domcontentloaded",
     })
 
