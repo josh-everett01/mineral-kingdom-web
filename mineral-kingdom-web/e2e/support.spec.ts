@@ -186,7 +186,7 @@ test.describe("support page UI", () => {
     await mockAuthenticatedSession(page)
     await mockTicketCreation(page, "d4444444-dddd-dddd-dddd-dddddddddddd", "MK-00042")
 
-    await page.goto("/support/new", { waitUntil: "domcontentloaded" })
+    await page.goto("/support/new", { waitUntil: "load" })
 
     await page.getByTestId("support-form-subject").fill("Test subject")
     await page.getByTestId("support-form-category").selectOption("OTHER")
@@ -212,7 +212,7 @@ test.describe("support page UI", () => {
       })
     })
 
-    await page.goto("/support/new", { waitUntil: "domcontentloaded" })
+    await page.goto("/support/new", { waitUntil: "load" })
 
     await page.getByTestId("support-form-subject").fill("Test subject")
     await page.getByTestId("support-form-category").selectOption("OTHER")
@@ -286,8 +286,8 @@ test.describe("support entry point links", () => {
       })
     })
 
-    await page.goto(`/account/shipping-invoices/${SHIPPING_INVOICE_ID}`, {
-      waitUntil: "domcontentloaded",
+    await page.goto(`/shipping-invoices/${SHIPPING_INVOICE_ID}`, {
+      waitUntil: "load",
     })
 
     const supportLink = page.getByTestId("shipping-invoice-detail-support-link")
