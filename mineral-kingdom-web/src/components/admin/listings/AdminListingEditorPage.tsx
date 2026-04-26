@@ -13,12 +13,18 @@ import {
   AdminListingDetail,
   AdminListingPublishChecklist,
   AdminMineralLookupItem,
+  AdminShippingRateInput,
 } from "@/lib/admin/listings/types"
 import { AdminListingDefinitionNotice } from "@/components/admin/listings/AdminListingDefinitionNotice"
 import { AdminListingMediaSection } from "@/components/admin/listings/AdminListingMediaSection"
 
 type Props = {
   id: string
+}
+
+type ShippingRegionForm = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW"
+  amount: string
 }
 
 type FormState = {
@@ -42,7 +48,16 @@ type FormState = {
   isLot: boolean
   quantityTotal: string
   quantityAvailable: string
+  shippingRates: ShippingRegionForm[]
 }
+
+const SHIPPING_REGIONS: Array<{ regionCode: ShippingRegionForm["regionCode"]; label: string }> = [
+  { regionCode: "US", label: "US" },
+  { regionCode: "CA", label: "Canada" },
+  { regionCode: "EU", label: "Europe" },
+  { regionCode: "AU", label: "Australia" },
+  { regionCode: "ROW", label: "Rest of World" },
+]
 
 function emptyToNull(value: string) {
   const trimmed = value.trim()
@@ -61,6 +76,72 @@ function intOrNull(value: string) {
   if (!trimmed) return null
   const parsed = Number.parseInt(trimmed, 10)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function centsFromDollarsOrNull(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed) || parsed < 0) return null
+  return Math.round(parsed * 100)
+}
+
+function defaultShippingRates(): ShippingRegionForm[] {
+  return SHIPPING_REGIONS.map((region) => ({
+    regionCode: region.regionCode,
+    amount: "",
+  }))
+}
+
+function mapShippingRatesToForm(shippingRates: AdminShippingRateInput[] | undefined): ShippingRegionForm[] {
+  if (!shippingRates || shippingRates.length === 0) {
+    return defaultShippingRates()
+  }
+
+  return SHIPPING_REGIONS.map((region) => {
+    const existing = shippingRates.find((row) => row.regionCode === region.regionCode)
+    return {
+      regionCode: region.regionCode,
+      amount:
+        typeof existing?.amountCents === "number"
+          ? (existing.amountCents / 100).toString()
+          : "",
+    }
+  })
+}
+
+function buildShippingRatePayload(rows: ShippingRegionForm[]): AdminShippingRateInput[] | null {
+  const hasAnyEnteredValue = rows.some((row) => row.amount.trim().length > 0)
+  if (!hasAnyEnteredValue) {
+    return []
+  }
+
+  const payload: AdminShippingRateInput[] = []
+
+  for (const region of SHIPPING_REGIONS) {
+    const source = rows.find((row) => row.regionCode === region.regionCode)
+    const raw = source?.amount ?? ""
+
+    if (raw.trim() === "") {
+      payload.push({
+        regionCode: region.regionCode,
+        amountCents: null,
+      })
+      continue
+    }
+
+    const cents = centsFromDollarsOrNull(raw)
+    if (cents === null) {
+      return null
+    }
+
+    payload.push({
+      regionCode: region.regionCode,
+      amountCents: cents,
+    })
+  }
+
+  return payload
 }
 
 function toFormState(detail: AdminListingDetail): FormState {
@@ -85,6 +166,7 @@ function toFormState(detail: AdminListingDetail): FormState {
     isLot: detail.isLot,
     quantityTotal: detail.quantityTotal.toString(),
     quantityAvailable: detail.quantityAvailable.toString(),
+    shippingRates: mapShippingRatesToForm(detail.shippingRates),
   }
 }
 
@@ -286,6 +368,20 @@ export function AdminListingEditorPage({ id }: Props) {
     setSuccess(null)
   }
 
+  function setShippingAmount(regionCode: ShippingRegionForm["regionCode"], amount: string) {
+    setForm((current) =>
+      current
+        ? {
+          ...current,
+          shippingRates: current.shippingRates.map((row) =>
+            row.regionCode === regionCode ? { ...row, amount } : row,
+          ),
+        }
+        : current,
+    )
+    setSuccess(null)
+  }
+
   function selectMineral(item: AdminMineralLookupItem) {
     setField("primaryMineralId", item.id)
     setField("primaryMineralName", item.name)
@@ -305,6 +401,12 @@ export function AdminListingEditorPage({ id }: Props) {
 
         if (normalizedCountryCode.length > 0 && normalizedCountryCode.length !== 2) {
           setError("Country code must be exactly 2 letters, like US or CN.")
+          return
+        }
+
+        const shippingRates = buildShippingRatePayload(form.shippingRates)
+        if (shippingRates === null) {
+          setError("Regional shipping values must be blank or valid non-negative dollar amounts.")
           return
         }
 
@@ -328,6 +430,7 @@ export function AdminListingEditorPage({ id }: Props) {
           isLot: form.isLot,
           quantityTotal: intOrNull(form.quantityTotal),
           quantityAvailable: intOrNull(form.quantityAvailable),
+          shippingRates,
         }
 
         await updateAdminListing(id, payload)
@@ -716,6 +819,39 @@ export function AdminListingEditorPage({ id }: Props) {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-5">
+            <h3 className="mb-4 text-lg font-semibold">Shipping by region</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Set shipping by region for this listing. Use 0 for US if shipping is included. Leave a region
+              blank to show “Shipping quote available on request.”
+            </p>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {SHIPPING_REGIONS.map((region) => (
+                <div key={region.regionCode}>
+                  <label
+                    className="mb-1 block text-sm font-medium"
+                    htmlFor={`admin-listing-shipping-${region.regionCode}`}
+                  >
+                    {region.label} ($)
+                  </label>
+                  <input
+                    id={`admin-listing-shipping-${region.regionCode}`}
+                    data-testid={`admin-listing-shipping-${region.regionCode}`}
+                    value={
+                      form.shippingRates.find((row) => row.regionCode === region.regionCode)?.amount ?? ""
+                    }
+                    onChange={(e) => setShippingAmount(region.regionCode, e.target.value)}
+                    disabled={archived}
+                    inputMode="decimal"
+                    placeholder="Blank = quote on request"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  />
+                </div>
+              ))}
             </div>
           </section>
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { getAdminListings } from "@/lib/admin/listings/api"
 import { AdminListingListItem } from "@/lib/admin/listings/types"
 import { createAdminAuction } from "@/lib/admin/auctions/api"
+import { AdminShippingRateInput } from "@/lib/admin/auctions/types"
 
 type Props = {
   onCreated?: (auctionId: string) => Promise<void> | void
@@ -11,6 +12,11 @@ type Props = {
 
 type LaunchMode = "DRAFT" | "NOW" | "SCHEDULED"
 type TimingMode = "PRESET_DURATION" | "MANUAL"
+
+type ShippingRegionForm = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW"
+  amount: string
+}
 
 type FormState = {
   listingId: string
@@ -22,7 +28,16 @@ type FormState = {
   startingPrice: string
   reservePrice: string
   quotedShipping: string
+  shippingRates: ShippingRegionForm[]
 }
+
+const SHIPPING_REGIONS: Array<{ regionCode: ShippingRegionForm["regionCode"]; label: string }> = [
+  { regionCode: "US", label: "US" },
+  { regionCode: "CA", label: "Canada" },
+  { regionCode: "EU", label: "Europe" },
+  { regionCode: "AU", label: "Australia" },
+  { regionCode: "ROW", label: "Rest of World" },
+]
 
 function centsFromDollars(value: string) {
   const trimmed = value.trim()
@@ -37,6 +52,13 @@ function toDatetimeLocalInput(value: Date) {
   return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(
     value.getHours(),
   )}:${pad(value.getMinutes())}`
+}
+
+function initialShippingRates(): ShippingRegionForm[] {
+  return SHIPPING_REGIONS.map((region) => ({
+    regionCode: region.regionCode,
+    amount: "",
+  }))
 }
 
 function initialForm(): FormState {
@@ -56,7 +78,43 @@ function initialForm(): FormState {
     startingPrice: "",
     reservePrice: "",
     quotedShipping: "",
+    shippingRates: initialShippingRates(),
   }
+}
+
+function buildShippingRatePayload(rows: ShippingRegionForm[]): AdminShippingRateInput[] | null {
+  const mapped = rows
+    .map((row) => ({
+      regionCode: row.regionCode,
+      amountCents: row.amount.trim() === "" ? null : centsFromDollars(row.amount),
+    }))
+    .filter((row) => row.amountCents !== null || rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() === "")
+
+  const hasAnyEnteredValue = rows.some((row) => row.amount.trim().length > 0)
+  if (!hasAnyEnteredValue) {
+    return null
+  }
+
+  for (const row of mapped) {
+    if (row.amountCents === null && rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() !== "") {
+      return null
+    }
+  }
+
+  return SHIPPING_REGIONS.map((region) => {
+    const source = rows.find((row) => row.regionCode === region.regionCode)
+    if (!source) {
+      return {
+        regionCode: region.regionCode,
+        amountCents: null,
+      }
+    }
+
+    return {
+      regionCode: region.regionCode,
+      amountCents: source.amount.trim() === "" ? null : centsFromDollars(source.amount),
+    }
+  })
 }
 
 export function AdminAuctionCreateForm({ onCreated }: Props) {
@@ -110,6 +168,17 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
     setSuccess(null)
   }
 
+  function setShippingAmount(regionCode: ShippingRegionForm["regionCode"], amount: string) {
+    setForm((current) => ({
+      ...current,
+      shippingRates: current.shippingRates.map((row) =>
+        row.regionCode === regionCode ? { ...row, amount } : row,
+      ),
+    }))
+    setError(null)
+    setSuccess(null)
+  }
+
   function selectListing(item: AdminListingListItem) {
     setField("listingId", item.id)
     setListingQuery(item.title ?? item.id)
@@ -143,6 +212,12 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
 
       if (reservePriceCents != null && reservePriceCents < startingPriceCents) {
         setError("Reserve must be greater than or equal to starting price.")
+        return
+      }
+
+      const shippingRates = buildShippingRatePayload(form.shippingRates)
+      if (form.shippingRates.some((row) => row.amount.trim().length > 0) && shippingRates == null) {
+        setError("Regional shipping values must be blank or valid non-negative dollar amounts.")
         return
       }
 
@@ -193,6 +268,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
         startingPriceCents,
         reservePriceCents,
         quotedShippingCents,
+        shippingRates,
         launchMode: form.launchMode,
         timingMode: form.timingMode,
         durationHours,
@@ -396,15 +472,54 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Quoted shipping ($)</label>
+          <label className="mb-1 block text-sm font-medium">Legacy / fallback US shipping ($)</label>
           <input
             data-testid="admin-auction-quoted-shipping"
             value={form.quotedShipping}
             onChange={(e) => setField("quotedShipping", e.target.value)}
             inputMode="decimal"
-            placeholder="Optional"
+            placeholder="Used only when no regional shipping is configured"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Regional shipping prices are preferred when configured. If regional shipping is entered below,
+            buyer-facing auction pages will use those region values. This field is kept as a legacy US-only
+            fallback when no regional shipping is configured.
+          </p>
+        </div>
+
+        <div className="md:col-span-2 rounded-xl border bg-muted/20 p-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold">Regional shipping</h4>
+            <p className="text-xs text-muted-foreground">
+              Leave a region blank to show “Shipping quote available on request.” Regional shipping values are
+              preferred over the legacy fallback US shipping field above.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {SHIPPING_REGIONS.map((region) => (
+              <div key={region.regionCode}>
+                <label
+                  className="mb-1 block text-sm font-medium"
+                  htmlFor={`admin-auction-shipping-${region.regionCode}`}
+                >
+                  {region.label} ($)
+                </label>
+                <input
+                  id={`admin-auction-shipping-${region.regionCode}`}
+                  data-testid={`admin-auction-shipping-${region.regionCode}`}
+                  value={
+                    form.shippingRates.find((row) => row.regionCode === region.regionCode)?.amount ?? ""
+                  }
+                  onChange={(e) => setShippingAmount(region.regionCode, e.target.value)}
+                  inputMode="decimal"
+                  placeholder="Blank = quote on request"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="md:col-span-2">

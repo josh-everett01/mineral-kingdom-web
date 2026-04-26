@@ -1,3 +1,8 @@
+export type AdminShippingRateInput = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW" | string
+  amountCents: number | null
+}
+
 export type AdminAuctionListItem = {
   id: string
   listingId: string
@@ -33,6 +38,7 @@ export type AdminAuctionDetail = {
   closeTime: string
   closingWindowEnd: string | null
   quotedShippingCents: number | null
+  shippingRates: AdminShippingRateInput[]
   relistOfAuctionId: string | null
   replacementAuctionId: string | null
   createdAt: string
@@ -51,6 +57,7 @@ export type CreateAdminAuctionRequest = {
   startingPriceCents: number
   reservePriceCents: number | null
   quotedShippingCents: number | null
+  shippingRates: AdminShippingRateInput[] | null
   launchMode: "DRAFT" | "NOW" | "SCHEDULED"
   timingMode: "PRESET_DURATION" | "MANUAL"
   durationHours: number | null
@@ -64,6 +71,7 @@ export type UpdateAdminAuctionRequest = {
   startingPriceCents: number | null
   reservePriceCents: number | null
   quotedShippingCents: number | null
+  shippingRates?: AdminShippingRateInput[] | null
 }
 
 export type AdminAuctionIdResponse = {

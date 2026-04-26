@@ -9,6 +9,20 @@ export type AuctionDetailMediaDto = {
   sortOrder: number
 }
 
+export type AuctionShippingRateDto = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW"
+  regionLabel: string
+  amountCents?: number | null
+  currencyCode: string
+  displayLabel: string
+}
+
+export type AuctionBidHistoryItemDto = {
+  occurredAt: string
+  amountCents: number
+  bidderLabel: string
+}
+
 export type AuctionDetailPaymentVisibilityState = "NONE" | "PAYMENT_DUE" | "PAID"
 
 export type AuctionDetailDto = {
@@ -23,6 +37,11 @@ export type AuctionDetailDto = {
   closingTimeUtc: string
   minimumNextBidCents: number
   quotedShippingCents?: number | null
+  shippingRates: AuctionShippingRateDto[]
+  shippingMessage?: string | null
+  selectedRegionCode?: string | null
+  selectedRegionDisplayLabel?: string | null
+  bidHistory: AuctionBidHistoryItemDto[]
   media: AuctionDetailMediaDto[]
   isCurrentUserLeading?: boolean | null
   hasCurrentUserBid?: boolean | null

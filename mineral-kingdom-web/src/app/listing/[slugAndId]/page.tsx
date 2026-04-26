@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { ListingImageGallery } from "@/components/listings/ListingImageGallery"
 import { ListingPurchaseActions } from "@/components/listings/ListingPurchaseActions"
+import { RegionShippingCard } from "@/components/shipping/RegionShippingCard"
 import { fetchListingDetail, formatDateTime, formatMoney } from "@/lib/listings/getListingDetail"
 
 type Props = {
@@ -198,6 +199,14 @@ export default async function ListingDetailPage({ params }: Props) {
               </div>
             </section>
           ) : null}
+
+          <RegionShippingCard
+            title="Shipping"
+            rates={listing.shippingRates}
+            shippingMessage={listing.shippingMessage}
+            emptyMessage="Shipping information has not been configured for this listing yet."
+            testIdPrefix="listing-detail-shipping"
+          />
 
           {!purchaseContext.showAddToCart && !purchaseContext.showAuctionWidget ? (
             <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">

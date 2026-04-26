@@ -3,6 +3,11 @@ export type AdminListingPublishChecklist = {
   missing: string[]
 }
 
+export type AdminShippingRateInput = {
+  regionCode: "US" | "CA" | "EU" | "AU" | "ROW" | string
+  amountCents: number | null
+}
+
 export type AdminListingListItem = {
   id: string
   title: string | null
@@ -47,6 +52,7 @@ export type AdminListingDetail = {
   isLot: boolean
   quantityTotal: number
   quantityAvailable: number
+  shippingRates: AdminShippingRateInput[]
   updatedAt: string
   publishedAt: string | null
   archivedAt: string | null

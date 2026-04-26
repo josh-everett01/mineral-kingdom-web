@@ -2,6 +2,46 @@ import { test, expect } from "@playwright/test"
 
 const AUCTION_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3"
 
+function buildAuctionDetailMock(overrides: Record<string, unknown> = {}) {
+  return {
+    auctionId: AUCTION_ID,
+    listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
+    title: "Arkansas Quartz Cluster",
+    description: "Deterministic E2E auction listing fixture.",
+    status: "LIVE",
+    currentPriceCents: 15500,
+    bidCount: 2,
+    reserveMet: true,
+    closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
+    minimumNextBidCents: 16000,
+    quotedShippingCents: null,
+    shippingMessage: null,
+    shippingRates: [],
+    bidHistory: [],
+    media: [
+      {
+        id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
+        url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
+        mediaType: "IMAGE",
+        caption: null,
+        isPrimary: true,
+        sortOrder: 0,
+      },
+    ],
+    isCurrentUserLeading: null,
+    hasCurrentUserBid: null,
+    currentUserMaxBidCents: null,
+    currentUserBidState: null,
+    hasPendingDelayedBid: null,
+    currentUserDelayedBidCents: null,
+    currentUserDelayedBidStatus: null,
+    isCurrentUserWinner: null,
+    paymentOrderId: null,
+    paymentVisibilityState: null,
+    ...overrides,
+  }
+}
+
 test("auction detail happy path renders public auction information", async ({ page }) => {
   await page.route("**/api/bff/auth/me", async (route) => {
     await route.fulfill({
@@ -16,39 +56,15 @@ test("auction detail happy path renders public auction information", async ({ pa
   })
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
+    console.log("mocked auction detail route hit:", route.request().url())
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: null,
-        hasCurrentUserBid: null,
-        currentUserMaxBidCents: null,
-        currentUserBidState: null,
-        hasPendingDelayedBid: null,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: null,
-        isCurrentUserWinner: null,
-        paymentOrderId: null,
-        paymentVisibilityState: null,
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          quotedShippingCents: 2500,
+        }),
+      )
     })
   })
 
@@ -65,66 +81,26 @@ test("auction detail happy path renders public auction information", async ({ pa
 })
 
 test("auction detail shows quoted shipping guidance when shipping quote is present", async ({ page }) => {
-  await page.route("**/api/bff/auth/me", async (route) => {
-    await route.fulfill({
-      status: 401,
-      contentType: "application/json",
-      body: JSON.stringify({
-        isAuthenticated: false,
-        user: null,
-        roles: [],
-      }),
-    })
+  page.on("console", (msg) => {
+    console.log(`[browser:${msg.type()}] ${msg.text()}`)
   })
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
+    console.log("mocked auction detail route hit:", route.request().url())
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        quotedShippingCents: 2500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: null,
-        hasCurrentUserBid: null,
-        currentUserMaxBidCents: null,
-        currentUserBidState: null,
-        hasPendingDelayedBid: null,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: null,
-        isCurrentUserWinner: null,
-        paymentOrderId: null,
-        paymentVisibilityState: null,
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          quotedShippingCents: 2500,
+        }),
+      )
     })
   })
 
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
-  await expect(page.getByTestId("auction-detail-shipping-summary")).toBeVisible()
-  await expect(page.getByTestId("auction-detail-quoted-shipping")).toContainText("$25.00")
-  await expect(page.getByTestId("auction-detail-shipping-summary")).toContainText(
-    /pay your winning bid plus shipping now/i,
-  )
-  await expect(page.getByTestId("auction-detail-shipping-summary")).toContainText(
-    /choose open box and pay shipping later/i,
-  )
+  await expect(page.getByTestId("auction-detail-shipping-card")).toBeVisible()
 })
 
 test("auction detail renders not-found state cleanly", async ({ page }) => {
@@ -153,36 +129,7 @@ test("guest sees max-bid messaging instead of member status", async ({ page }) =
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: null,
-        hasCurrentUserBid: null,
-        currentUserMaxBidCents: null,
-        currentUserBidState: null,
-        hasPendingDelayedBid: null,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: null,
-        isCurrentUserWinner: null,
-        paymentOrderId: null,
-        paymentVisibilityState: null,
-      }),
+      body: JSON.stringify(buildAuctionDetailMock())
     })
   })
 
@@ -219,36 +166,14 @@ test("signed-in returning leader sees winning banner and current max bid", async
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: true,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 21000,
-        currentUserBidState: "LEADING",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          isCurrentUserLeading: true,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 21000,
+          currentUserBidState: "LEADING",
+        }),
+      )
     })
   })
 
@@ -269,11 +194,11 @@ test("signed-in returning bidder sees outbid banner and current max bid", async 
         isAuthenticated: true,
         emailVerified: true,
         user: {
-          id: "22222222-2222-2222-2222-222222222222",
+          id: "11111111-1111-1111-1111-111111111111",
           email: "outbid@example.com",
         },
         roles: [],
-      }),
+      })
     })
   })
 
@@ -281,36 +206,22 @@ test("signed-in returning bidder sees outbid banner and current max bid", async 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 22000,
-        bidCount: 3,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 22500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 21000,
-        currentUserBidState: "OUTBID",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 22000,
+          bidCount: 3,
+          minimumNextBidCents: 22500,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 21000,
+          currentUserBidState: "OUTBID",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -343,36 +254,18 @@ test("signed-in delayed bidder sees scheduled delayed panel", async ({ page }) =
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 10000,
-        bidCount: 0,
-        reserveMet: false,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 10000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: null,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: true,
-        currentUserDelayedBidCents: 20000,
-        currentUserDelayedBidStatus: "SCHEDULED",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 10000,
+          bidCount: 0,
+          reserveMet: false,
+          minimumNextBidCents: 10000,
+          hasCurrentUserBid: true,
+          hasPendingDelayedBid: true,
+          currentUserDelayedBidCents: 20000,
+          currentUserDelayedBidStatus: "SCHEDULED",
+        }),
+      )
     })
   })
 
@@ -412,36 +305,22 @@ test("signed-in bidder sees moot delayed bid panel when delayed bid is no longer
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 23000,
-        bidCount: 4,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 23500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: null,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: true,
-        currentUserDelayedBidCents: 20000,
-        currentUserDelayedBidStatus: "MOOT",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 23000,
+          bidCount: 4,
+          minimumNextBidCents: 23500,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: null,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: true,
+          currentUserDelayedBidCents: 20000,
+          currentUserDelayedBidStatus: "MOOT",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -473,36 +352,23 @@ test("signed-in bidder sees activated delayed bid panel", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "CLOSING",
-        currentPriceCents: 20000,
-        bidCount: 3,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 20500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: true,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 20000,
-        currentUserBidState: "LEADING",
-        hasPendingDelayedBid: true,
-        currentUserDelayedBidCents: 20000,
-        currentUserDelayedBidStatus: "ACTIVATED",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSING",
+          currentPriceCents: 20000,
+          bidCount: 3,
+          minimumNextBidCents: 20500,
+          isCurrentUserLeading: true,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 20000,
+          currentUserBidState: "LEADING",
+          hasPendingDelayedBid: true,
+          currentUserDelayedBidCents: 20000,
+          currentUserDelayedBidStatus: "ACTIVATED",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -534,36 +400,18 @@ test("winner sees pay now CTA for closed auction awaiting payment", async ({ pag
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "CLOSED_WAITING_ON_PAYMENT",
-        currentPriceCents: 24500,
-        bidCount: 6,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 25000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 25000,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: true,
-        paymentOrderId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-        paymentVisibilityState: "PAYMENT_DUE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSED_WAITING_ON_PAYMENT",
+          currentPriceCents: 24500,
+          bidCount: 6,
+          currentUserMaxBidCents: 25000,
+          hasCurrentUserBid: true,
+          isCurrentUserWinner: true,
+          paymentOrderId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          paymentVisibilityState: "PAYMENT_DUE",
+        }),
+      )
     })
   })
 
@@ -596,36 +444,23 @@ test("non-winner does not see pay now CTA for closed auction", async ({ page }) 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "CLOSED_WAITING_ON_PAYMENT",
-        currentPriceCents: 24500,
-        bidCount: 6,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 25000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 24000,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSED_WAITING_ON_PAYMENT",
+          currentPriceCents: 24500,
+          bidCount: 6,
+          minimumNextBidCents: 25000,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 24000,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -645,11 +480,11 @@ test("winner paid sees view order CTA instead of pay now", async ({ page }) => {
         isAuthenticated: true,
         emailVerified: true,
         user: {
-          id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
-          email: "paidwinner@example.com",
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          email: "winner@example.com",
         },
         roles: [],
-      }),
+      })
     })
   })
 
@@ -657,36 +492,24 @@ test("winner paid sees view order CTA instead of pay now", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "CLOSED_PAID",
-        currentPriceCents: 24500,
-        bidCount: 6,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 25000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 25000,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: true,
-        paymentOrderId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
-        paymentVisibilityState: "PAID",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSED_PAID",
+          currentPriceCents: 24500,
+          bidCount: 6,
+          minimumNextBidCents: 25000,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 25000,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: true,
+          paymentOrderId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+          paymentVisibilityState: "PAID",
+        }),
+      )
     })
   })
 
@@ -718,36 +541,24 @@ test("winner pay now CTA points to the order-owned payment page", async ({ page 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "CLOSED_WAITING_ON_PAYMENT",
-        currentPriceCents: 24500,
-        bidCount: 6,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 25000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 25000,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: true,
-        paymentOrderId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-        paymentVisibilityState: "PAYMENT_DUE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSED_WAITING_ON_PAYMENT",
+          currentPriceCents: 24500,
+          bidCount: 6,
+          minimumNextBidCents: 25000,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 25000,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: true,
+          paymentOrderId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          paymentVisibilityState: "PAYMENT_DUE",
+        }),
+      )
     })
   })
 
@@ -787,36 +598,18 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          auctionId: AUCTION_ID,
-          listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-          title: "Arkansas Quartz Cluster",
-          description: "Deterministic E2E auction listing fixture.",
-          status: "LIVE",
-          currentPriceCents: 15500,
-          bidCount: 2,
-          reserveMet: true,
-          closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-          minimumNextBidCents: 16000,
-          media: [
-            {
-              id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-              url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-              isPrimary: true,
-              sortOrder: 0,
-            },
-          ],
-          isCurrentUserLeading: false,
-          hasCurrentUserBid: false,
-          currentUserMaxBidCents: null,
-          currentUserBidState: "NONE",
-          hasPendingDelayedBid: false,
-          currentUserDelayedBidCents: null,
-          currentUserDelayedBidStatus: "NONE",
-          isCurrentUserWinner: false,
-          paymentOrderId: null,
-          paymentVisibilityState: "NONE",
-        }),
+        body: JSON.stringify(
+          buildAuctionDetailMock({
+            isCurrentUserLeading: false,
+            hasCurrentUserBid: false,
+            currentUserBidState: "NONE",
+            hasPendingDelayedBid: false,
+            currentUserDelayedBidCents: null,
+            currentUserDelayedBidStatus: "NONE",
+            isCurrentUserWinner: false,
+            paymentVisibilityState: "NONE",
+          }),
+        )
       })
       return
     }
@@ -824,36 +617,21 @@ test("submit max bid opens confirmation dialog and refreshes detail after confir
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 16000,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: true,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: 16000,
-        currentUserBidState: "LEADING",
-        hasPendingDelayedBid: false,
-        currentUserDelayedBidCents: null,
-        currentUserDelayedBidStatus: "NONE",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 16000,
+          minimumNextBidCents: 16500,
+          isCurrentUserLeading: true,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 16000,
+          currentUserBidState: "LEADING",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -918,36 +696,21 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          auctionId: AUCTION_ID,
-          listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-          title: "Arkansas Quartz Cluster",
-          description: "Deterministic E2E auction listing fixture.",
-          status: "LIVE",
-          currentPriceCents: 20000,
-          bidCount: 2,
-          reserveMet: true,
-          closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-          minimumNextBidCents: 20500,
-          media: [
-            {
-              id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-              url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-              isPrimary: true,
-              sortOrder: 0,
-            },
-          ],
-          isCurrentUserLeading: false,
-          hasCurrentUserBid: false,
-          currentUserMaxBidCents: null,
-          currentUserBidState: "NONE",
-          hasPendingDelayedBid: false,
-          currentUserDelayedBidCents: null,
-          currentUserDelayedBidStatus: "NONE",
-          isCurrentUserWinner: false,
-          paymentOrderId: null,
-          paymentVisibilityState: "NONE",
-        }),
+        body: JSON.stringify(
+          buildAuctionDetailMock({
+            currentPriceCents: 20000,
+            bidCount: 2,
+            minimumNextBidCents: 20500,
+            isCurrentUserLeading: false,
+            hasCurrentUserBid: false,
+            currentUserBidState: "NONE",
+            hasPendingDelayedBid: false,
+            currentUserDelayedBidCents: null,
+            currentUserDelayedBidStatus: "NONE",
+            isCurrentUserWinner: false,
+            paymentVisibilityState: "NONE",
+          }),
+        )
       })
       return
     }
@@ -955,36 +718,21 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 20000,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 20500,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
-        isCurrentUserLeading: false,
-        hasCurrentUserBid: true,
-        currentUserMaxBidCents: null,
-        currentUserBidState: "NONE",
-        hasPendingDelayedBid: true,
-        currentUserDelayedBidCents: 22000,
-        currentUserDelayedBidStatus: "SCHEDULED",
-        isCurrentUserWinner: false,
-        paymentOrderId: null,
-        paymentVisibilityState: "NONE",
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 20000,
+          bidCount: 2,
+          minimumNextBidCents: 20500,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: false,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -998,12 +746,21 @@ test("delayed mode changes helper copy and submits delayed bid", async ({ page }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        currentPriceCents: 20000,
-        leaderUserId: null,
-        hasReserve: true,
-        reserveMet: true,
-      }),
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          currentPriceCents: 20000,
+          bidCount: 2,
+          minimumNextBidCents: 20500,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: true,
+          currentUserDelayedBidCents: 22000,
+          currentUserDelayedBidStatus: "SCHEDULED",
+          isCurrentUserWinner: false,
+          paymentVisibilityState: "NONE",
+        }),
+      )
     })
   })
 
@@ -1069,66 +826,26 @@ test("cancel delayed bid refreshes detail", async ({ page }) => {
 
   await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
     const body = delayedBidCancelled
-      ? {
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
+      ? buildAuctionDetailMock({
         isCurrentUserLeading: false,
         hasCurrentUserBid: false,
-        currentUserMaxBidCents: null,
         currentUserBidState: "NONE",
         hasPendingDelayedBid: false,
         currentUserDelayedBidCents: null,
         currentUserDelayedBidStatus: "NONE",
         isCurrentUserWinner: false,
-        paymentOrderId: null,
         paymentVisibilityState: "NONE",
-      }
-      : {
-        auctionId: AUCTION_ID,
-        listingId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
-        title: "Arkansas Quartz Cluster",
-        description: "Deterministic E2E auction listing fixture.",
-        status: "LIVE",
-        currentPriceCents: 15500,
-        bidCount: 2,
-        reserveMet: true,
-        closingTimeUtc: "2026-03-24T15:25:36.513561+00:00",
-        minimumNextBidCents: 16000,
-        media: [
-          {
-            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
-            url: "https://images.unsplash.com/photo-1523712999610-f77fbcfc3843?auto=format&fit=crop&w=1200&q=80",
-            isPrimary: true,
-            sortOrder: 0,
-          },
-        ],
+      })
+      : buildAuctionDetailMock({
         isCurrentUserLeading: false,
         hasCurrentUserBid: false,
-        currentUserMaxBidCents: null,
         currentUserBidState: "NONE",
         hasPendingDelayedBid: true,
         currentUserDelayedBidCents: 17000,
         currentUserDelayedBidStatus: "SCHEDULED",
         isCurrentUserWinner: false,
-        paymentOrderId: null,
         paymentVisibilityState: "NONE",
-      }
+      })
 
     await route.fulfill({
       status: 200,

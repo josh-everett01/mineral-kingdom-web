@@ -81,9 +81,23 @@ export async function POST(req: NextRequest, context: RouteContext) {
   let access = await getAccessToken()
   let res: Response
 
+  console.log("[bff auction bid] start", {
+    auctionId,
+    hasAccessToken: Boolean(access),
+  })
+
   try {
     res = await forwardOnce(upstreamUrl, access, bodyText)
+    console.log("[bff auction bid] first upstream response", {
+      auctionId,
+      status: res.status,
+    })
   } catch (e) {
+    console.error("[bff auction bid] upstream unavailable", {
+      auctionId,
+      error: e instanceof Error ? e.message : String(e),
+    })
+
     const err = toProxyError(
       503,
       {
@@ -99,13 +113,34 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (res.status === 401) {
     const refresh = await getRefreshToken()
 
+    console.warn("[bff auction bid] upstream 401, attempting refresh", {
+      auctionId,
+      hasRefreshToken: Boolean(refresh),
+    })
+
     if (refresh) {
       try {
         const tokens = await apiRefresh(refresh)
+        console.log("[bff auction bid] refresh succeeded", {
+          auctionId,
+          hasNewAccessToken: Boolean(tokens.access_token),
+          hasNewRefreshToken: Boolean(tokens.refresh_token),
+        })
+
         await setAuthCookies(tokens)
         access = tokens.access_token
         res = await forwardOnce(upstreamUrl, access, bodyText)
-      } catch {
+
+        console.log("[bff auction bid] retry upstream response", {
+          auctionId,
+          status: res.status,
+        })
+      } catch (e) {
+        console.error("[bff auction bid] refresh failed, clearing cookies", {
+          auctionId,
+          error: e instanceof Error ? e.message : String(e),
+        })
+
         await clearAuthCookies()
       }
     }
@@ -113,6 +148,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
   if (!res.ok) {
     const body = await readBodyForError(res)
+
+    console.warn("[bff auction bid] returning proxy error", {
+      auctionId,
+      status: res.status,
+      body,
+    })
+
     const err = toProxyError(
       res.status,
       body,

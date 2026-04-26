@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { PaymentContextRow } from '../payments/PaymentContextRow'
+import { PaymentContextRow } from "../payments/PaymentContextRow"
 import { PaymentStatusPanel } from "@/components/payments/PaymentStatusPanel"
 import { useSse } from "@/lib/sse/useSse"
 
@@ -50,6 +50,7 @@ type OrderDto = {
   updatedAt?: string | null
   paymentDueAt?: string | null
   shippingMode?: string | null
+  selectedRegionCode?: string | null
   requiresShippingInvoice?: boolean
   shippingAmountCents?: number
   subtotalCents?: number
@@ -87,6 +88,7 @@ type StartOrderPaymentResponse = {
 type AuctionShippingChoiceResponse = {
   orderId?: string
   shippingMode?: string | null
+  selectedRegionCode?: string | null
   subtotalCents?: number
   discountTotalCents?: number
   shippingAmountCents?: number
@@ -122,6 +124,18 @@ type LoadableError = {
 }
 
 type ShippingMode = "UNSELECTED" | "SHIP_NOW" | "OPEN_BOX"
+type ShippingRegionCode = "US" | "CA" | "EU" | "AU" | "ROW"
+
+const SHIPPING_REGION_OPTIONS: Array<{
+  code: ShippingRegionCode
+  label: string
+}> = [
+    { code: "US", label: "US" },
+    { code: "CA", label: "Canada" },
+    { code: "EU", label: "Europe" },
+    { code: "AU", label: "Australia" },
+    { code: "ROW", label: "Rest of World" },
+  ]
 
 function formatMoney(cents?: number | null, currencyCode?: string | null) {
   if (cents == null) return null
@@ -274,6 +288,15 @@ function formatBoxStatus(value?: string | null) {
   }
 }
 
+function formatRegionLabel(value?: string | null) {
+  if (!value) return "—"
+
+  const normalized = value.toUpperCase()
+  return (
+    SHIPPING_REGION_OPTIONS.find((option) => option.code === normalized)?.label ?? value
+  )
+}
+
 function isOpenBoxOrder(order: OrderDto | null) {
   return (order?.shippingMode ?? "").toUpperCase() === "OPEN_BOX"
 }
@@ -347,6 +370,10 @@ function buildOrderPaymentHelper(order: OrderDto | null) {
     } else if (shippingMode === "OPEN_BOX") {
       parts.push("Open Box selected")
     }
+  }
+
+  if (order.selectedRegionCode && order.shippingMode?.toUpperCase() === "SHIP_NOW") {
+    parts.push(formatRegionLabel(order.selectedRegionCode))
   }
 
   return parts.length > 0 ? parts.join(" • ") : null
@@ -499,7 +526,11 @@ function shipmentTimelineEntriesFromOrder(order: OrderDto | null) {
     occurredAt: order.paidAt ?? order.updatedAt ?? null,
   })
 
-  if (isOpenBoxOrder(order) && order.shipmentRequestStatus && order.shipmentRequestStatus.toUpperCase() !== "NONE") {
+  if (
+    isOpenBoxOrder(order) &&
+    order.shipmentRequestStatus &&
+    order.shipmentRequestStatus.toUpperCase() !== "NONE"
+  ) {
     entries.push({
       key: "shipment-request-status",
       title: formatShipmentRequestStatus(order.shipmentRequestStatus),
@@ -575,6 +606,7 @@ export function OrderDetailClient({ orderId }: Props) {
   const [sessionExpired, setSessionExpired] = useState(false)
 
   const [selectedShippingMode, setSelectedShippingMode] = useState<ShippingMode>("UNSELECTED")
+  const [selectedRegionCode, setSelectedRegionCode] = useState<ShippingRegionCode>("US")
   const [isSavingShippingChoice, setIsSavingShippingChoice] = useState(false)
   const [shippingChoiceError, setShippingChoiceError] = useState<string | null>(null)
 
@@ -638,6 +670,20 @@ export function OrderDetailClient({ orderId }: Props) {
 
         setOrder(body)
         setSelectedShippingMode((body.shippingMode as ShippingMode | undefined) ?? "UNSELECTED")
+
+        const initialRegion = (body.selectedRegionCode ?? "US").toUpperCase()
+        if (
+          initialRegion === "US" ||
+          initialRegion === "CA" ||
+          initialRegion === "EU" ||
+          initialRegion === "AU" ||
+          initialRegion === "ROW"
+        ) {
+          setSelectedRegionCode(initialRegion)
+        } else {
+          setSelectedRegionCode("US")
+        }
+
         setIsLoading(false)
       } catch {
         if (!isMounted) return
@@ -694,6 +740,7 @@ export function OrderDetailClient({ orderId }: Props) {
 
   async function handleSaveShippingChoice() {
     if (!liveOrder || liveOrder.sourceType !== "AUCTION" || !isAwaitingPayment(liveOrder)) return
+
     if (selectedShippingMode === "UNSELECTED") {
       setShippingChoiceError("Please choose how you want this auction order shipped before paying.")
       return
@@ -713,6 +760,7 @@ export function OrderDetailClient({ orderId }: Props) {
         },
         body: JSON.stringify({
           shippingMode: selectedShippingMode,
+          selectedRegionCode: selectedShippingMode === "SHIP_NOW" ? selectedRegionCode : null,
         }),
       })
 
@@ -743,6 +791,7 @@ export function OrderDetailClient({ orderId }: Props) {
           ? {
             ...current,
             shippingMode: body.shippingMode ?? current.shippingMode,
+            selectedRegionCode: body.selectedRegionCode ?? current.selectedRegionCode,
             shippingAmountCents: body.shippingAmountCents ?? current.shippingAmountCents,
             subtotalCents: body.subtotalCents ?? current.subtotalCents,
             discountTotalCents: body.discountTotalCents ?? current.discountTotalCents,
@@ -753,15 +802,23 @@ export function OrderDetailClient({ orderId }: Props) {
       )
 
       setSelectedShippingMode((body.shippingMode as ShippingMode | undefined) ?? selectedShippingMode)
+
+      const returnedRegion = (body.selectedRegionCode ?? selectedRegionCode).toUpperCase()
+      if (
+        returnedRegion === "US" ||
+        returnedRegion === "CA" ||
+        returnedRegion === "EU" ||
+        returnedRegion === "AU" ||
+        returnedRegion === "ROW"
+      ) {
+        setSelectedRegionCode(returnedRegion)
+      }
+
       setIsSavingShippingChoice(false)
     } catch {
       setShippingChoiceError("We couldn’t update your shipping choice.")
       setIsSavingShippingChoice(false)
     }
-  }
-
-  function isOpenBoxOrder(order: OrderDto | null) {
-    return (order?.shippingMode ?? "").toUpperCase() === "OPEN_BOX"
   }
 
   function isDirectShipOrder(order: OrderDto | null) {
@@ -1060,6 +1117,13 @@ export function OrderDetailClient({ orderId }: Props) {
         </div>
 
         <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Selected region</p>
+          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-selected-region-value">
+            {formatRegionLabel(liveOrder?.selectedRegionCode)}
+          </p>
+        </div>
+
+        <div>
           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Subtotal</p>
           <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-subtotal">
             {subtotal ?? "—"}
@@ -1151,6 +1215,33 @@ export function OrderDetailClient({ orderId }: Props) {
             </label>
           </fieldset>
 
+          {effectiveShippingMode === "SHIP_NOW" ? (
+            <div className="mt-4">
+              <label
+                htmlFor="order-detail-selected-region-select"
+                className="mb-1 block text-sm font-medium text-amber-950"
+              >
+                Shipping region
+              </label>
+              <select
+                id="order-detail-selected-region-select"
+                value={selectedRegionCode}
+                onChange={(e) => setSelectedRegionCode(e.target.value as ShippingRegionCode)}
+                className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950"
+                data-testid="order-detail-selected-region-select"
+              >
+                {SHIPPING_REGION_OPTIONS.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-amber-800">
+                Select your region to see shipping cost. Full shipping address will be collected before final checkout.
+              </p>
+            </div>
+          ) : null}
+
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
@@ -1199,9 +1290,7 @@ export function OrderDetailClient({ orderId }: Props) {
           tone="info"
           title="Waiting for payment confirmation"
           body="Your order payment has been started, but it is not final until we confirm it from the payment provider. This page will update automatically when confirmation arrives."
-          actions={[
-            { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-          ]}
+          actions={[{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]}
         />
       ) : null}
 
@@ -1274,9 +1363,7 @@ export function OrderDetailClient({ orderId }: Props) {
                 tone="error"
                 title="We couldn’t start payment"
                 body={paymentError}
-                actions={[
-                  { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-                ]}
+                actions={[{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]}
               />
             </div>
           ) : null}
@@ -1301,9 +1388,7 @@ export function OrderDetailClient({ orderId }: Props) {
             tone="success"
             title="Order payment confirmed"
             body="We’ve confirmed payment for this order. You can continue tracking it from your order details and dashboard."
-            actions={[
-              { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-            ]}
+            actions={[{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]}
           />
 
           <section
@@ -1339,6 +1424,7 @@ export function OrderDetailClient({ orderId }: Props) {
           </section>
         </>
       ) : null}
+
       {liveOrder?.fulfillmentGroupId ? (
         <section
           className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
@@ -1468,6 +1554,7 @@ export function OrderDetailClient({ orderId }: Props) {
           ) : null}
         </section>
       ) : null}
+
       <section
         className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
         data-testid="order-detail-lines"

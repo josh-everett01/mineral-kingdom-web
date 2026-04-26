@@ -18,6 +18,7 @@ type RouteContext = {
 
 type SetAuctionShippingChoiceRequest = {
   shippingMode?: string | null
+  selectedRegionCode?: string | null
 }
 
 function contentType(res: Response) {
