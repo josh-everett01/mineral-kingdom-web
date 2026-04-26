@@ -195,14 +195,6 @@ function checklistLabel(code: string) {
       return "Primary mineral is required"
     case "PRIMARY_MINERAL_INVALID":
       return "Primary mineral must be a valid mineral"
-    case "COUNTRY":
-      return "Country is required"
-    case "LENGTH_CM":
-      return "Length must be greater than 0"
-    case "WIDTH_CM":
-      return "Width must be greater than 0"
-    case "HEIGHT_CM":
-      return "Height must be greater than 0"
     case "IMAGE_REQUIRED":
       return "At least one ready image is required"
     case "PRIMARY_IMAGE_REQUIRED_EXACTLY_ONE":
@@ -230,15 +222,6 @@ function buildClientChecklist(
   if (!form.title.trim()) missing.push("TITLE")
   if (!form.description.trim()) missing.push("DESCRIPTION")
   if (!form.primaryMineralId.trim()) missing.push("PRIMARY_MINERAL")
-  if (!form.countryCode.trim()) missing.push("COUNTRY")
-
-  const length = Number(form.lengthCm)
-  const width = Number(form.widthCm)
-  const height = Number(form.heightCm)
-
-  if (!(Number.isFinite(length) && length > 0)) missing.push("LENGTH_CM")
-  if (!(Number.isFinite(width) && width > 0)) missing.push("WIDTH_CM")
-  if (!(Number.isFinite(height) && height > 0)) missing.push("HEIGHT_CM")
 
   if (detail.mediaSummary.readyImageCount < 1) missing.push("IMAGE_REQUIRED")
   if (
@@ -657,18 +640,6 @@ export function AdminListingEditorPage({ id }: Props) {
                 </div>
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium">Size class</label>
-                <input
-                  data-testid="admin-listing-size-class"
-                  value={form.sizeClass}
-                  onChange={(e) => setField("sizeClass", e.target.value)}
-                  disabled={archived}
-                  placeholder="e.g. CABINET"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
-                />
-              </div>
-
               <label className="flex items-center gap-2 pt-7 text-sm">
                 <input
                   data-testid="admin-listing-is-fluorescent"
@@ -679,42 +650,37 @@ export function AdminListingEditorPage({ id }: Props) {
                 />
                 Fluorescent
               </label>
-
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Fluorescence notes</label>
-                <input
-                  data-testid="admin-listing-fluorescence-notes"
-                  value={form.fluorescenceNotes}
-                  onChange={(e) => setField("fluorescenceNotes", e.target.value)}
-                  disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Condition notes</label>
-                <textarea
-                  data-testid="admin-listing-condition-notes"
-                  value={form.conditionNotes}
-                  onChange={(e) => setField("conditionNotes", e.target.value)}
-                  disabled={archived}
-                  rows={3}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
-                />
-              </div>
             </div>
           </section>
 
           <section className="rounded-xl border bg-card p-5">
             <h3 className="mb-4 text-lg font-semibold">Locality</h3>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Locality display</label>
+              <input
+                data-testid="admin-listing-locality-display"
+                value={form.localityDisplay}
+                onChange={(e) => setField("localityDisplay", e.target.value)}
+                disabled={archived}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+              />
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-5">
+            <h3 className="mb-4 text-lg font-semibold">Optional specimen details</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              These fields are optional and will only appear on the public listing when filled in.
+            </p>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Locality display</label>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Size class</label>
                 <input
-                  data-testid="admin-listing-locality-display"
-                  value={form.localityDisplay}
-                  onChange={(e) => setField("localityDisplay", e.target.value)}
+                  data-testid="admin-listing-size-class"
+                  value={form.sizeClass}
+                  onChange={(e) => setField("sizeClass", e.target.value)}
                   disabled={archived}
+                  placeholder="e.g. CABINET"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
@@ -769,12 +735,7 @@ export function AdminListingEditorPage({ id }: Props) {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
-            </div>
-          </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Dimensions</h3>
-            <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className="mb-1 block text-sm font-medium">Length (cm)</label>
                 <input
@@ -786,6 +747,7 @@ export function AdminListingEditorPage({ id }: Props) {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium">Width (cm)</label>
                 <input
@@ -797,6 +759,7 @@ export function AdminListingEditorPage({ id }: Props) {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium">Height (cm)</label>
                 <input
@@ -808,6 +771,7 @@ export function AdminListingEditorPage({ id }: Props) {
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium">Weight (g)</label>
                 <input
@@ -816,6 +780,29 @@ export function AdminListingEditorPage({ id }: Props) {
                   onChange={(e) => setField("weightGrams", e.target.value)}
                   disabled={archived}
                   inputMode="numeric"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium">Fluorescence notes</label>
+                <input
+                  data-testid="admin-listing-fluorescence-notes"
+                  value={form.fluorescenceNotes}
+                  onChange={(e) => setField("fluorescenceNotes", e.target.value)}
+                  disabled={archived}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium">Condition notes</label>
+                <textarea
+                  data-testid="admin-listing-condition-notes"
+                  value={form.conditionNotes}
+                  onChange={(e) => setField("conditionNotes", e.target.value)}
+                  disabled={archived}
+                  rows={3}
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
                 />
               </div>

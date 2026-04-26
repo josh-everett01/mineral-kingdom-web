@@ -205,6 +205,12 @@ test("incomplete draft shows publish checklist guidance and publish remains unav
     /missing or invalid/i,
   )
 
+  // COUNTRY, LENGTH_CM, WIDTH_CM, HEIGHT_CM are optional — not in the publish checklist
+  await expect(page.getByTestId("admin-listing-checklist-COUNTRY")).not.toBeAttached()
+  await expect(page.getByTestId("admin-listing-checklist-LENGTH_CM")).not.toBeAttached()
+  await expect(page.getByTestId("admin-listing-checklist-WIDTH_CM")).not.toBeAttached()
+  await expect(page.getByTestId("admin-listing-checklist-HEIGHT_CM")).not.toBeAttached()
+
   await expect(page.getByText(/checklist updates as you edit/i)).toBeVisible()
   await expect(page.getByText(/save changes to refresh the publish button/i)).toBeVisible()
   await expect(page.getByTestId("admin-listing-publish")).toBeDisabled()
@@ -223,6 +229,26 @@ test("media section renders for active drafts", async ({ page }) => {
   await expect(page.getByText(/max file size:/i)).toBeVisible()
   await expect(page.getByText(/no media yet/i)).toBeVisible()
   await expect(page.getByTestId("admin-listing-media-empty-upload")).toBeVisible()
+})
+
+test("admin form shows optional specimen details section containing all relocated fields", async ({
+  page,
+}) => {
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  // The new "Optional specimen details" section heading must be present
+  await expect(page.getByRole("heading", { name: /optional specimen details/i })).toBeVisible()
+
+  // All relocated optional fields must be accessible within the section
+  await expect(page.getByTestId("admin-listing-country-code")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-length-cm")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-width-cm")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-height-cm")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-weight-grams")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-mine-name")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-fluorescence-notes")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-condition-notes")).toBeVisible()
 })
 
 test("admin can archive a draft listing and archived listings become read-only", async ({
@@ -251,4 +277,36 @@ test("admin can archive a draft listing and archived listings become read-only",
   await expect(page.getByTestId("admin-listing-title")).toBeDisabled()
   await expect(page.getByTestId("admin-listing-save")).toBeDisabled()
   await expect(page.getByTestId("admin-listing-media-file-input")).toBeDisabled()
+})
+
+test("admin can save a listing with only core required fields and no optional specimen details", async ({
+  page,
+}) => {
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  // Fill only core fields — no country code, dimensions, weight, mine name, or condition notes
+  await page.getByTestId("admin-listing-title").fill("Minimal Core Fields Listing")
+  await page.getByTestId("admin-listing-description").fill("Testing that optional specimen details are not required.")
+  await page.getByTestId("admin-listing-locality-display").fill("Unknown locality")
+  await page.getByTestId("admin-listing-quantity-total").fill("1")
+  await page.getByTestId("admin-listing-quantity-available").fill("1")
+
+  // Confirm optional fields are empty
+  await expect(page.getByTestId("admin-listing-country-code")).toHaveValue("")
+  await expect(page.getByTestId("admin-listing-length-cm")).toHaveValue("")
+  await expect(page.getByTestId("admin-listing-weight-grams")).toHaveValue("")
+
+  await expect(page.getByTestId("admin-listing-unsaved")).toBeVisible()
+  await page.getByTestId("admin-listing-save").click()
+
+  await expect(page.getByTestId("admin-listing-action-success")).toContainText(/listing saved/i, {
+    timeout: 15_000,
+  })
+
+  // Reload to confirm save persisted without optional fields blocking it
+  await page.reload()
+  await expect(page.getByTestId("admin-listing-title")).toHaveValue("Minimal Core Fields Listing")
+  await expect(page.getByTestId("admin-listing-country-code")).toHaveValue("")
+  await expect(page.getByTestId("admin-listing-length-cm")).toHaveValue("")
 })

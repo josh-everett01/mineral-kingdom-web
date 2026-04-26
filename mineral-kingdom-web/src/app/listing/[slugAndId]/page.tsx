@@ -73,7 +73,9 @@ export default async function ListingDetailPage({ params }: Props) {
           <div className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:grid-cols-2">
             <DetailItem label="Mineral" value={listing.primaryMineral} testId="listing-detail-mineral" />
             <DetailItem label="Locality" value={listing.localityDisplay} testId="listing-detail-locality" />
-            <DetailItem label="Size class" value={listing.sizeClass} testId="listing-detail-size-class" />
+            {listing.sizeClass ? (
+              <DetailItem label="Size class" value={listing.sizeClass} testId="listing-detail-size-class" />
+            ) : null}
             <DetailItem
               label="Fluorescent"
               value={listing.isFluorescent ? "Yes" : "No"}
@@ -84,27 +86,37 @@ export default async function ListingDetailPage({ params }: Props) {
               value={formatDateTime(listing.publishedAt)}
               testId="listing-detail-published"
             />
-            <DetailItem label="Country code" value={listing.countryCode} testId="listing-detail-country" />
-            <DetailItem
-              label="Length"
-              value={listing.lengthCm ? `${listing.lengthCm} cm` : null}
-              testId="listing-detail-length"
-            />
-            <DetailItem
-              label="Width"
-              value={listing.widthCm ? `${listing.widthCm} cm` : null}
-              testId="listing-detail-width"
-            />
-            <DetailItem
-              label="Height"
-              value={listing.heightCm ? `${listing.heightCm} cm` : null}
-              testId="listing-detail-height"
-            />
-            <DetailItem
-              label="Weight"
-              value={listing.weightGrams ? `${listing.weightGrams} g` : null}
-              testId="listing-detail-weight"
-            />
+            {listing.countryCode ? (
+              <DetailItem label="Country code" value={listing.countryCode} testId="listing-detail-country" />
+            ) : null}
+            {listing.lengthCm ? (
+              <DetailItem
+                label="Length"
+                value={`${listing.lengthCm} cm`}
+                testId="listing-detail-length"
+              />
+            ) : null}
+            {listing.widthCm ? (
+              <DetailItem
+                label="Width"
+                value={`${listing.widthCm} cm`}
+                testId="listing-detail-width"
+              />
+            ) : null}
+            {listing.heightCm ? (
+              <DetailItem
+                label="Height"
+                value={`${listing.heightCm} cm`}
+                testId="listing-detail-height"
+              />
+            ) : null}
+            {listing.weightGrams ? (
+              <DetailItem
+                label="Weight"
+                value={`${listing.weightGrams} g`}
+                testId="listing-detail-weight"
+              />
+            ) : null}
           </div>
 
           {purchaseContext.showAddToCart && storeOffer ? (
@@ -229,18 +241,22 @@ export default async function ListingDetailPage({ params }: Props) {
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-stone-900">Additional notes</h2>
           <dl className="mt-3 space-y-3 text-sm text-stone-700">
-            <div>
-              <dt className="font-medium text-stone-900">Fluorescence notes</dt>
-              <dd data-testid="listing-detail-fluorescence-notes">
-                {listing.fluorescenceNotes?.trim() || "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-stone-900">Condition notes</dt>
-              <dd data-testid="listing-detail-condition-notes">
-                {listing.conditionNotes?.trim() || "—"}
-              </dd>
-            </div>
+            {listing.fluorescenceNotes?.trim() ? (
+              <div>
+                <dt className="font-medium text-stone-900">Fluorescence notes</dt>
+                <dd data-testid="listing-detail-fluorescence-notes">
+                  {listing.fluorescenceNotes.trim()}
+                </dd>
+              </div>
+            ) : null}
+            {listing.conditionNotes?.trim() ? (
+              <div>
+                <dt className="font-medium text-stone-900">Condition notes</dt>
+                <dd data-testid="listing-detail-condition-notes">
+                  {listing.conditionNotes.trim()}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </section>

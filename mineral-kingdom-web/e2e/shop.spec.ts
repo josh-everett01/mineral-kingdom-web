@@ -147,3 +147,54 @@ test("malformed canonical listing route returns not found", async ({ page }) => 
 
   await expect(page.getByRole("heading", { name: /404|not found/i })).toBeVisible()
 })
+
+test("listing detail renders optional metadata fields when all are present", async ({ page }) => {
+  // Rainbow Fluorite Tower has all optional fields seeded: country, dimensions, weight,
+  // fluorescence notes, and condition notes.
+  await page.goto("/listing/rainbow-fluorite-tower-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", {
+    waitUntil: "domcontentloaded",
+  })
+
+  await expect(page.getByTestId("listing-detail-page")).toBeVisible()
+
+  await expect(page.getByTestId("listing-detail-country")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-country")).toContainText("ES")
+
+  await expect(page.getByTestId("listing-detail-length")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-length")).toContainText("8.5 cm")
+
+  await expect(page.getByTestId("listing-detail-width")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-width")).toContainText("4.2 cm")
+
+  await expect(page.getByTestId("listing-detail-height")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-height")).toContainText("3.8 cm")
+
+  await expect(page.getByTestId("listing-detail-weight")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-weight")).toContainText("420 g")
+
+  await expect(page.getByTestId("listing-detail-fluorescence-notes")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-fluorescence-notes")).toContainText("Strong blue")
+
+  await expect(page.getByTestId("listing-detail-condition-notes")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-condition-notes")).toContainText("Excellent edges")
+})
+
+test("listing detail hides fluorescence notes row when value is null", async ({ page }) => {
+  // Amethyst Cathedral has FluorescenceNotes = null but ConditionNotes set.
+  await page.goto("/listing/amethyst-cathedral-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4", {
+    waitUntil: "domcontentloaded",
+  })
+
+  await expect(page.getByTestId("listing-detail-page")).toBeVisible()
+
+  // Fluorescence notes row must not be rendered at all
+  await expect(page.getByTestId("listing-detail-fluorescence-notes")).toHaveCount(0)
+
+  // Condition notes is populated — must still be visible
+  await expect(page.getByTestId("listing-detail-condition-notes")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-condition-notes")).toContainText("Rich purple zoning")
+
+  // Other optional metadata still renders because it is set
+  await expect(page.getByTestId("listing-detail-country")).toBeVisible()
+  await expect(page.getByTestId("listing-detail-length")).toBeVisible()
+})
