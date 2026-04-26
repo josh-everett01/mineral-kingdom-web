@@ -170,7 +170,7 @@ test.describe("checkout shipping address (mocked)", () => {
   test("shipping address form is visible before payment can proceed", async ({ page }) => {
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     await expect(page.getByTestId("checkout-pay-page")).toBeVisible()
@@ -189,7 +189,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     await expect(page.getByTestId("shipping-address-form")).toBeVisible()
@@ -215,7 +215,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     await fillShippingAddress(page)
@@ -237,7 +237,7 @@ test.describe("checkout shipping address (mocked)", () => {
   test("validation errors shown when required fields are empty", async ({ page }) => {
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     await expect(page.getByTestId("shipping-address-form")).toBeVisible()
@@ -289,7 +289,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     // Address already saved — summary shown, form hidden
@@ -306,7 +306,7 @@ test.describe("checkout shipping address (mocked)", () => {
 
     await page.goto(
       `/checkout/pay?holdId=ffffffff-0000-1111-2222-333333333333`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "networkidle" },
     )
 
     // Fill all required fields but leave address line 2 empty

@@ -242,13 +242,13 @@ test.describe("support entry point links", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          orderId: ORDER_ID,
+          id: ORDER_ID,
           orderNumber: "MK-20260402-TEST01",
           status: "CONFIRMED",
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-01T00:00:00Z",
-          totalAmountCents: 5000,
-          items: [],
+          totalCents: 5000,
+          lines: [],
         }),
       })
     })
