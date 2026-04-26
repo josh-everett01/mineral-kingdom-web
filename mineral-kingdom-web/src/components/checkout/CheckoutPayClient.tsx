@@ -96,7 +96,21 @@ export function CheckoutPayClient({
   const [selectedShippingMode, setSelectedShippingMode] = useState<"SHIP_NOW" | "OPEN_BOX">(
     "SHIP_NOW",
   )
-  const [selectedRegionCode, setSelectedRegionCode] = useState<ShippingRegionCode>("US")
+  const [selectedRegionCode, setSelectedRegionCode] = useState<ShippingRegionCode>(() => {
+    if (typeof window === "undefined") return "US"
+
+    try {
+      const raw = window.sessionStorage.getItem(CHECKOUT_HOLD_STORAGE_KEY)
+      if (!raw) return "US"
+
+      const parsed = JSON.parse(raw) as { selectedRegionCode?: string | null }
+      const storedRegion = parsed.selectedRegionCode?.toUpperCase()
+
+      return isShippingRegionCode(storedRegion) ? storedRegion : "US"
+    } catch {
+      return "US"
+    }
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isExtending, setIsExtending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -208,7 +222,7 @@ export function CheckoutPayClient({
         setPricingPreview(body)
         setError(null)
         setIsLoadingPreview(false)
-      } catch (previewError) {
+      } catch {
 
         if (requestSeq !== previewRequestSeqRef.current) {
 
@@ -232,29 +246,7 @@ export function CheckoutPayClient({
   useEffect(() => {
   }, [pricingPreview])
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !holdId) return
-
-    const raw = window.sessionStorage.getItem(CHECKOUT_HOLD_STORAGE_KEY)
-    if (!raw) return
-
-    try {
-      const parsed = JSON.parse(raw) as {
-        cartId?: string | null
-        holdId?: string | null
-        expiresAt?: string | null
-        selectedRegionCode?: string | null
-      }
-
-      const storedRegion = parsed.selectedRegionCode?.toUpperCase()
-
-      if (isShippingRegionCode(storedRegion)) {
-        setSelectedRegionCode(storedRegion)
-      }
-    } catch {
-      // no-op
-    }
-  }, [holdId])
+  // selectedRegionCode is initialized from sessionStorage in useState above; no effect needed here.
 
   useEffect(() => {
     if (!holdId) return
@@ -283,7 +275,8 @@ export function CheckoutPayClient({
 
   useEffect(() => {
     if (!holdId) return
-    void loadPricingPreview()
+    const timer = window.setTimeout(() => void loadPricingPreview(), 0)
+    return () => window.clearTimeout(timer)
   }, [holdId, loadPricingPreview])
 
   useEffect(() => {
