@@ -103,6 +103,12 @@ export function HeaderMobileMenu() {
               Cart
             </MobileMenuLink>
 
+            {!isLoading && !isAuthenticated ? (
+              <MobileMenuLink href="/register" testId="nav-register-mobile" onNavigate={closeMenu}>
+                Register
+              </MobileMenuLink>
+            ) : null}
+
             {!isLoading && canSeeDashboard ? (
               <MobileMenuLink
                 href="/dashboard"

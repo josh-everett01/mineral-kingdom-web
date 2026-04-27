@@ -21,6 +21,12 @@ export function HeaderAuthLinks() {
 
   return (
     <>
+      {!isAuthenticated ? (
+        <Link href="/register" className="hover:text-foreground" data-testid="nav-register">
+          Register
+        </Link>
+      ) : null}
+
       {canSeeDashboard ? (
         <Link href="/dashboard" className="hover:text-foreground" data-testid="nav-dashboard">
           Dashboard

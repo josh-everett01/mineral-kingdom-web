@@ -38,6 +38,16 @@ test("anonymous user does not see dashboard or admin nav links", async ({ page }
   await expect(page.getByTestId("nav-dashboard")).toHaveCount(0)
   await expect(page.getByTestId("nav-admin")).toHaveCount(0)
   await expect(page.getByTestId("nav-login")).toBeVisible()
+  await expect(page.getByTestId("nav-register")).toBeVisible()
+})
+
+test("anonymous user sees register link in mobile menu", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto("/")
+
+  await page.getByTestId("nav-menu-button").click()
+  await expect(page.getByTestId("nav-mobile-menu")).toBeVisible()
+  await expect(page.getByTestId("nav-register-mobile")).toBeVisible()
 })
 
 test("authenticated USER sees dashboard nav but not admin nav", async ({ page }) => {
@@ -89,10 +99,11 @@ test("authenticated USER sees dashboard nav but not admin nav", async ({ page })
   await expect(page.getByTestId("nav-dashboard")).toBeVisible()
   await expect(page.getByTestId("nav-admin")).toHaveCount(0)
   await expect(page.getByTestId("nav-account")).toBeVisible()
+  await expect(page.getByTestId("nav-register")).toHaveCount(0)
 })
 
-test.skip(!hasStaffFixture, "Requires seeded staff fixture (set E2E_STAFF_EMAIL and E2E_STAFF_PASSWORD).")
 test("STAFF sees dashboard nav and admin nav", async ({ page }) => {
+  test.skip(!hasStaffFixture, "Requires seeded staff fixture (set E2E_STAFF_EMAIL and E2E_STAFF_PASSWORD).")
   await page.context().setExtraHTTPHeaders({
     "X-Test-RateLimit-Key": `nav-staff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   })
