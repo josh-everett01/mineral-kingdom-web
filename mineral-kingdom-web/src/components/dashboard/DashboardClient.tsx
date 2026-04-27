@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { bffFetch, type ApiError } from "@/lib/api/bffFetch"
 import type {
   DashboardOpenBoxDto,
@@ -736,6 +737,10 @@ export function DashboardClient() {
   const [data, setData] = useState<MemberDashboardDto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+
+  const searchParams = useSearchParams()
+  const isWelcome = searchParams.get("welcome") === "1"
 
   useEffect(() => {
     let isMounted = true
@@ -835,9 +840,77 @@ export function DashboardClient() {
     )
   }
 
+  const hasActionItems = payableOrders.length > 0 || payableInvoices.length > 0
+  const showWelcomeBanner = isWelcome && !welcomeDismissed && data !== null
+
   return (
     <div className="space-y-6" data-testid="dashboard-page">
       <DashboardHeader />
+
+      {showWelcomeBanner ? (
+        <div
+          className={`rounded-2xl border p-4 shadow-sm ${hasActionItems
+              ? "border-amber-200 bg-amber-50"
+              : "border-green-200 bg-green-50"
+            }`}
+          data-testid="dashboard-welcome-banner"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              {hasActionItems ? (
+                <>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Welcome back! You have items that need your attention.
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-amber-800">
+                    {payableOrders.length > 0 ? (
+                      <li>
+                        &bull;{" "}
+                        {payableOrders.length} unpaid auction order
+                        {payableOrders.length === 1 ? "" : "s"} &mdash; see &ldquo;Action needed&rdquo; below
+                      </li>
+                    ) : null}
+                    {payableInvoices.length > 0 ? (
+                      <li>
+                        &bull;{" "}
+                        {payableInvoices.length} shipping invoice
+                        {payableInvoices.length === 1 ? "" : "s"} ready for payment &mdash; see &ldquo;Action needed&rdquo; below
+                      </li>
+                    ) : null}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-green-900">
+                  Welcome back! Your account is all caught up.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setWelcomeDismissed(true)}
+              className={`shrink-0 rounded-lg p-1 ${hasActionItems
+                  ? "text-amber-700 hover:bg-amber-100"
+                  : "text-green-700 hover:bg-green-100"
+                }`}
+              aria-label="Dismiss"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {(payableOrders.length > 0 || payableInvoices.length > 0) ? (
         <section className="space-y-4" data-testid="dashboard-action-needed">

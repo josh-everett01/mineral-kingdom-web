@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
 function getSafeRedirectTarget(value: string | null | undefined) {
-  if (!value) return "/account"
-  if (!value.startsWith("/")) return "/account"
-  if (value.startsWith("//")) return "/account"
+  if (!value) return "/dashboard?welcome=1"
+  if (!value.startsWith("/")) return "/dashboard?welcome=1"
+  if (value.startsWith("//")) return "/dashboard?welcome=1"
   return value
 }
 
