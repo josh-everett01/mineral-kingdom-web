@@ -167,6 +167,12 @@ export default function PasswordResetRequestClient() {
                   </div>
                 ) : null}
 
+                <div className="text-center text-sm">
+                  <Link href="/login" data-testid="password-reset-back-to-login" className="text-muted-foreground hover:text-foreground">
+                    Back to login
+                  </Link>
+                </div>
+
                 <Button
                   type="submit"
                   data-testid="password-reset-request-submit"

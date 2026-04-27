@@ -2,6 +2,20 @@ import { test, expect } from "@playwright/test";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
+test("login page shows forgot password link", async ({ page }) => {
+  await page.goto("/login");
+  const link = page.getByTestId("login-forgot-password");
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "/password-reset/request");
+});
+
+test("password reset request page shows back to login link", async ({ page }) => {
+  await page.goto("/password-reset/request");
+  const link = page.getByTestId("password-reset-back-to-login");
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "/login");
+});
+
 test("password reset request page submits email and shows generic success", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({
     "X-Test-RateLimit-Key": `password-reset-request-${Date.now()}-${Math.random()
