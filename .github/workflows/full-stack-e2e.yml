@@ -629,8 +629,6 @@ jobs:
         working-directory: mineral-kingdom-web
         env:
           E2E_BACKEND: "1"
-          E2E_EMAIL: ${{ steps.seed_user.outputs.email }}
-          E2E_PASSWORD: ${{ steps.seed_user.outputs.password }}
           E2E_ADMIN_EMAIL: ${{ steps.seed_admin.outputs.email }}
           E2E_ADMIN_PASSWORD: ${{ steps.seed_admin.outputs.password }}
           E2E_ADMIN_LISTINGS_EMAIL: ${{ steps.seed_admin_listings.outputs.email }}

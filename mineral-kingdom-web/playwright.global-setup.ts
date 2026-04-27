@@ -31,5 +31,12 @@ export default async function globalSetup() {
     )
   }
 
+  // Expose the fixture search-user email so admin-users tests can find a
+  // deterministic USER-role account regardless of prior-run state.
+  const seedData = (await seedRes.json()) as { adminSearchUserEmail?: string }
+  if (seedData.adminSearchUserEmail && !process.env.E2E_EMAIL) {
+    process.env.E2E_EMAIL = seedData.adminSearchUserEmail
+  }
+
   await ctx.dispose()
 }
