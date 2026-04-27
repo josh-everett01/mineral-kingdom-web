@@ -27,11 +27,13 @@ export default function LoginClient() {
   const [password, setPassword] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [emailNotVerified, setEmailNotVerified] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
+    setEmailNotVerified(false)
 
     try {
       const res = await fetch("/api/bff/auth/login", {
@@ -40,9 +42,17 @@ export default function LoginClient() {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = (await res.json()) as { ok: boolean; message?: string }
+      const data = (await res.json()) as {
+        ok: boolean
+        message?: string
+        details?: { error?: string }
+      }
 
       if (!res.ok || !data.ok) {
+        if (data.details?.error === "EMAIL_NOT_VERIFIED") {
+          setEmailNotVerified(true)
+          return
+        }
         const msg = data.message ?? "Login failed"
         setError(msg)
         toast.error(msg)
@@ -105,6 +115,21 @@ export default function LoginClient() {
                 required
               />
             </div>
+
+            {emailNotVerified && (
+              <div
+                data-testid="login-error-email-not-verified"
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1"
+              >
+                <div>Your email address hasn&apos;t been verified yet.</div>
+                <Link
+                  href={`/resend-verification?email=${encodeURIComponent(email)}`}
+                  className="underline hover:no-underline"
+                >
+                  Resend verification email
+                </Link>
+              </div>
+            )}
 
             {error && (
               <div
