@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 import { Container } from "@/components/site/Container"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,7 +37,8 @@ function isValidEmail(value: string) {
 }
 
 export default function ResendVerificationClient() {
-  const [email, setEmail] = React.useState("")
+  const search = useSearchParams()
+  const [email, setEmail] = React.useState(() => search.get("email")?.trim() ?? "")
   const [emailError, setEmailError] = React.useState<string | null>(null)
   const [state, setState] = React.useState<ViewState>({ status: "idle" })
 
