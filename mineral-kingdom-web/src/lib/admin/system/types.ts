@@ -47,14 +47,3 @@ export type AdminSystemWebhooks = {
   oldestUnprocessedReceivedAt: string | null
   recentEvents: AdminWebhookEventListItem[]
 }
-
-export type SystemHealthResponse = {
-  status?: string
-  [key: string]: unknown
-}
-
-export type DatabasePingResponse = {
-  status?: string
-  ok?: boolean
-  [key: string]: unknown
-}

@@ -2,8 +2,6 @@ import type {
   AdminSystemJobs,
   AdminSystemSummary,
   AdminSystemWebhooks,
-  DatabasePingResponse,
-  SystemHealthResponse,
 } from "@/lib/admin/system/types"
 
 async function readJson<T>(response: Response, fallbackMessage: string): Promise<T> {
@@ -21,26 +19,6 @@ async function readJson<T>(response: Response, fallbackMessage: string): Promise
   }
 
   return response.json() as Promise<T>
-}
-
-export async function getSystemHealth(): Promise<SystemHealthResponse> {
-  const response = await fetch("/api/bff/system/health", {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-  })
-
-  return readJson<SystemHealthResponse>(response, "Failed to load system health.")
-}
-
-export async function getDatabasePing(): Promise<DatabasePingResponse> {
-  const response = await fetch("/api/bff/system/db-ping", {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-  })
-
-  return readJson<DatabasePingResponse>(response, "Failed to load database ping.")
 }
 
 export async function getAdminSystemSummary(): Promise<AdminSystemSummary> {

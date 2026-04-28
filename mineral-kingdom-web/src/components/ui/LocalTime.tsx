@@ -26,6 +26,7 @@ export function LocalTime({
 }) {
   const [display, setDisplay] = useState<string>(fallback)
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: server renders fallback, effect sets real browser-timezone value post-hydration
   useEffect(() => {
     if (!value) {
       setDisplay(fallback)
