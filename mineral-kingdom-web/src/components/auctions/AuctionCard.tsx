@@ -1,10 +1,9 @@
 import Link from "next/link"
 import {
-  formatEndsAt,
   formatMoney,
-  formatStartsAt,
   type AuctionBrowseItemDto,
 } from "@/lib/auctions/getAuctions"
+import { LocalTime } from "@/components/ui/LocalTime"
 
 type Props = {
   item: AuctionBrowseItemDto
@@ -79,10 +78,10 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
                 Opening bid: {formatMoney(item.startingPriceCents) ?? "—"}
               </p>
               <p className="text-stone-600" data-testid="auction-card-bid-count">
-                Starts: {formatStartsAt(item.startTimeUtc) ?? "—"}
+                Starts: <LocalTime value={item.startTimeUtc} />
               </p>
               <p className="text-stone-600" data-testid="auction-card-closing-time">
-                Ends: {formatEndsAt(item.closingTimeUtc) ?? "—"}
+                Ends: <LocalTime value={item.closingTimeUtc} />
               </p>
             </>
           ) : (
@@ -94,7 +93,7 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
                 {item.bidCount} bid{item.bidCount === 1 ? "" : "s"}
               </p>
               <p className="text-stone-600" data-testid="auction-card-closing-time">
-                Ends: {formatEndsAt(item.closingTimeUtc) ?? "—"}
+                Ends: <LocalTime value={item.closingTimeUtc} />
               </p>
             </>
           )}

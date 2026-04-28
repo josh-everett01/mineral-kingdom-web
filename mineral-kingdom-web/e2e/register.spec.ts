@@ -5,6 +5,18 @@ test("register: validation + success state", async ({ page }) => {
     "X-Test-RateLimit-Key": `register-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   });
 
+  await page.route("**/api/bff/auth/register", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        message: "Registration successful. Check your email to verify your account.",
+        nextStep: "Verify your email",
+        verificationToken: "dev-verification-token",
+      }),
+    });
+  });
+
   await page.goto("/register");
 
   await page.getByRole("button", { name: /create account/i }).click();

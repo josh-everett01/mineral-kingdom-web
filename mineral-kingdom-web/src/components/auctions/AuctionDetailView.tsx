@@ -8,9 +8,9 @@ import { ListingImageGallery } from "@/components/listings/ListingImageGallery"
 import {
   type AuctionDetailDto,
   fetchAuctionDetailClient,
-  formatEndsAt,
   formatMoney,
 } from "@/lib/auctions/getAuctionDetail"
+import { LocalTime } from "@/components/ui/LocalTime"
 import { useAuctionRealtime } from "@/lib/auctions/useAuctionRealtime"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
@@ -353,7 +353,7 @@ export function AuctionDetailView({ data }: Props) {
               <div>
                 <dt className="font-medium text-stone-500">Ends</dt>
                 <dd className="mt-1" data-testid="auction-detail-closing-time">
-                  {formatEndsAt(detail.closingTimeUtc) ?? "—"}
+                  <LocalTime value={detail.closingTimeUtc} />
                 </dd>
               </div>
 

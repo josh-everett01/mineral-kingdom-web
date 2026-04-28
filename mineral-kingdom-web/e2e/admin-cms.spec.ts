@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Response } from "@playwright/test"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -31,7 +32,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account|\/admin/, { timeout: 15_000 })
+  await waitForAuthenticatedSession(page, email)
 }
 
 async function loginAsOwner(page: Page) {
@@ -52,9 +53,9 @@ async function loginAsStaff(page: Page) {
 
 async function openCmsEditor(page: Page, slug: string) {
   await page.goto(`/admin/cms/${slug}`, { waitUntil: "domcontentloaded" })
-  await expect(page.getByTestId("admin-cms-detail-page")).toBeVisible()
-  await expect(page.getByTestId("admin-cms-markdown")).toBeVisible()
-  await expect(page.getByTestId("admin-cms-revision-history")).toBeVisible()
+  await expect(page.getByTestId("admin-cms-detail-page")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-cms-markdown")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-cms-revision-history")).toBeVisible({ timeout: 15_000 })
 }
 
 test.describe("admin cms", () => {

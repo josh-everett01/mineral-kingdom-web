@@ -1,5 +1,3 @@
-import { headers } from "next/headers"
-
 export type HomeSectionItemDto = {
   listingId: string
   auctionId?: string | null
@@ -32,25 +30,11 @@ export type HomeSectionsDto = {
   newArrivals: HomeSectionDto
 }
 
-async function getAppOrigin(): Promise<string> {
-  const h = await headers()
-
-  const proto =
-    h.get("x-forwarded-proto") ??
-    (process.env.NODE_ENV === "production" ? "https" : "http")
-
-  const host =
-    h.get("x-forwarded-host") ??
-    h.get("host") ??
-    "localhost:3000"
-
-  return `${proto}://${host}`
-}
-
 export async function fetchHomeSections(): Promise<HomeSectionsDto | null> {
-  const origin = await getAppOrigin()
+  const apiBase =
+    process.env.API_BASE_URL ?? "http://localhost:8080"
 
-  const res = await fetch(`${origin}/api/bff/home/sections`, {
+  const res = await fetch(`${apiBase}/api/home/sections`, {
     cache: "no-store",
   })
 

@@ -113,6 +113,26 @@ async function mockTicketList(page: Page, tickets: unknown[] = []) {
   })
 }
 
+async function fillSupportRequestForm(
+  page: Page,
+  values: { subject: string; category: string; message: string },
+) {
+  const subjectInput = page.getByTestId("support-form-subject")
+  const messageInput = page.getByTestId("support-form-message")
+
+  await expect(subjectInput).toBeVisible()
+  await expect(subjectInput).toBeEditable()
+  await subjectInput.fill(values.subject)
+  await expect(subjectInput).toHaveValue(values.subject)
+
+  await page.getByTestId("support-form-category").selectOption(values.category)
+
+  await expect(messageInput).toBeVisible()
+  await expect(messageInput).toBeEditable()
+  await messageInput.fill(values.message)
+  await expect(messageInput).toHaveValue(values.message)
+}
+
 // ---------------------------------------------------------------------------
 // Member thread view
 // ---------------------------------------------------------------------------
@@ -429,10 +449,15 @@ test.describe("support form success state", () => {
     })
 
     await page.goto("/support/new", { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("nav-logout")).toBeVisible()
+    await expect(page.getByTestId("nav-support")).toBeVisible()
 
-    await page.getByTestId("support-form-subject").fill("Member subject")
-    await page.getByTestId("support-form-category").selectOption("OTHER")
-    await page.getByTestId("support-form-message").fill("Member test message with enough detail.")
+    await fillSupportRequestForm(page, {
+      subject: "Member subject",
+      category: "OTHER",
+      message: "Member test message with enough detail.",
+    })
+
     await page.getByTestId("support-form-submit").click()
 
     await expect(page.getByTestId("support-form-success")).toBeVisible({
@@ -480,10 +505,15 @@ test.describe("support form success state", () => {
     })
 
     await page.goto("/support/new", { waitUntil: "domcontentloaded" })
+    await expect(page.getByTestId("nav-login")).toBeVisible()
+    await expect(page.getByTestId("nav-register")).toBeVisible()
 
-    await page.getByTestId("support-form-subject").fill("Guest subject")
-    await page.getByTestId("support-form-category").selectOption("OTHER")
-    await page.getByTestId("support-form-message").fill("Guest test message with enough detail.")
+    await fillSupportRequestForm(page, {
+      subject: "Guest subject",
+      category: "OTHER",
+      message: "Guest test message with enough detail.",
+    })
+
     await page.getByTestId("support-form-submit").click()
 
     await expect(page.getByTestId("support-form-success")).toBeVisible({

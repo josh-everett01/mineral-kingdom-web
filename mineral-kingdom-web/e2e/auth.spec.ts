@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -6,6 +7,13 @@ test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1
 
 type RegisterResponse = {
   verificationToken?: string
+}
+
+async function expectAuthenticatedAccount(
+  page: import("@playwright/test").Page,
+  email: string,
+) {
+  await waitForAuthenticatedSession(page, email)
 }
 
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {
@@ -18,7 +26,7 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
 
   await page.context().clearCookies()
 
-  await page.goto("/account")
+  await page.goto("/admin")
   await expect(page).toHaveURL(/\/login(\?|$)/)
   await expect(page.getByTestId("login-title")).toBeVisible()
 
@@ -71,9 +79,7 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
-  await expect(page.getByTestId("account-session-card")).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", { timeout: 15_000 })
+  await expectAuthenticatedAccount(page, email)
 
   await page.getByTestId("nav-logout").click()
   await expect(page).toHaveURL(/\/$/, { timeout: 15_000 })

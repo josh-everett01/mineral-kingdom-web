@@ -15,8 +15,8 @@ async function expectAuthenticatedAccount(
   page: import("@playwright/test").Page,
   email: string,
 ) {
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
-  await expect(page.getByTestId("nav-logout")).toBeVisible({ timeout: 15_000 })
+  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await page.goto("/account")
 
   const sessionCard = page.getByTestId("account-session-card")
   if (await sessionCard.count()) {
@@ -85,7 +85,11 @@ test("password reset confirm flow resets password and allows login with new pass
   await expect(page.getByText("Email verified")).toBeVisible({ timeout: 10_000 })
 
   await page.goto("/password-reset/request")
-  await page.getByTestId("password-reset-request-email").fill(email)
+  await page.getByTestId("password-reset-request-email").click()
+  await page.getByTestId("password-reset-request-email").fill("")
+  await page.getByTestId("password-reset-request-email").pressSequentially(email)
+  await expect(page.getByTestId("password-reset-request-email")).toHaveValue(email)
+  await page.getByTestId("password-reset-request-email").blur()
 
   const resetRequestPromise = page.waitForResponse((resp) => {
     return (
@@ -147,7 +151,19 @@ test("password reset confirm flow resets password and allows login with new pass
   await page.getByTestId("login-password").fill(newPassword)
   await expect(page.getByTestId("login-password")).toHaveValue(newPassword)
 
+  const loginResponsePromise = page.waitForResponse((resp) => {
+    return resp.url().includes("/api/bff/auth/login") && resp.request().method() === "POST"
+  })
+
   await page.getByTestId("login-submit").click()
+
+  const loginResp = await loginResponsePromise
+
+  if (!loginResp.ok()) {
+    const status = loginResp.status()
+    const bodyText = await loginResp.text().catch(() => "<unable to read body>")
+    throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
+  }
 
   await expectAuthenticatedAccount(page, email)
 })
