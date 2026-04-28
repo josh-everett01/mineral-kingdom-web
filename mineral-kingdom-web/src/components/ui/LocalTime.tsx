@@ -26,7 +26,9 @@ export function LocalTime({
 }) {
   const [display, setDisplay] = useState<string>(fallback)
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: server renders fallback, effect sets real browser-timezone value post-hydration
+  // Intentional: server renders fallback ("—"), effect sets real browser-timezone
+  // value post-hydration. Cloudflare Workers has no local timezone so server = UTC.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!value) {
       setDisplay(fallback)
@@ -39,6 +41,7 @@ export function LocalTime({
     }
     setDisplay(new Intl.DateTimeFormat("en-US", dateFormatOptions).format(date))
   }, [value, fallback])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return <span>{display}</span>
 }
