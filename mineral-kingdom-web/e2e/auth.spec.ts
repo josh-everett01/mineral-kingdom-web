@@ -16,21 +16,15 @@ async function expectAuthenticatedAccount(
   await page.goto("/account")
 
   const sessionCard = page.getByTestId("account-session-card")
-  if (await sessionCard.count()) {
-    await expect(sessionCard).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
-      timeout: 15_000,
-    })
+  await expect(sessionCard).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
+    timeout: 15_000,
+  })
 
-    const emailValue = page.getByTestId("account-email-value")
-    if (await emailValue.count()) {
-      await expect(emailValue).toHaveText(email, { timeout: 15_000 })
-    }
-
-    return
+  const emailValue = page.getByTestId("account-email-value")
+  if (await emailValue.count()) {
+    await expect(emailValue).toHaveText(email, { timeout: 15_000 })
   }
-
-  await expect(page.getByText(email)).toBeVisible({ timeout: 15_000 })
 }
 
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {

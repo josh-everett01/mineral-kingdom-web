@@ -95,6 +95,7 @@ export default defineConfig({
     {
       name: "chromium-reseed",
       testMatch: reseedSerializedSpecs,
+      dependencies: ["chromium", "chromium-admin", "chromium-auth", "chromium-serialized"],
       fullyParallel: false,
       workers: 1,
       use: { ...devices["Desktop Chrome"] },
