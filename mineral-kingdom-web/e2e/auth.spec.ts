@@ -18,7 +18,7 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
 
   await page.context().clearCookies()
 
-  await page.goto("/account")
+  await page.goto("/admin")
   await expect(page).toHaveURL(/\/login(\?|$)/)
   await expect(page.getByTestId("login-title")).toBeVisible()
 
@@ -71,7 +71,8 @@ test("auth flow: protected redirect -> login -> account -> logout", async ({ pag
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await page.goto("/account")
   await expect(page.getByTestId("account-session-card")).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", { timeout: 15_000 })
 

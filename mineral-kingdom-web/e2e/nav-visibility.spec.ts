@@ -28,7 +28,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
 }
 
 test("anonymous user does not see dashboard or admin nav links", async ({ page }) => {

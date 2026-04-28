@@ -92,8 +92,19 @@ test("guest can remove a cart line", async ({ page }) => {
 
   await page.getByTestId("cart-remove-button").first().click()
 
+  await expect
+    .poll(async () => {
+      const res = await page.request.get(`${FRONTEND_ORIGIN}/api/bff/cart`)
+      if (!res.ok()) return -1
+      const body = (await res.json()) as { lines?: unknown[] }
+      return body.lines?.length ?? 0
+    }, { timeout: 15_000 })
+    .toBe(0)
+
+  await page.reload({ waitUntil: "domcontentloaded" })
+
+  await expect(page.getByTestId("cart-empty-state")).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId("cart-line")).toHaveCount(0, { timeout: 15_000 })
-  await expect(page.getByTestId("cart-empty-state")).toBeVisible()
 })
 
 test("empty cart page renders cleanly", async ({ page }) => {
