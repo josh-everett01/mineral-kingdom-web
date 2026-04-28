@@ -52,9 +52,9 @@ async function loginAsStaff(page: Page) {
 
 async function openCmsEditor(page: Page, slug: string) {
   await page.goto(`/admin/cms/${slug}`, { waitUntil: "domcontentloaded" })
-  await expect(page.getByTestId("admin-cms-detail-page")).toBeVisible()
-  await expect(page.getByTestId("admin-cms-markdown")).toBeVisible()
-  await expect(page.getByTestId("admin-cms-revision-history")).toBeVisible()
+  await expect(page.getByTestId("admin-cms-detail-page")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-cms-markdown")).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-cms-revision-history")).toBeVisible({ timeout: 15_000 })
 }
 
 test.describe("admin cms", () => {

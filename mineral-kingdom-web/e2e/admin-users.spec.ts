@@ -52,7 +52,6 @@ async function loginAsStaff(page: Page) {
 
 async function waitForUsersPageReady(page: Page) {
   await expect(page.getByTestId("admin-users-page")).toBeVisible()
-  await page.waitForLoadState("networkidle")
   await expect(page.getByText(/showing \d+ user|no users found/i)).toBeVisible({ timeout: 15_000 })
 }
 

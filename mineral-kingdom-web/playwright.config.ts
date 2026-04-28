@@ -1,13 +1,22 @@
 import { defineConfig, devices } from "@playwright/test"
 
 const serializedSpecs = [
+  "**/admin-*.spec.ts",
+  "**/auth.spec.ts",
   "**/checkout-return-confirmation.spec.ts",
+  "**/checkout.spec.ts",
+  "**/checkout-shipping-address.spec.ts",
+  "**/cart-bridge.spec.ts",
   "**/shipping-invoice-detail.spec.ts",
   "**/auction-detail.spec.ts",
   "**/order-detail.spec.ts",
   "**/dashboard.spec.ts",
   "**/open-box.spec.ts",
   "**/fulfillment.spec.ts",
+  "**/password-reset*.spec.ts",
+  "**/register.spec.ts",
+  "**/register-verify-login.spec.ts",
+  "**/resend-verification.spec.ts",
 ]
 
 export default defineConfig({
