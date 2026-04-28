@@ -2,16 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import {
-  getAdminSystemSummary,
-  getDatabasePing,
-  getSystemHealth,
-} from "@/lib/admin/system/api"
-import type {
-  AdminSystemSummary,
-  DatabasePingResponse,
-  SystemHealthResponse,
-} from "@/lib/admin/system/types"
+import { getAdminSystemSummary } from "@/lib/admin/system/api"
+import type { AdminSystemSummary } from "@/lib/admin/system/types"
 
 function formatDate(value: string | null) {
   if (!value) return "—"
@@ -27,36 +19,28 @@ function statusTone(ok: boolean) {
 }
 
 export function AdminSystemPage() {
-  const [health, setHealth] = useState<SystemHealthResponse | null>(null)
-  const [dbPing, setDbPing] = useState<DatabasePingResponse | null>(null)
   const [summary, setSummary] = useState<AdminSystemSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastChecked, setLastChecked] = useState<Date | null>(null)
+
+  async function load() {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await getAdminSystemSummary()
+      setSummary(data)
+      setLastChecked(new Date())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load system page.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        const [healthData, dbData, summaryData] = await Promise.all([
-          getSystemHealth(),
-          getDatabasePing(),
-          getAdminSystemSummary(),
-        ])
-
-        setHealth(healthData)
-        setDbPing(dbData)
-        setSummary(summaryData)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load system page.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     void load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is defined in this component, stable across renders
 
   const appHealthy = summary?.appHealthy ?? false
   const dbHealthy = summary?.databaseReachable ?? false
@@ -71,11 +55,28 @@ export function AdminSystemPage() {
 
   return (
     <div data-testid="admin-system-page" className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">System</h1>
-        <p className="text-sm text-muted-foreground">
-          Lightweight operational visibility for health, jobs, and webhook issues.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">System</h1>
+          <p className="text-sm text-muted-foreground">
+            Operational visibility for health, jobs, and webhook issues.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={isLoading}
+            className="inline-flex rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            Refresh
+          </button>
+          {lastChecked ? (
+            <span className="text-xs text-muted-foreground">
+              Last checked {lastChecked.toLocaleTimeString()}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
@@ -91,7 +92,7 @@ export function AdminSystemPage() {
         >
           <h2 className="text-lg font-semibold">Application health</h2>
           <p className="mt-2 text-sm">
-            Status: {String(health?.status ?? (appHealthy ? "healthy" : "unhealthy"))}
+            Status: {appHealthy ? "healthy" : "unhealthy"}
           </p>
         </section>
 
@@ -101,7 +102,7 @@ export function AdminSystemPage() {
         >
           <h2 className="text-lg font-semibold">Database health</h2>
           <p className="mt-2 text-sm">
-            Status: {String(dbPing?.status ?? (dbHealthy ? "reachable" : "unreachable"))}
+            Status: {dbHealthy ? "reachable" : "unreachable"}
           </p>
         </section>
 
@@ -118,11 +119,11 @@ export function AdminSystemPage() {
             </div>
             <div className="flex items-center justify-between gap-4">
               <dt className="text-muted-foreground">DLQ</dt>
-              <dd>{summary?.deadLetterJobs ?? 0}</dd>
+              <dd className={summary?.deadLetterJobs ? "text-destructive font-medium" : ""}>{summary?.deadLetterJobs ?? 0}</dd>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Recent failed jobs</dt>
-              <dd>{summary?.recentFailedJobs ?? 0}</dd>
+              <dt className="text-muted-foreground">Failed (last 7 days)</dt>
+              <dd className={summary?.recentFailedJobs ? "text-destructive font-medium" : ""}>{summary?.recentFailedJobs ?? 0}</dd>
             </div>
           </dl>
         </section>
@@ -132,7 +133,7 @@ export function AdminSystemPage() {
           <dl className="mt-4 grid gap-3 text-sm">
             <div className="flex items-center justify-between gap-4">
               <dt className="text-muted-foreground">Unprocessed events</dt>
-              <dd>{summary?.unprocessedWebhookEvents ?? 0}</dd>
+              <dd className={summary?.unprocessedWebhookEvents ? "text-destructive font-medium" : ""}>{summary?.unprocessedWebhookEvents ?? 0}</dd>
             </div>
             <div className="flex items-center justify-between gap-4">
               <dt className="text-muted-foreground">Last received</dt>

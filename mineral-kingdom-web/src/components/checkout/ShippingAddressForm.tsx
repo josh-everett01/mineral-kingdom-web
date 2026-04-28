@@ -55,7 +55,7 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
     countryCode: initialValues?.countryCode ?? "US",
   })
 
-  const [touched, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({})
+  const [, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
 
   const validationErrors = validate(fields)

@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { formatEndsAt, formatMoney, type ListingBrowseItemDto } from "@/lib/shop/getListings"
+import { formatMoney, type ListingBrowseItemDto } from "@/lib/shop/getListings"
+import { LocalTime } from "@/components/ui/LocalTime"
 
 type Props = {
   item: ListingBrowseItemDto
@@ -45,7 +46,7 @@ export function ListingBrowseCard({ item }: Props) {
 
   const savingsLabel = getStoreSavingsLabel(item)
   const priceLabel = isAuction ? "Current bid" : "Price"
-  const endsAt = isAuction ? formatEndsAt(item.endsAt) : null
+  const endsAt = isAuction ? item.endsAt : null
 
   return (
     <article
@@ -109,7 +110,7 @@ export function ListingBrowseCard({ item }: Props) {
               </p>
               {endsAt ? (
                 <p className="text-stone-600" data-testid="shop-listing-card-ends-at">
-                  Ends: {endsAt}
+                  Ends: <LocalTime value={endsAt} />
                 </p>
               ) : (
                 <div className="h-[20px]" />

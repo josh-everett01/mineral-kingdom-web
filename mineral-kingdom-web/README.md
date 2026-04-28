@@ -4,6 +4,39 @@ Frontend application for the Mineral Kingdom marketplace and auction platform.
 
 This repo contains the user-facing web app built with **Next.js App Router**, with a **BFF layer** for frontend-safe API access to the Mineral Kingdom backend.
 
+## Deploying
+
+> **Important:** `npm run deploy` alone will fail if `.next/` doesn't exist. Always run `build` first.
+
+```bash
+# 1. Build Next.js output
+npm run build
+
+# 2. Bundle for Cloudflare Workers + upload via Wrangler
+npm run deploy
+```
+
+The `deploy` script runs `opennextjs-cloudflare build && opennextjs-cloudflare deploy` — it needs the `.next/` directory produced by `next build`.
+
+Live site: **https://mineralkingdom.net**
+
+---
+
+## Date / Time Rendering
+
+All dates stored as UTC ISO strings. **Never render ISO strings directly in server components** — Cloudflare Workers runtime has no local timezone so they will display in UTC.
+
+Always use the `<LocalTime>` client component:
+
+```tsx
+import { LocalTime } from "@/components/ui/LocalTime"
+<LocalTime value={item.closingTimeUtc} />
+```
+
+`LocalTime` renders `"—"` on the server and sets the real browser-timezone value after hydration.
+
+---
+
 ## Current Focus
 
 This frontend currently includes foundational work for:

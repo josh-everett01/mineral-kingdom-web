@@ -1,11 +1,10 @@
 import Link from "next/link"
 import {
   HomeSectionDto,
-  formatEndsAt,
   formatMoney,
-  formatStartsAt,
 } from "@/lib/home/getHomeSections"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { LocalTime } from "@/components/ui/LocalTime"
 import { Button } from "@/components/ui/button"
 
 type HomeSectionProps = {
@@ -91,8 +90,8 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                 : null
 
             const savingsLabel = getSavingsLabel(item, kind)
-            const endsAt = kind === "auction" && !scheduledAuction ? formatEndsAt(item.endsAt) : null
-            const startsAt = kind === "auction" && scheduledAuction ? formatStartsAt(item.startTime) : null
+            const endsAt = kind === "auction" && !scheduledAuction ? item.endsAt : null
+            const startsAt = kind === "auction" && scheduledAuction ? item.startTime : null
 
             return (
               <Card
@@ -130,7 +129,7 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                         <div className="min-h-[56px] space-y-1">
                           <div className="font-medium">{`Opening bid: ${displayPrice}`}</div>
                           {startsAt ? (
-                            <div className="text-muted-foreground">Starts: {startsAt}</div>
+                            <div className="text-muted-foreground">Starts: <LocalTime value={startsAt} /></div>
                           ) : (
                             <div className="h-[20px]" />
                           )}
@@ -139,7 +138,7 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
                         <div className="min-h-[56px] space-y-1">
                           <div className="font-medium">{`Current bid: ${displayPrice}`}</div>
                           {endsAt ? (
-                            <div className="text-muted-foreground">Ends: {endsAt}</div>
+                            <div className="text-muted-foreground">Ends: <LocalTime value={endsAt} /></div>
                           ) : (
                             <div className="h-[20px]" />
                           )}

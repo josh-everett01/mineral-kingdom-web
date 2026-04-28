@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getAdminListings } from "@/lib/admin/listings/api"
+import { getAdminListing, getAdminListings } from "@/lib/admin/listings/api"
 import { AdminListingListItem } from "@/lib/admin/listings/types"
 import { createAdminAuction } from "@/lib/admin/auctions/api"
 import { AdminShippingRateInput } from "@/lib/admin/auctions/types"
@@ -126,6 +126,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
   const [listingQuery, setListingQuery] = useState("")
   const [publishedListings, setPublishedListings] = useState<AdminListingListItem[]>([])
   const [isLoadingListings, setIsLoadingListings] = useState(true)
+  const [isLoadingListingDetail, setIsLoadingListingDetail] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -179,11 +180,34 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
     setSuccess(null)
   }
 
-  function selectListing(item: AdminListingListItem) {
+  async function selectListing(item: AdminListingListItem) {
     setField("listingId", item.id)
     setListingQuery(item.title ?? item.id)
     setError(null)
     setSuccess(null)
+
+    try {
+      setIsLoadingListingDetail(true)
+      const detail = await getAdminListing(item.id)
+
+      if (detail.shippingRates && detail.shippingRates.length > 0) {
+        setForm((current) => ({
+          ...current,
+          shippingRates: current.shippingRates.map((row) => {
+            const match = detail.shippingRates.find(
+              (r) => r.regionCode === row.regionCode,
+            )
+            return match && match.amountCents != null
+              ? { ...row, amount: (match.amountCents / 100).toFixed(2) }
+              : row
+          }),
+        }))
+      }
+    } catch {
+      // non-fatal — user can fill in shipping manually
+    } finally {
+      setIsLoadingListingDetail(false)
+    }
   }
 
   async function handleSubmit() {
@@ -338,7 +362,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
                   key={item.id}
                   type="button"
                   data-testid={`admin-auction-listing-option-${item.id}`}
-                  onClick={() => selectListing(item)}
+                  onClick={() => void selectListing(item)}
                   className="block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent last:border-b-0"
                 >
                   <div className="font-medium">{item.title?.trim() || "Untitled listing"}</div>
@@ -350,6 +374,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
 
           <div className="mt-2 text-xs text-muted-foreground">
             Selected listing id: {form.listingId || "—"}
+            {isLoadingListingDetail ? " — loading shipping rates…" : ""}
           </div>
         </div>
 

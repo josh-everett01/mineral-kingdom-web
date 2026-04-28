@@ -65,9 +65,10 @@ test("authenticated USER visiting admin route sees 403", async ({ page }) => {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await page.waitForLoadState("domcontentloaded")
 
-  await page.goto("/admin/store/offers")
+  await page.goto("/admin/store/offers", { waitUntil: "domcontentloaded" })
   await expect(page).toHaveURL(/\/403/, { timeout: 15_000 })
   await expect(page.getByTestId("forbidden-page")).toBeVisible()
   await expect(page.getByTestId("forbidden-page")).toContainText(/access denied/i)

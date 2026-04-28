@@ -14,6 +14,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
 
+    // OpenNext / Cloudflare Workers build output
+    ".open-next/**",
+    ".wrangler/**",
+    ".worker-next/**",
+
     // ✅ Generated OpenAPI types
     "src/lib/api/generated/**",
   ]),

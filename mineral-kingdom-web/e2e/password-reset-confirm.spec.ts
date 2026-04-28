@@ -15,7 +15,8 @@ async function expectAuthenticatedAccount(
   page: import("@playwright/test").Page,
   email: string,
 ) {
-  await expect(page).toHaveURL(/\/account/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await page.goto("/account")
   await expect(page.getByTestId("nav-logout")).toBeVisible({ timeout: 15_000 })
 
   const sessionCard = page.getByTestId("account-session-card")
