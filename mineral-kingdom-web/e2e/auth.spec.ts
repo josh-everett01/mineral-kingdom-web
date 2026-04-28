@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -12,19 +13,7 @@ async function expectAuthenticatedAccount(
   page: import("@playwright/test").Page,
   email: string,
 ) {
-  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
-  await page.goto("/account")
-
-  const sessionCard = page.getByTestId("account-session-card")
-  await expect(sessionCard).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
-    timeout: 15_000,
-  })
-
-  const emailValue = page.getByTestId("account-email-value")
-  if (await emailValue.count()) {
-    await expect(emailValue).toHaveText(email, { timeout: 15_000 })
-  }
+  await waitForAuthenticatedSession(page, email)
 }
 
 test("auth flow: protected redirect -> login -> account -> logout", async ({ page }) => {

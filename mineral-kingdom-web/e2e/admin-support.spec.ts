@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Response } from "@playwright/test"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -36,7 +37,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account|\/admin|\/dashboard/, { timeout: 15_000 })
+  await waitForAuthenticatedSession(page, email)
 }
 
 async function loginAsAdmin(page: Page) {
