@@ -52,7 +52,19 @@ async function loginAsStaff(page: Page) {
 
 async function waitForUsersPageReady(page: Page) {
   await expect(page.getByTestId("admin-users-page")).toBeVisible()
-  await expect(page.getByText(/showing \d+ user|no users found/i)).toBeVisible({ timeout: 15_000 })
+  const summary = page.getByText(/showing \d+ user/i).first()
+  const emptyState = page.getByText(/no users found/i).first()
+
+  await expect
+    .poll(
+      async () => {
+        const summaryVisible = await summary.isVisible().catch(() => false)
+        const emptyVisible = await emptyState.isVisible().catch(() => false)
+        return summaryVisible || emptyVisible
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true)
 }
 
 async function searchForUser(page: Page, email: string) {
