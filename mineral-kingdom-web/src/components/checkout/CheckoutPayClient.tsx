@@ -102,7 +102,7 @@ export function CheckoutPayClient({
   isAuthenticated,
   initialCart,
 }: Props) {
-  const [selectedProvider] = useState<"stripe" | "paypal">("stripe")
+  const [selectedProvider, setSelectedProvider] = useState<"stripe" | "paypal">("stripe")
   const [selectedShippingMode, setSelectedShippingMode] = useState<"SHIP_NOW" | "OPEN_BOX">(
     "SHIP_NOW",
   )
@@ -766,17 +766,43 @@ export function CheckoutPayClient({
         )}
       </section>
 
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-stone-900">Payment method</legend>
+      <section className="mk-glass-strong space-y-3 rounded-[2rem] p-5 sm:p-6">
+        <p className="text-sm font-semibold text-[color:var(--mk-ink)]">Payment method</p>
 
-        <label className="flex items-center gap-3 rounded-xl border border-stone-200 p-4">
-          ...
-        </label>
+        <div role="radiogroup" aria-label="Payment method" className="space-y-3">
+          <ChoiceCard
+            checked={selectedProvider === "stripe"}
+            title="Stripe"
+            description="Pay securely by card through Stripe."
+          >
+            <input
+              type="radio"
+              name="payment-provider"
+              value="stripe"
+              checked={selectedProvider === "stripe"}
+              onChange={() => setSelectedProvider("stripe")}
+              className="mt-1 accent-[color:var(--mk-amethyst)]"
+              data-testid="checkout-pay-provider-stripe"
+            />
+          </ChoiceCard>
 
-        <label className="flex items-center gap-3 rounded-xl border border-stone-200 p-4">
-          ...
-        </label>
-      </fieldset>
+          <ChoiceCard
+            checked={selectedProvider === "paypal"}
+            title="PayPal / Venmo"
+            description="Continue with PayPal or Venmo when supported by the payment provider."
+          >
+            <input
+              type="radio"
+              name="payment-provider"
+              value="paypal"
+              checked={selectedProvider === "paypal"}
+              onChange={() => setSelectedProvider("paypal")}
+              className="mt-1 accent-[color:var(--mk-amethyst)]"
+              data-testid="checkout-pay-provider-paypal"
+            />
+          </ChoiceCard>
+        </div>
+      </section>
 
       <section
         className="mk-glass-strong space-y-4 rounded-[2rem] p-5 sm:p-6"

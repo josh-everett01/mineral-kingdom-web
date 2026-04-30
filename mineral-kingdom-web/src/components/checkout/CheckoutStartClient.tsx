@@ -304,6 +304,8 @@ export function CheckoutStartClient({
       setMaxExtensions(0)
       setRecoveryMessage("Checkout session reset. Enter a different email to continue.")
       setIsResetting(false)
+
+      window.location.assign("/checkout")
     } catch {
       setRecoveryMessage("We couldn't reset the current checkout session right now.")
       setIsResetting(false)
@@ -413,9 +415,23 @@ export function CheckoutStartClient({
           )}
 
           {initialError ? (
-            <Alert tone="danger" testId="checkout-start-error">
-              {initialError}
-            </Alert>
+            <div className="space-y-3">
+              <Alert tone="danger" testId="checkout-start-error">
+                {initialError}
+              </Alert>
+
+              {!isAuthenticated && initialError.toLowerCase().includes("another email") ? (
+                <button
+                  type="button"
+                  onClick={() => void handleResetCheckout()}
+                  disabled={isResetting}
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[color:var(--mk-gold)]/45 bg-[color:var(--mk-gold)]/10 px-4 py-2 text-sm font-semibold text-[color:var(--mk-gold)] shadow-sm transition hover:border-[color:var(--mk-gold)]/60 hover:bg-[color:var(--mk-gold)]/15 hover:text-[color:var(--mk-ink)] disabled:cursor-not-allowed disabled:opacity-60"
+                  data-testid="checkout-reset-email"
+                >
+                  {isResetting ? "Resetting..." : "Not my email? Start over"}
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           {recoveryMessage ? (
