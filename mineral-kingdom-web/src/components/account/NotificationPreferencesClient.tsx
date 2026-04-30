@@ -57,18 +57,18 @@ function ToggleRow(props: {
   return (
     <label
       htmlFor={id}
-      className="flex items-start justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 transition hover:bg-[color:var(--mk-panel-muted)]"
       data-testid={`notification-preferences-row-${id}`}
     >
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-stone-900">{label}</p>
-        <p className="mt-1 text-sm text-stone-600">{description}</p>
+        <p className="text-sm font-semibold text-[color:var(--mk-ink)]">{label}</p>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">{description}</p>
       </div>
 
       <input
         id={id}
         type="checkbox"
-        className="mt-1 h-5 w-5 shrink-0 rounded border-stone-300 text-stone-900 focus:ring-stone-500"
+        className="mt-1 h-5 w-5 shrink-0 rounded border-[color:var(--mk-border)] accent-[color:var(--mk-amethyst)]"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
@@ -289,10 +289,10 @@ export function NotificationPreferencesClient() {
   if (isLoading) {
     return (
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="mk-glass-strong rounded-[2rem] p-6"
         data-testid="notification-preferences-loading"
       >
-        <p className="text-sm text-stone-600">Loading notification preferences…</p>
+        <p className="text-sm mk-muted-text">Loading notification preferences…</p>
       </section>
     )
   }
@@ -300,19 +300,22 @@ export function NotificationPreferencesClient() {
   if (error && !draft) {
     return (
       <section
-        className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/40 bg-[color:var(--mk-panel-muted)] p-6 shadow-sm"
         data-testid="notification-preferences-error"
       >
-        <h1 className="text-2xl font-semibold text-red-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-danger)]">
+          Account preferences
+        </p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
           We couldn’t load your notification preferences
         </h1>
-        <p className="mt-2 text-sm text-red-800">{error}</p>
+        <p className="mt-2 text-sm leading-6 text-[color:var(--mk-danger)]">{error}</p>
 
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-5 flex flex-wrap gap-3">
           {sessionExpired || errorStatus === 401 ? (
             <Link
               href="/login?returnTo=%2Faccount%2Fpreferences"
-              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
               data-testid="notification-preferences-sign-in-again"
             >
               Sign in again
@@ -321,7 +324,7 @@ export function NotificationPreferencesClient() {
 
           <Link
             href="/account"
-            className="inline-flex rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-900 transition hover:bg-red-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="notification-preferences-back-account"
           >
             Back to account
@@ -336,38 +339,39 @@ export function NotificationPreferencesClient() {
   }
 
   return (
-    <section
-      className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-      data-testid="notification-preferences-page"
-    >
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+    <section className="space-y-6" data-testid="notification-preferences-page">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Account preferences
         </p>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
           Notification preferences
         </h1>
-        <p className="text-sm text-stone-600 sm:text-base">
-          Choose which optional email notifications you would like to receive.
+        <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
+          Choose which optional auction, payment, and shipping email notifications you would like to receive.
         </p>
-      </div>
+      </section>
 
       <section
-        className="rounded-2xl border border-blue-200 bg-blue-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-5"
         data-testid="notification-preferences-transactional-note"
       >
-        <h2 className="text-lg font-semibold text-blue-950">Transactional emails stay on</h2>
-        <p className="mt-2 text-sm text-blue-900">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+          Transactional emails stay on
+        </h2>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
           Essential emails like order confirmations, payment confirmations, and required
           shipping/payment updates cannot be disabled from this page.
         </p>
       </section>
 
       <section
-        className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="mk-glass-strong space-y-3 rounded-[2rem] p-5 sm:p-6"
         data-testid="notification-preferences-toggles"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Optional email notifications</h2>
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+          Optional email notifications
+        </h2>
 
         <ToggleRow
           id="outbid"
@@ -407,11 +411,11 @@ export function NotificationPreferencesClient() {
       </section>
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="mk-glass-strong rounded-[2rem] p-5 sm:p-6"
         data-testid="notification-preferences-save-area"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-stone-600">
+          <div className="text-sm mk-muted-text">
             {preferences?.updatedAt ? (
               <p data-testid="notification-preferences-updated-at">
                 Last updated {formatDateTime(preferences.updatedAt) ?? "recently"}
@@ -424,7 +428,7 @@ export function NotificationPreferencesClient() {
           <div className="flex flex-wrap gap-3">
             <Link
               href="/account"
-              className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+              className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
               data-testid="notification-preferences-back-link"
             >
               Back to account
@@ -434,7 +438,7 @@ export function NotificationPreferencesClient() {
               type="button"
               onClick={handleRestoreDefaults}
               disabled={isSaving}
-              className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="notification-preferences-restore-defaults"
             >
               Restore defaults
@@ -444,7 +448,7 @@ export function NotificationPreferencesClient() {
               type="button"
               onClick={handleSave}
               disabled={isSaving || !isDirty}
-              className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="notification-preferences-save-button"
             >
               {isSaving ? "Saving..." : "Save preferences"}
@@ -454,7 +458,7 @@ export function NotificationPreferencesClient() {
 
         {saveMessage ? (
           <div
-            className="mt-4 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+            className="mt-4 rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-success)]"
             data-testid="notification-preferences-success"
           >
             {saveMessage}
@@ -463,7 +467,7 @@ export function NotificationPreferencesClient() {
 
         {error ? (
           <div
-            className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+            className="mt-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-danger)]"
             data-testid="notification-preferences-save-error"
           >
             {error}

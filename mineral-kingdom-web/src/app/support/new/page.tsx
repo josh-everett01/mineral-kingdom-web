@@ -1,4 +1,5 @@
 import { SupportRequestForm } from "@/components/support/SupportRequestForm"
+import { Container } from "@/components/site/Container"
 import type { SupportLinkedContext, SupportTicketCategory } from "@/lib/support/types"
 import { SUPPORT_TICKET_CATEGORIES } from "@/lib/support/types"
 
@@ -24,7 +25,6 @@ function resolveContext(params: {
     (params.auctionId ? 1 : 0) +
     (params.listingId ? 1 : 0)
 
-  // If multiple linked ids are provided (malformed URL), ignore all links
   if (linkedCount > 1) return { type: "none" }
 
   if (params.orderId) return { type: "order", id: params.orderId }
@@ -93,22 +93,20 @@ export default async function SupportNewPage({ searchParams }: Props) {
   const contextLabel = resolveContextLabel(context)
 
   return (
-    <main
-      className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8"
-      data-testid="support-new-page"
-    >
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">Contact support</h1>
-        <p className="mt-2 text-sm text-stone-600">
-          Fill out the form below and our team will get back to you by email.
-        </p>
-      </div>
+    <div className="mk-preview-page min-h-screen overflow-x-hidden">
+      <Container className="py-8 sm:py-10" data-testid="support-new-page">
+        <div className="mx-auto max-w-3xl space-y-6">
+          <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+            {/* keep your existing hero content here */}
+          </section>
 
-      <SupportRequestForm
-        defaultCategory={defaultCategory}
-        linkedContext={context}
-        contextLabel={contextLabel}
-      />
-    </main>
+          <SupportRequestForm
+            defaultCategory={defaultCategory}
+            linkedContext={context}
+            contextLabel={contextLabel}
+          />
+        </div>
+      </Container>
+    </div>
   )
 }

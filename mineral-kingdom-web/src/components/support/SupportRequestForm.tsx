@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { CheckCircle2 } from "lucide-react"
+
 import { createSupportTicket } from "@/lib/support/api"
 import {
   SUPPORT_TICKET_CATEGORIES,
@@ -16,7 +18,13 @@ type Props = {
   contextLabel?: string | null
 }
 
-function contextSummary(context: SupportLinkedContext | undefined, label: string | null | undefined): string | null {
+const inputClass =
+  "mt-1 block w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] shadow-sm outline-none transition placeholder:text-[color:var(--mk-muted)] focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+function contextSummary(
+  context: SupportLinkedContext | undefined,
+  label: string | null | undefined,
+): string | null {
   if (!context || context.type === "none") return null
   if (label?.trim()) return label.trim()
 
@@ -64,7 +72,11 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
   const [message, setMessage] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState<{ ticketId: string; ticketNumber: string; guestAccessToken: string | null } | null>(null)
+  const [submitted, setSubmitted] = useState<{
+    ticketId: string
+    ticketNumber: string
+    guestAccessToken: string | null
+  } | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -119,57 +131,66 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
     const isGuest = submitted.guestAccessToken !== null
 
     return (
-      <div
-        className="rounded-2xl border border-green-200 bg-green-50 p-6 text-green-900"
+      <section
+        className="rounded-[2rem] border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] p-6 text-[color:var(--mk-ink)] shadow-sm"
         data-testid="support-form-success"
       >
-        <h2 className="text-lg font-semibold">Support request submitted</h2>
-        <p className="mt-2 text-sm">
-          Your request has been received. Your ticket number is{" "}
-          <span className="font-medium" data-testid="support-form-ticket-number">
-            {submitted.ticketNumber}
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel)] text-[color:var(--mk-success)]">
+            <CheckCircle2 className="h-5 w-5" />
           </span>
-          .
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {isGuest ? (
-            <p className="text-sm text-green-800" data-testid="support-form-guest-email-notice">
-              Check your email for a link to view your ticket and reply.
+
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">Support request submitted</h2>
+            <p className="mt-2 text-sm leading-6 mk-muted-text">
+              Your request has been received. Your ticket number is{" "}
+              <span className="font-semibold text-[color:var(--mk-ink)]" data-testid="support-form-ticket-number">
+                {submitted.ticketNumber}
+              </span>
+              .
             </p>
-          ) : (
-            <Link
-              href={`/support/${submitted.ticketId}`}
-              className="inline-flex rounded-full border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-900 transition hover:bg-green-100"
-              data-testid="support-form-view-ticket-link"
-            >
-              View your ticket
-            </Link>
-          )}
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {isGuest ? (
+                <p className="text-sm text-[color:var(--mk-success)]" data-testid="support-form-guest-email-notice">
+                  Check your email for a link to view your ticket and reply.
+                </p>
+              ) : (
+                <Link
+                  href={`/support/${submitted.ticketId}`}
+                  className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+                  data-testid="support-form-view-ticket-link"
+                >
+                  View your ticket
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     )
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5"
+      className="mk-glass-strong space-y-5 rounded-[2rem] p-5 sm:p-6"
       data-testid="support-request-form"
       noValidate
     >
       {summary ? (
         <div
-          className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700"
+          className="rounded-2xl border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm mk-muted-text"
           data-testid="support-form-context-summary"
         >
-          <span className="font-medium">Regarding:</span> {summary}
+          <span className="font-semibold text-[color:var(--mk-ink)]">Regarding:</span> {summary}
         </div>
       ) : null}
 
       <div>
         <label
           htmlFor="support-subject"
-          className="block text-sm font-medium text-stone-900"
+          className="block text-sm font-semibold text-[color:var(--mk-ink)]"
         >
           Subject <span aria-hidden="true">*</span>
         </label>
@@ -181,7 +202,7 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Briefly describe your issue"
-          className="mt-1 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className={inputClass}
           data-testid="support-form-subject"
         />
       </div>
@@ -189,7 +210,7 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
       <div>
         <label
           htmlFor="support-category"
-          className="block text-sm font-medium text-stone-900"
+          className="block text-sm font-semibold text-[color:var(--mk-ink)]"
         >
           Category
         </label>
@@ -197,7 +218,7 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
           id="support-category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="mt-1 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className={inputClass}
           data-testid="support-form-category"
         >
           {SUPPORT_TICKET_CATEGORIES.map((cat) => (
@@ -211,7 +232,7 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
       <div>
         <label
           htmlFor="support-message"
-          className="block text-sm font-medium text-stone-900"
+          className="block text-sm font-semibold text-[color:var(--mk-ink)]"
         >
           Message <span aria-hidden="true">*</span>
         </label>
@@ -223,17 +244,17 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Describe what you need help with"
-          className="mt-1 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 shadow-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+          className={inputClass}
           data-testid="support-form-message"
         />
-        <p className="mt-1 text-right text-xs text-stone-400">
+        <p className="mt-1 text-right text-xs mk-muted-text">
           {message.length} / 4,000
         </p>
       </div>
 
       {error ? (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm text-[color:var(--mk-danger)]"
           role="alert"
           data-testid="support-form-error"
         >
@@ -245,14 +266,15 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex rounded-full bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:opacity-50"
+          className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="support-form-submit"
         >
           {submitting ? "Submitting…" : "Submit request"}
         </button>
+
         <Link
           href="/dashboard"
-          className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+          className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
           data-testid="support-form-cancel"
         >
           Cancel

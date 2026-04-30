@@ -39,6 +39,13 @@ function normalizeWonAuction(raw: unknown): DashboardWonAuctionDto | null {
   const currentPriceCents = asNumber(raw.currentPriceCents ?? raw.CurrentPriceCents)
   const closeTime = asString(raw.closeTime ?? raw.CloseTime)
   const status = asString(raw.status ?? raw.Status)
+  const previewTitle = asString(raw.previewTitle ?? raw.PreviewTitle ?? raw.title ?? raw.Title)
+  const previewImageUrl = asString(
+    raw.previewImageUrl ??
+    raw.PreviewImageUrl ??
+    raw.primaryImageUrl ??
+    raw.PrimaryImageUrl,
+  )
 
   if (!auctionId || !listingId || currentPriceCents == null || !closeTime || !status) {
     return null
@@ -50,6 +57,8 @@ function normalizeWonAuction(raw: unknown): DashboardWonAuctionDto | null {
     currentPriceCents,
     closeTime,
     status,
+    previewTitle,
+    previewImageUrl,
   }
 }
 
@@ -678,10 +687,15 @@ function buildAuctionsWidget(data: MemberDashboardDto): DashboardWidgetModel {
     description: "Past auction wins and recently closed results.",
     rows: data.wonAuctions.slice(0, 4).map((auction) => ({
       id: auction.auctionId,
-      title: "Won auction",
+      title: auction.previewTitle?.trim() || "Won auction",
       subtitle: `${auction.status} • ${formatMoney(auction.currentPriceCents, "USD")}`,
       meta: auction.closeTime ? `Closed ${formatDate(auction.closeTime)}` : null,
-      action: null,
+      imageUrl: auction.previewImageUrl,
+      imageAlt: auction.previewTitle ?? "Won auction",
+      action: {
+        label: "View auction",
+        href: `/auctions/${auction.auctionId}`,
+      },
     })),
     emptyMessage: "You do not have any past auction wins to show yet.",
   }
@@ -699,9 +713,11 @@ function buildOrdersWidget(data: MemberDashboardDto): DashboardWidgetModel {
     description: "Recent paid orders that are not yet in the completed bucket.",
     rows: recentNonCompletedOrders.map((order) => ({
       id: order.orderId,
-      title: order.orderNumber,
+      title: buildTitle(order.previewTitle, order.itemCount),
       subtitle: `${formatDashboardOrderStatus(order.status)} • ${formatMoney(order.totalCents, order.currencyCode)}`,
       meta: `Created ${formatDate(order.createdAt)}`,
+      imageUrl: order.previewImageUrl,
+      imageAlt: order.previewTitle ?? order.orderNumber,
       action: {
         label: "View order",
         href: `/orders/${order.orderId}`,
@@ -722,6 +738,8 @@ function buildShippingInvoicesWidget(data: MemberDashboardDto): DashboardWidgetM
       title: buildTitle(invoice.previewTitle, invoice.itemCount),
       subtitle: `${invoice.status} • ${formatMoney(invoice.amountCents, invoice.currencyCode)}`,
       meta: shippingInvoiceContext(invoice),
+      imageUrl: invoice.previewImageUrl,
+      imageAlt: invoice.previewTitle ?? "Shipping invoice",
       action: {
         label: "View invoice",
         href: `/shipping-invoices/${invoice.shippingInvoiceId}`,

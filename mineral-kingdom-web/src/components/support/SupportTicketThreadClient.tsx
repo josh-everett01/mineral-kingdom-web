@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { Send } from "lucide-react"
+
 import { getSupportTicket, replySupportTicket } from "@/lib/support/api"
 import type { SupportTicketDto, SupportTicketMessageDto } from "@/lib/support/types"
 import { cn } from "@/lib/utils"
@@ -12,50 +14,78 @@ type Props = {
 
 const STATUS_LABELS: Record<string, string> = {
   Open: "Open",
+  OPEN: "Open",
+
   WaitingOnCustomer: "Waiting on You",
+  WAITING_ON_CUSTOMER: "Waiting on You",
+
   WaitingOnSupport: "Waiting on Support",
+  WAITING_ON_SUPPORT: "Waiting on Support",
+
   Resolved: "Resolved",
+  RESOLVED: "Resolved",
+
   Closed: "Closed",
+  CLOSED: "Closed",
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  Open: "bg-blue-100 text-blue-800",
-  WaitingOnCustomer: "bg-amber-100 text-amber-800",
-  WaitingOnSupport: "bg-stone-100 text-stone-700",
-  Resolved: "bg-green-100 text-green-800",
-  Closed: "bg-stone-200 text-stone-600",
+  Open: "border-[color:var(--mk-border-strong)] text-[color:var(--mk-gold)]",
+  OPEN: "border-[color:var(--mk-border-strong)] text-[color:var(--mk-gold)]",
+
+  WaitingOnCustomer: "border-[color:var(--mk-gold)]/45 text-[color:var(--mk-gold)]",
+  WAITING_ON_CUSTOMER: "border-[color:var(--mk-gold)]/45 text-[color:var(--mk-gold)]",
+
+  WaitingOnSupport: "border-[color:var(--mk-border)] mk-muted-text",
+  WAITING_ON_SUPPORT: "border-[color:var(--mk-border)] mk-muted-text",
+
+  Resolved: "border-[color:var(--mk-success)]/45 text-[color:var(--mk-success)]",
+  RESOLVED: "border-[color:var(--mk-success)]/45 text-[color:var(--mk-success)]",
+
+  Closed: "border-[color:var(--mk-border)] mk-muted-text",
+  CLOSED: "border-[color:var(--mk-border)] mk-muted-text",
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
 }
 
 function MessageBubble({ message }: { message: SupportTicketMessageDto }) {
   const isSupport = message.authorType === "SUPPORT"
+  const messageText = message.bodyText?.trim() || "—"
 
   return (
     <div
-      className={cn(
-        "flex flex-col gap-1",
-        isSupport ? "items-start" : "items-end",
-      )}
+      className={cn("flex flex-col gap-1", isSupport ? "items-start" : "items-end")}
       data-testid="support-thread-message"
     >
-      <div className="flex items-center gap-2 text-xs text-stone-500">
+      <div className="flex items-center gap-2 text-xs mk-muted-text">
         <span data-testid="support-thread-message-author">
           {isSupport ? "Support Team" : "You"}
         </span>
         <span>·</span>
-        <time dateTime={message.createdAt}>
-          {new Date(message.createdAt).toLocaleString()}
-        </time>
+        <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
       </div>
+
       <div
         className={cn(
-          "max-w-prose rounded-2xl px-4 py-3 text-sm leading-relaxed",
+          "max-w-prose whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
           isSupport
-            ? "bg-stone-100 text-stone-800"
-            : "bg-stone-800 text-white",
+            ? "border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
+            : "bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-600 text-white",
         )}
         data-testid="support-thread-message-body"
       >
-        {message.bodyText}
+        {messageText}
       </div>
     </div>
   )
@@ -109,7 +139,7 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
 
   if (loadError) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-6 text-sm text-[color:var(--mk-danger)]">
         {loadError}
       </div>
     )
@@ -117,8 +147,8 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
 
   if (!ticket) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white p-6">
-        <p className="text-sm text-stone-500">Loading ticket…</p>
+      <div className="mk-glass-strong rounded-[2rem] p-6">
+        <p className="text-sm mk-muted-text">Loading ticket…</p>
       </div>
     )
   }
@@ -139,24 +169,24 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
 
   return (
     <div className="space-y-6" data-testid="support-thread-page">
-      {/* Header */}
-      <div
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+      <section
+        className="mk-glass-strong rounded-[2rem] p-5 sm:p-6"
         data-testid="support-thread-header"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
               Ticket {ticket.ticketNumber}
             </p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-stone-900">
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-3xl">
               {ticket.subject}
             </h1>
           </div>
+
           <span
             className={cn(
-              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-              STATUS_BADGE[ticket.status] ?? "bg-stone-100 text-stone-700",
+              "inline-flex rounded-full border bg-[color:var(--mk-panel)] px-3 py-1 text-xs font-semibold",
+              STATUS_BADGE[ticket.status] ?? "border-[color:var(--mk-border)] mk-muted-text",
             )}
             data-testid="support-thread-status"
           >
@@ -164,39 +194,35 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
           </span>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-4 text-xs text-stone-500">
-          <span data-testid="support-thread-category">
-            Category:{" "}
-            <span className="font-medium text-stone-700">{ticket.category}</span>
-          </span>
-          <span>Priority: <span className="font-medium text-stone-700">{ticket.priority}</span></span>
-          <span>
-            Opened:{" "}
-            <span className="font-medium text-stone-700">
-              {new Date(ticket.createdAt).toLocaleDateString()}
-            </span>
-          </span>
-        </div>
+        <dl className="mt-5 grid gap-3 text-xs sm:grid-cols-3">
+          <ThreadDetail label="Category" value={ticket.category} testId="support-thread-category" />
+          <ThreadDetail label="Priority" value={ticket.priority} />
+          <ThreadDetail label="Opened" value={formatDateTime(ticket.createdAt)} />
+        </dl>
 
-        {linkedContext && (
-          <div className="mt-3 text-xs text-stone-500" data-testid="support-thread-linked-context">
-            Linked {linkedContext.label}:{" "}
-            <span className="font-medium text-stone-700">{linkedContext.id}</span>
+        {linkedContext ? (
+          <div
+            className="mt-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-xs mk-muted-text"
+            data-testid="support-thread-linked-context"
+          >
+            <span className="font-semibold text-[color:var(--mk-ink)]">
+              Linked {linkedContext.label}:
+            </span>{" "}
+            <span className="break-all">{linkedContext.id}</span>
           </div>
-        )}
-      </div>
+        ) : null}
+      </section>
 
-      {/* Messages */}
-      <div
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+      <section
+        className="mk-glass-strong rounded-[2rem] p-5 sm:p-6"
         data-testid="support-thread-messages"
       >
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-400">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Conversation
         </h2>
 
         {visibleMessages.length === 0 ? (
-          <p className="text-sm text-stone-500">No messages yet.</p>
+          <p className="text-sm mk-muted-text">No messages yet.</p>
         ) : (
           <div className="space-y-4">
             {visibleMessages.map((msg) => (
@@ -206,29 +232,27 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
         )}
 
         <div ref={messagesEndRef} />
-      </div>
+      </section>
 
-      {/* Closed banner */}
-      {isClosed && (
+      {isClosed ? (
         <div
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm text-stone-600"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text"
           data-testid="support-thread-closed-banner"
         >
           This ticket has been{" "}
-          <span className="font-medium">
+          <span className="font-semibold text-[color:var(--mk-ink)]">
             {ticket.status === "Resolved" ? "resolved" : "closed"}
           </span>
           . If you have further questions, please open a new support request.
         </div>
-      )}
+      ) : null}
 
-      {/* Reply form */}
-      {!isClosed && (
+      {!isClosed ? (
         <form
           onSubmit={handleReply}
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-3"
+          className="mk-glass-strong space-y-3 rounded-[2rem] p-5 sm:p-6"
         >
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-400">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
             Reply
           </h2>
 
@@ -236,29 +260,51 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             rows={4}
-            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400 disabled:opacity-50"
+            className="w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition placeholder:text-[color:var(--mk-muted)] focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:opacity-50"
             placeholder="Write your message…"
             disabled={replyPending}
             required
             data-testid="support-thread-reply-input"
           />
 
-          {replyError && (
-            <p className="text-xs text-red-600" data-testid="support-thread-reply-error">
+          {replyError ? (
+            <p className="text-xs text-[color:var(--mk-danger)]" data-testid="support-thread-reply-error">
               {replyError}
             </p>
-          )}
+          ) : null}
 
           <button
             type="submit"
             disabled={replyPending || replyText.trim().length === 0}
-            className="rounded-xl bg-stone-900 px-5 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+            className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="support-thread-reply-submit"
           >
-            {replyPending ? "Sending…" : "Send Reply"}
+            <Send className="mr-2 h-4 w-4" />
+            {replyPending ? "Sending…" : "Send reply"}
           </button>
         </form>
-      )}
+      ) : null}
+    </div>
+  )
+}
+
+function ThreadDetail({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string
+  testId?: string
+}) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3">
+      <dt className="font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd className="mt-1 break-all mk-muted-text" data-testid={testId}>
+        {value}
+      </dd>
     </div>
   )
 }

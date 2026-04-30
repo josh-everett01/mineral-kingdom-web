@@ -39,33 +39,52 @@ export function DashboardWidgetCard({ testId, model }: Props) {
                 key={row.id}
                 className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <p className="truncate font-semibold text-[color:var(--mk-ink)]">
-                      {row.title}
-                    </p>
-                    {row.subtitle ? (
-                      <p className="text-sm mk-muted-text">{row.subtitle}</p>
-                    ) : null}
-                    {row.meta ? (
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
-                        {row.meta}
-                      </p>
-                    ) : null}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]">
+                    {row.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.imageUrl}
+                        alt={row.imageAlt ?? row.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="px-2 text-center text-[11px] font-semibold text-[color:var(--mk-gold)]">
+                        Mineral
+                      </span>
+                    )}
                   </div>
 
-                  {row.action ? (
-                    <Link
-                      href={row.action.href}
-                      className={
-                        row.action.tone === "primary"
-                          ? "mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
-                          : "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
-                      }
-                    >
-                      {row.action.label}
-                    </Link>
-                  ) : null}
+                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate font-semibold text-[color:var(--mk-ink)]">
+                        {row.title}
+                      </p>
+
+                      {row.subtitle ? (
+                        <p className="text-sm mk-muted-text">{row.subtitle}</p>
+                      ) : null}
+
+                      {row.meta ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+                          {row.meta}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {row.action ? (
+                      <Link
+                        href={row.action.href}
+                        className={
+                          row.action.tone === "primary"
+                            ? "mk-cta inline-flex shrink-0 items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
+                            : "inline-flex shrink-0 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                        }
+                      >
+                        {row.action.label}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             ))}

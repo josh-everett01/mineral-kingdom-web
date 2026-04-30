@@ -1,77 +1,70 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import { MkStatusModal } from "@/components/site/MkStatusModal"
 
-type Props = {
+type SessionExpiryDialogProps = {
   mode: "warning" | "expired"
-  isBusy?: boolean
+  isBusy: boolean
   onStaySignedIn?: () => void
-  onSignInAgain?: () => void
   onLogout?: () => void
+  onSignInAgain?: () => void
 }
 
 export function SessionExpiryDialog({
   mode,
-  isBusy = false,
+  isBusy,
   onStaySignedIn,
-  onSignInAgain,
   onLogout,
-}: Props) {
+  onSignInAgain,
+}: SessionExpiryDialogProps) {
   const isWarning = mode === "warning"
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl">
-        <div className="space-y-3">
-          <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-            Session status
-          </p>
+    <MkStatusModal
+      eyebrow="Session status"
+      title={isWarning ? "Your session is about to expire" : "Your session expired"}
+      description={
+        isWarning
+          ? "Stay signed in to keep working without losing your place on this page."
+          : "Please sign in again to continue using your account."
+      }
+      testId="session-expiry-dialog"
+    >
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        {isWarning && onLogout ? (
+          <button
+            type="button"
+            onClick={onLogout}
+            disabled={isBusy}
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="session-expiry-logout"
+          >
+            Sign out
+          </button>
+        ) : null}
 
-          <h2 className="text-2xl font-bold tracking-tight text-stone-900">
-            {isWarning ? "Your session is about to expire" : "Your session expired"}
-          </h2>
-
-          <p className="text-sm text-stone-600">
-            {isWarning
-              ? "Stay signed in to keep working without losing your place on this page."
-              : "Please sign in again to continue. We’ll bring you back to this page."}
-          </p>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          {isWarning ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onLogout}
-                disabled={isBusy}
-                data-testid="session-expiry-logout"
-              >
-                Logout
-              </Button>
-
-              <Button
-                type="button"
-                onClick={onStaySignedIn}
-                disabled={isBusy}
-                data-testid="session-expiry-stay-signed-in"
-              >
-                {isBusy ? "Refreshing…" : "Stay signed in"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              onClick={onSignInAgain}
-              disabled={isBusy}
-              data-testid="session-expiry-sign-in-again"
-            >
-              Sign in again
-            </Button>
-          )}
-        </div>
+        {isWarning ? (
+          <button
+            type="button"
+            onClick={onStaySignedIn}
+            disabled={isBusy || !onStaySignedIn}
+            className="mk-cta inline-flex min-h-11 items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="session-expiry-stay-signed-in"
+          >
+            {isBusy ? "Refreshing…" : "Stay signed in"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSignInAgain}
+            disabled={isBusy || !onSignInAgain}
+            className="mk-cta inline-flex min-h-11 items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="session-expiry-sign-in-again"
+          >
+            Sign in again
+          </button>
+        )}
       </div>
-    </div>
+    </MkStatusModal>
   )
 }

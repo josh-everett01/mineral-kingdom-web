@@ -1,48 +1,41 @@
 "use client"
 
-import { useEffect } from "react"
+import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
+
 import { useAuth } from "@/components/auth/useAuth"
+import { MkStatusModal } from "@/components/site/MkStatusModal"
 
 type ProtectedPageProps = {
   children: React.ReactNode
-  loadingFallback?: React.ReactNode
 }
 
-export function ProtectedPage({
-  children,
-  loadingFallback,
-}: ProtectedPageProps) {
+export function ProtectedPage({ children }: ProtectedPageProps) {
   const { me, isLoading, isLoggingOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isLoading || isLoggingOut) return
-    if (me.isAuthenticated) return
 
-    const next = pathname ? `?next=${encodeURIComponent(pathname)}` : ""
-    router.replace(`/login${next}`)
+    if (!me.isAuthenticated) {
+      const returnTo = pathname ? `?returnTo=${encodeURIComponent(pathname)}` : ""
+      router.replace(`/login${returnTo}`)
+    }
   }, [isLoading, isLoggingOut, me.isAuthenticated, pathname, router])
 
   if (isLoading || isLoggingOut) {
     return (
-      loadingFallback ?? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-          data-testid="protected-page-loading"
-        >
-          <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-            Checking your session
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-stone-900">
-            Loading…
-          </h1>
-          <p className="mt-2 text-sm text-stone-600">
-            We’re confirming your account access now.
-          </p>
-        </section>
-      )
+      <MkStatusModal
+        eyebrow="Session status"
+        title={isLoggingOut ? "Signing you out" : "Checking your session"}
+        description={
+          isLoggingOut
+            ? "We’re safely ending your session."
+            : "We’re confirming your sign-in status before showing this page."
+        }
+        testId="protected-page-loading"
+      />
     )
   }
 
