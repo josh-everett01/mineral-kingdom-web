@@ -1,6 +1,9 @@
 "use client"
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
 import { useRouter } from "next/navigation"
+
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { AuctionBidPanel } from "@/components/auctions/AuctionBidPanel"
 import { RegionShippingCard } from "@/components/shipping/RegionShippingCard"
@@ -12,7 +15,6 @@ import {
 } from "@/lib/auctions/getAuctionDetail"
 import { LocalTime } from "@/components/ui/LocalTime"
 import { useAuctionRealtime } from "@/lib/auctions/useAuctionRealtime"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 type Props = {
   data: AuctionDetailDto
@@ -261,410 +263,408 @@ export function AuctionDetailView({ data }: Props) {
 
   return (
     <main
-      className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8"
+      className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
       data-testid="auction-detail-page"
     >
-      <section className="space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-          Mineral Kingdom Auctions
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1
-            className="text-3xl font-bold tracking-tight text-stone-900"
-            data-testid="auction-detail-title"
-          >
-            {detail.title}
-          </h1>
-          <span
-            className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-800"
-            data-testid="auction-detail-status"
-          >
-            {detail.status}
-          </span>
-        </div>
-      </section>
+      <div className="mx-auto max-w-[1440px] space-y-8">
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Mineral Kingdom Auctions
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h1
+              className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl"
+              data-testid="auction-detail-title"
+            >
+              {detail.title}
+            </h1>
+            <span
+              className="rounded-full border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--mk-gold)]"
+              data-testid="auction-detail-status"
+            >
+              {detail.status}
+            </span>
+          </div>
+        </section>
 
-      <section className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-4">
-          <div data-testid="auction-detail-media">
-            <ListingImageGallery
-              key={galleryImages.map((image) => image.id).join("|")}
-              images={galleryImages}
-              title={detail.title}
-            />
+        <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-4">
+            <div data-testid="auction-detail-media">
+              <ListingImageGallery
+                key={galleryImages.map((image) => image.id).join("|")}
+                images={galleryImages}
+                title={detail.title}
+              />
+            </div>
+
+            <DetailCard title="Description" testId="auction-detail-description">
+              <p className="whitespace-pre-line text-sm leading-6 mk-muted-text">
+                {detail.description?.trim() || "No description available."}
+              </p>
+            </DetailCard>
+
+            <DetailCard title="Live activity" testId="auction-detail-activity">
+              {activity.length === 0 ? (
+                <p className="text-sm mk-muted-text" data-testid="auction-detail-activity-empty">
+                  Live auction activity will appear here as bidding changes.
+                </p>
+              ) : (
+                <ul className="space-y-3" data-testid="auction-detail-activity-list">
+                  {activity.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm mk-muted-text"
+                    >
+                      {item.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </DetailCard>
           </div>
 
-          <section
-            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-            data-testid="auction-detail-description"
-          >
-            <h2 className="text-lg font-semibold text-stone-900">Description</h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-700">
-              {detail.description?.trim() || "No description available."}
-            </p>
-          </section>
+          <div className="space-y-4">
+            <DetailCard title="Auction summary" testId="auction-detail-summary">
+              <dl className="space-y-4 text-sm">
+                <SummaryItem label="Current bid" testId="auction-detail-price">
+                  <span className="text-lg font-semibold text-[color:var(--mk-gold)]">
+                    {formatMoney(detail.currentPriceCents) ?? "—"}
+                  </span>
+                </SummaryItem>
 
-          <section
-            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-            data-testid="auction-detail-activity"
-          >
-            <h2 className="text-lg font-semibold text-stone-900">Live activity</h2>
-
-            {activity.length === 0 ? (
-              <p
-                className="mt-3 text-sm text-stone-600"
-                data-testid="auction-detail-activity-empty"
-              >
-                Live auction activity will appear here as bidding changes.
-              </p>
-            ) : (
-              <ul className="mt-3 space-y-3" data-testid="auction-detail-activity-list">
-                {activity.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-700"
-                  >
-                    {item.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <div className="space-y-4">
-          <section
-            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-            data-testid="auction-detail-summary"
-          >
-            <h2 className="text-lg font-semibold text-stone-900">Auction summary</h2>
-
-            <dl className="mt-4 space-y-4 text-sm text-stone-700">
-              <div>
-                <dt className="font-medium text-stone-500">Current bid</dt>
-                <dd
-                  className="mt-1 text-base font-semibold text-stone-900"
-                  data-testid="auction-detail-price"
-                >
-                  {formatMoney(detail.currentPriceCents) ?? "—"}
-                </dd>
-              </div>
-
-              <div>
-                <dt className="font-medium text-stone-500">Ends</dt>
-                <dd className="mt-1" data-testid="auction-detail-closing-time">
+                <SummaryItem label="Ends" testId="auction-detail-closing-time">
                   <LocalTime value={detail.closingTimeUtc} />
-                </dd>
-              </div>
+                </SummaryItem>
 
-              <div>
-                <dt className="font-medium text-stone-500">Minimum next bid</dt>
-                <dd className="mt-1" data-testid="auction-detail-minimum-next-bid">
+                <SummaryItem label="Minimum next bid" testId="auction-detail-minimum-next-bid">
                   {formatMoney(detail.minimumNextBidCents) ?? "—"}
-                </dd>
-              </div>
+                </SummaryItem>
 
-              <div>
-                <dt className="font-medium text-stone-500">Bid count</dt>
-                <dd className="mt-1" data-testid="auction-detail-bid-count">
+                <SummaryItem label="Bid count" testId="auction-detail-bid-count">
                   {detail.bidCount}
-                </dd>
-              </div>
+                </SummaryItem>
 
-              {detail.reserveMet !== null && detail.reserveMet !== undefined ? (
-                <div>
-                  <dt className="font-medium text-stone-500">Reserve</dt>
-                  <dd className="mt-1" data-testid="auction-detail-reserve-state">
+                {detail.reserveMet !== null && detail.reserveMet !== undefined ? (
+                  <SummaryItem label="Reserve" testId="auction-detail-reserve-state">
                     {detail.reserveMet ? "Met" : "Not met"}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
+                  </SummaryItem>
+                ) : null}
+              </dl>
 
-            <div
-              className="mt-4 text-xs text-stone-500"
-              data-testid="auction-detail-live-status"
-            >
-              {connected
-                ? "Live auction updates connected."
-                : connecting
-                  ? "Connecting to live auction updates…"
-                  : "Live updates temporarily disconnected."}
-            </div>
-          </section>
+              <div className="mt-4 text-xs mk-muted-text" data-testid="auction-detail-live-status">
+                {connected
+                  ? "Live auction updates connected."
+                  : connecting
+                    ? "Connecting to live auction updates…"
+                    : "Live updates temporarily disconnected."}
+              </div>
+            </DetailCard>
 
-          <RegionShippingCard
-            title="Shipping"
-            rates={detail.shippingRates}
-            shippingMessage={detail.shippingMessage}
-            fallbackQuotedShippingCents={detail.quotedShippingCents}
-            emptyMessage="Shipping information has not been configured for this auction yet."
-            testIdPrefix="auction-detail-shipping"
-          />
+            <RegionShippingCard
+              title="Shipping"
+              rates={detail.shippingRates}
+              shippingMessage={detail.shippingMessage}
+              fallbackQuotedShippingCents={detail.quotedShippingCents}
+              emptyMessage="Shipping information has not been configured for this auction yet."
+              testIdPrefix="auction-detail-shipping"
+            />
 
-          <section
-            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-            data-testid="auction-detail-bid-history"
-          >
-            <h2 className="text-lg font-semibold text-stone-900">Recent bid history</h2>
-
-            {detail.bidHistory.length === 0 ? (
-              <p
-                className="mt-3 text-sm text-stone-600"
-                data-testid="auction-detail-bid-history-empty"
-              >
-                No public bid history yet.
-              </p>
-            ) : (
-              <ul className="mt-4 space-y-3" data-testid="auction-detail-bid-history-list">
-                {detail.bidHistory.map((item, index) => (
-                  <li
-                    key={`${item.bidderLabel}-${item.occurredAt}-${index}`}
-                    className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
-                    data-testid={`auction-detail-bid-history-row-${index}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-stone-900">{item.bidderLabel}</p>
-                        <p className="mt-1 text-xs text-stone-500">
-                          {formatBidHistoryTime(item.occurredAt)}
+            <DetailCard title="Recent bid history" testId="auction-detail-bid-history">
+              {detail.bidHistory.length === 0 ? (
+                <p className="text-sm mk-muted-text" data-testid="auction-detail-bid-history-empty">
+                  No public bid history yet.
+                </p>
+              ) : (
+                <ul className="space-y-3" data-testid="auction-detail-bid-history-list">
+                  {detail.bidHistory.map((item, index) => (
+                    <li
+                      key={`${item.bidderLabel}-${item.occurredAt}-${index}`}
+                      className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3"
+                      data-testid={`auction-detail-bid-history-row-${index}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-[color:var(--mk-ink)]">
+                            {item.bidderLabel}
+                          </p>
+                          <p className="mt-1 text-xs mk-muted-text">
+                            {formatBidHistoryTime(item.occurredAt)}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-[color:var(--mk-gold)]">
+                          {formatMoney(item.amountCents) ?? "—"}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-stone-900">
-                        {formatMoney(item.amountCents) ?? "—"}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </DetailCard>
+
+            {authMismatch ? (
+              <StateCard
+                tone="warning"
+                title="Your session expired"
+                message={sessionExpiredMessage}
+                testId="auction-detail-session-expired"
+              >
+                <button
+                  type="button"
+                  onClick={goToLogin}
+                  className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+                  data-testid="auction-detail-sign-in-again"
+                >
+                  Sign in again
+                </button>
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showWinnerPaymentDueState ? (
+              <StateCard
+                tone="info"
+                title="You won this auction"
+                message="Payment is due for this auction order. Continue to your order to complete payment."
+                testId="auction-detail-winner-payment-due"
+              >
+                <button
+                  type="button"
+                  onClick={() => goToOrder(detail.paymentOrderId!)}
+                  className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+                  data-testid="auction-detail-pay-now"
+                >
+                  Pay Now
+                </button>
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showWinnerPaidState ? (
+              <StateCard
+                tone="success"
+                title="You won this auction"
+                message="Payment for this auction order has already been completed."
+                testId="auction-detail-winner-paid"
+              >
+                <button
+                  type="button"
+                  onClick={() => goToOrder(detail.paymentOrderId!)}
+                  className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+                  data-testid="auction-detail-view-order"
+                >
+                  View Order
+                </button>
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showClosedNonWinnerState ? (
+              <StateCard
+                tone="neutral"
+                title="This auction has closed"
+                message="This auction is no longer accepting bids. Payment actions are available only to the winning member when payment is due."
+                testId="auction-detail-closed-non-winner"
+              />
+            ) : null}
+
+            {!authMismatch && showLeadingState ? (
+              <StateCard
+                tone="success"
+                title="You’re currently winning"
+                message="Your max bid is active. The visible current bid may stay lower than your maximum unless another bidder competes."
+                testId="auction-detail-leading-state"
+              >
+                {detail.currentUserMaxBidCents != null ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-[color:var(--mk-success)]"
+                    data-testid="auction-detail-current-max-bid"
+                  >
+                    Your current max bid: {formatMoney(detail.currentUserMaxBidCents)}
+                  </p>
+                ) : null}
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showOutbidState ? (
+              <StateCard
+                tone="warning"
+                title="You’ve been outbid"
+                message="Another bidder is currently leading this auction. Increase your max bid to compete again."
+                testId="auction-detail-outbid-state"
+              >
+                {detail.currentUserMaxBidCents != null ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-[color:var(--mk-gold)]"
+                    data-testid="auction-detail-current-max-bid"
+                  >
+                    Your current max bid: {formatMoney(detail.currentUserMaxBidCents)}
+                  </p>
+                ) : null}
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showDelayedScheduledState ? (
+              <StateCard
+                tone="info"
+                title="Your delayed bid is scheduled"
+                message="Immediate max bids are active now. Your delayed bid is saved now and will activate when the auction enters closing."
+                testId="auction-detail-delayed-scheduled-state"
+              >
+                {detail.currentUserDelayedBidCents != null ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-[color:var(--mk-cyan)]"
+                    data-testid="auction-detail-delayed-bid-amount"
+                  >
+                    Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-sm leading-6 mk-muted-text">
+                  You may keep one delayed bid per auction. You may also place immediate bids while
+                  your delayed bid remains scheduled.
+                </p>
+                <p className="mt-1 text-sm leading-6 mk-muted-text">
+                  Submitting a new delayed bid replaces your previous delayed bid, and you may cancel
+                  it before it activates.
+                </p>
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showDelayedMootState ? (
+              <StateCard
+                tone="warning"
+                title="Your delayed bid is no longer needed"
+                message="The live auction state has already exceeded or superseded your delayed bid."
+                testId="auction-detail-delayed-moot-state"
+              >
+                {detail.currentUserDelayedBidCents != null ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-[color:var(--mk-gold)]"
+                    data-testid="auction-detail-delayed-bid-amount"
+                  >
+                    Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-sm leading-6 mk-muted-text">
+                  You can still place immediate bids now, and you can submit another delayed bid above
+                  the current price if the auction is still eligible.
+                </p>
+              </StateCard>
+            ) : null}
+
+            {!authMismatch && showDelayedActivatedState ? (
+              <StateCard
+                tone="info"
+                title="Your delayed bid has activated"
+                message="Your delayed bid is now participating in the live auction. Immediate max bids remain active now, and delayed bids activate at closing."
+                testId="auction-detail-delayed-activated-state"
+              >
+                {detail.currentUserDelayedBidCents != null ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-[color:var(--mk-cyan)]"
+                    data-testid="auction-detail-delayed-bid-amount"
+                  >
+                    Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
+                  </p>
+                ) : null}
+              </StateCard>
+            ) : null}
+
+            {isLoading ? (
+              <DetailCard title="Bidding" testId="auction-detail-bidding-loading">
+                <p className="text-sm mk-muted-text">Loading member bidding options…</p>
+              </DetailCard>
+            ) : authMismatch ? null : me.isAuthenticated && me.emailVerified === false ? (
+              <StateCard
+                tone="warning"
+                title="Verify your email to bid"
+                message="Your account must have a verified email address before you can place a max bid."
+                testId="auction-detail-bidding-unverified"
+              />
+            ) : closedAuction ? null : (
+              <AuctionBidPanel
+                auctionId={detail.auctionId}
+                minimumNextBidCents={detail.minimumNextBidCents}
+                currentPriceCents={detail.currentPriceCents}
+                isAuthenticated={me.isAuthenticated}
+                hasPendingDelayedBid={detail.hasPendingDelayedBid}
+                currentUserDelayedBidCents={detail.currentUserDelayedBidCents}
+                currentUserDelayedBidStatus={detail.currentUserDelayedBidStatus}
+                onBidPlaced={refreshDetail}
+                onDelayedBidCancelled={refreshDetail}
+              />
             )}
-          </section>
-
-          {authMismatch ? (
-            <section
-              className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
-              data-testid="auction-detail-session-expired"
-            >
-              <h2 className="text-lg font-semibold text-amber-950">Your session expired</h2>
-              <p className="mt-2 text-sm leading-6 text-amber-900">
-                {sessionExpiredMessage}
-              </p>
-              <button
-                type="button"
-                onClick={goToLogin}
-                className="mt-4 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
-                data-testid="auction-detail-sign-in-again"
-              >
-                Sign in again
-              </button>
-            </section>
-          ) : null}
-
-          {!authMismatch && showWinnerPaymentDueState ? (
-            <section
-              className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm"
-              data-testid="auction-detail-winner-payment-due"
-            >
-              <h2 className="text-lg font-semibold text-blue-950">You won this auction</h2>
-              <p className="mt-2 text-sm leading-6 text-blue-900">
-                Payment is due for this auction order. Continue to your order to complete payment.
-              </p>
-              <button
-                type="button"
-                onClick={() => goToOrder(detail.paymentOrderId!)}
-                className="mt-4 inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-                data-testid="auction-detail-pay-now"
-              >
-                Pay Now
-              </button>
-            </section>
-          ) : null}
-
-          {!authMismatch && showWinnerPaidState ? (
-            <section
-              className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
-              data-testid="auction-detail-winner-paid"
-            >
-              <h2 className="text-lg font-semibold text-green-900">You won this auction</h2>
-              <p className="mt-2 text-sm leading-6 text-green-800">
-                Payment for this auction order has already been completed.
-              </p>
-              <button
-                type="button"
-                onClick={() => goToOrder(detail.paymentOrderId!)}
-                className="mt-4 inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
-                data-testid="auction-detail-view-order"
-              >
-                View Order
-              </button>
-            </section>
-          ) : null}
-
-          {!authMismatch && showClosedNonWinnerState ? (
-            <section
-              className="rounded-2xl border border-stone-200 bg-stone-50 p-6 shadow-sm"
-              data-testid="auction-detail-closed-non-winner"
-            >
-              <h2 className="text-lg font-semibold text-stone-900">This auction has closed</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-700">
-                This auction is no longer accepting bids. Payment actions are available only to the
-                winning member when payment is due.
-              </p>
-            </section>
-          ) : null}
-
-          {!authMismatch && showLeadingState ? (
-            <section
-              className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm"
-              data-testid="auction-detail-leading-state"
-            >
-              <h2 className="text-lg font-semibold text-green-900">You’re currently winning</h2>
-              <p className="mt-2 text-sm leading-6 text-green-800">
-                Your max bid is active. The visible current bid may stay lower than your maximum
-                unless another bidder competes.
-              </p>
-              {detail.currentUserMaxBidCents != null ? (
-                <p
-                  className="mt-3 text-sm font-medium text-green-900"
-                  data-testid="auction-detail-current-max-bid"
-                >
-                  Your current max bid: {formatMoney(detail.currentUserMaxBidCents)}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
-
-          {!authMismatch && showOutbidState ? (
-            <section
-              className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
-              data-testid="auction-detail-outbid-state"
-            >
-              <h2 className="text-lg font-semibold text-amber-950">You’ve been outbid</h2>
-              <p className="mt-2 text-sm leading-6 text-amber-900">
-                Another bidder is currently leading this auction. Increase your max bid to compete
-                again.
-              </p>
-              {detail.currentUserMaxBidCents != null ? (
-                <p
-                  className="mt-3 text-sm font-medium text-amber-950"
-                  data-testid="auction-detail-current-max-bid"
-                >
-                  Your current max bid: {formatMoney(detail.currentUserMaxBidCents)}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
-
-          {!authMismatch && showDelayedScheduledState ? (
-            <section
-              className="rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm"
-              data-testid="auction-detail-delayed-scheduled-state"
-            >
-              <h2 className="text-lg font-semibold text-sky-900">Your delayed bid is scheduled</h2>
-              <p className="mt-2 text-sm leading-6 text-sky-800">
-                Immediate max bids are active now. Your delayed bid is saved now and will activate
-                when the auction enters closing.
-              </p>
-              {detail.currentUserDelayedBidCents != null ? (
-                <p
-                  className="mt-3 text-sm font-medium text-sky-900"
-                  data-testid="auction-detail-delayed-bid-amount"
-                >
-                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
-                </p>
-              ) : null}
-              <p className="mt-3 text-sm leading-6 text-sky-800">
-                You may keep one delayed bid per auction. You may also place immediate bids while
-                your delayed bid remains scheduled.
-              </p>
-              <p className="mt-1 text-sm leading-6 text-sky-800">
-                Submitting a new delayed bid replaces your previous delayed bid, and you may cancel
-                it before it activates.
-              </p>
-            </section>
-          ) : null}
-
-          {!authMismatch && showDelayedMootState ? (
-            <section
-              className="rounded-2xl border border-orange-200 bg-orange-50 p-6 shadow-sm"
-              data-testid="auction-detail-delayed-moot-state"
-            >
-              <h2 className="text-lg font-semibold text-orange-950">
-                Your delayed bid is no longer needed
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-orange-900">
-                The live auction state has already exceeded or superseded your delayed bid.
-              </p>
-              {detail.currentUserDelayedBidCents != null ? (
-                <p
-                  className="mt-3 text-sm font-medium text-orange-950"
-                  data-testid="auction-detail-delayed-bid-amount"
-                >
-                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
-                </p>
-              ) : null}
-              <p className="mt-3 text-sm leading-6 text-orange-900">
-                You can still place immediate bids now, and you can submit another delayed bid above
-                the current price if the auction is still eligible.
-              </p>
-            </section>
-          ) : null}
-
-          {!authMismatch && showDelayedActivatedState ? (
-            <section
-              className="rounded-2xl border border-violet-200 bg-violet-50 p-6 shadow-sm"
-              data-testid="auction-detail-delayed-activated-state"
-            >
-              <h2 className="text-lg font-semibold text-violet-900">
-                Your delayed bid has activated
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-violet-800">
-                Your delayed bid is now participating in the live auction. Immediate max bids remain
-                active now, and delayed bids activate at closing.
-              </p>
-              {detail.currentUserDelayedBidCents != null ? (
-                <p
-                  className="mt-3 text-sm font-medium text-violet-900"
-                  data-testid="auction-detail-delayed-bid-amount"
-                >
-                  Delayed bid amount: {formatMoney(detail.currentUserDelayedBidCents)}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
-
-          {isLoading ? (
-            <section
-              className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-              data-testid="auction-detail-bidding-loading"
-            >
-              <p className="text-sm text-stone-600">Loading member bidding options…</p>
-            </section>
-          ) : authMismatch ? null : me.isAuthenticated && me.emailVerified === false ? (
-            <section
-              className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
-              data-testid="auction-detail-bidding-unverified"
-            >
-              <h2 className="text-lg font-semibold text-amber-950">Verify your email to bid</h2>
-              <p className="mt-2 text-sm leading-6 text-amber-900">
-                Your account must have a verified email address before you can place a max bid.
-              </p>
-            </section>
-          ) : closedAuction ? null : (
-            <AuctionBidPanel
-              auctionId={detail.auctionId}
-              minimumNextBidCents={detail.minimumNextBidCents}
-              currentPriceCents={detail.currentPriceCents}
-              isAuthenticated={me.isAuthenticated}
-              hasPendingDelayedBid={detail.hasPendingDelayedBid}
-              currentUserDelayedBidCents={detail.currentUserDelayedBidCents}
-              currentUserDelayedBidStatus={detail.currentUserDelayedBidStatus}
-              onBidPlaced={refreshDetail}
-              onDelayedBidCancelled={refreshDetail}
-            />
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
     </main>
+  )
+}
+
+function DetailCard({
+  title,
+  testId,
+  children,
+}: {
+  title: string
+  testId: string
+  children: ReactNode
+}) {
+  return (
+    <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-6" data-testid={testId}>
+      <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+function SummaryItem({
+  label,
+  testId,
+  children,
+}: {
+  label: string
+  testId: string
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd className="mt-1 mk-muted-text" data-testid={testId}>
+        {children}
+      </dd>
+    </div>
+  )
+}
+
+function StateCard({
+  tone,
+  title,
+  message,
+  testId,
+  children,
+}: {
+  tone: "neutral" | "success" | "warning" | "info"
+  title: string
+  message: string
+  testId: string
+  children?: ReactNode
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-[color:var(--mk-success)]/40"
+      : tone === "warning"
+        ? "border-[color:var(--mk-border-strong)]"
+        : tone === "info"
+          ? "border-[color:var(--mk-cyan)]/40"
+          : "border-[color:var(--mk-border)]"
+
+  return (
+    <section
+      className={`rounded-[2rem] border ${toneClass} bg-[color:var(--mk-panel-muted)] p-5 shadow-sm`}
+      data-testid={testId}
+    >
+      <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+      <p className="mt-2 text-sm leading-6 mk-muted-text">{message}</p>
+      {children}
+    </section>
   )
 }

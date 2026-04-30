@@ -1,4 +1,6 @@
 import Link from "next/link"
+import { ArrowRight, Clock3, Gem, Sparkles } from "lucide-react"
+
 import {
   formatMoney,
   type AuctionBrowseItemDto,
@@ -16,53 +18,68 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
   return (
     <article
       className={[
-        "overflow-hidden rounded-2xl border bg-white shadow-sm",
-        highlightEndingSoon ? "border-amber-300 ring-1 ring-amber-200" : "border-stone-200",
+        "mk-glass flex h-full flex-col overflow-hidden rounded-[2rem]",
+        highlightEndingSoon ? "ring-1 ring-[color:var(--mk-gold)]" : "",
       ].join(" ")}
       data-testid="auction-card"
     >
-      <Link href={item.href} className="block" data-testid="auction-card-image-link">
-        <div className="aspect-square bg-stone-100">
-          {item.primaryImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={item.primaryImageUrl}
-              alt={item.title}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-stone-500">
-              No image
-            </div>
-          )}
-        </div>
-      </Link>
-
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-stone-500">
-              {isScheduled ? "Upcoming auction" : item.status}
-            </div>
-            <h3
-              className="line-clamp-2 text-base font-semibold text-stone-900"
-              data-testid="auction-card-title"
-            >
-              <Link href={item.href}>{item.title}</Link>
-            </h3>
+      <Link href={item.href} className="block p-3 pb-0" data-testid="auction-card-image-link">
+        <div className="relative overflow-hidden rounded-3xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
+          <div className="aspect-square">
+            {item.primaryImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.primaryImageUrl}
+                alt={item.title}
+                className="h-full w-full object-cover transition duration-500 hover:scale-105"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm mk-muted-text">
+                <Gem className="mr-2 h-5 w-5 text-[color:var(--mk-gold)]" />
+                No image
+              </div>
+            )}
           </div>
+
+          <div className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+            {isScheduled ? "Upcoming" : item.status}
+          </div>
+
+          {highlightEndingSoon ? (
+            <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-[color:var(--mk-danger)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
+              <Clock3 className="h-3 w-3" />
+              Ending soon
+            </span>
+          ) : null}
 
           {item.isFluorescent ? (
             <span
-              className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900"
+              className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[color:var(--mk-gold)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm"
               data-testid="auction-card-fluorescent"
             >
-              Fluorescent
+              <Sparkles className="h-3 w-3" />
+              UV
             </span>
           ) : null}
         </div>
+      </Link>
 
-        <div className="space-y-1 text-sm text-stone-700">
+      <div className="flex flex-1 flex-col space-y-3 p-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
+            {isScheduled ? "Upcoming auction" : item.status}
+          </div>
+          <h3
+            className="mt-1 line-clamp-2 text-base font-semibold text-[color:var(--mk-ink)]"
+            data-testid="auction-card-title"
+          >
+            <Link href={item.href} className="hover:underline">
+              {item.title}
+            </Link>
+          </h3>
+        </div>
+
+        <div className="space-y-1 text-sm mk-muted-text">
           <p data-testid="auction-card-locality">
             {item.localityDisplay ?? "Locality not specified"}
           </p>
@@ -71,28 +88,34 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
           </p>
         </div>
 
-        <div className="space-y-1 border-t border-stone-100 pt-3 text-sm">
+        <div className="space-y-1 border-t border-[color:var(--mk-border)] pt-3 text-sm">
           {isScheduled ? (
             <>
-              <p className="font-medium text-stone-900" data-testid="auction-card-price">
+              <p
+                className="font-semibold text-[color:var(--mk-gold)]"
+                data-testid="auction-card-price"
+              >
                 Opening bid: {formatMoney(item.startingPriceCents) ?? "—"}
               </p>
-              <p className="text-stone-600" data-testid="auction-card-bid-count">
+              <p className="mk-muted-text" data-testid="auction-card-bid-count">
                 Starts: <LocalTime value={item.startTimeUtc} />
               </p>
-              <p className="text-stone-600" data-testid="auction-card-closing-time">
+              <p className="mk-muted-text" data-testid="auction-card-closing-time">
                 Ends: <LocalTime value={item.closingTimeUtc} />
               </p>
             </>
           ) : (
             <>
-              <p className="font-medium text-stone-900" data-testid="auction-card-price">
+              <p
+                className="font-semibold text-[color:var(--mk-gold)]"
+                data-testid="auction-card-price"
+              >
                 Current bid: {formatMoney(item.currentPriceCents) ?? "—"}
               </p>
-              <p className="text-stone-600" data-testid="auction-card-bid-count">
+              <p className="mk-muted-text" data-testid="auction-card-bid-count">
                 {item.bidCount} bid{item.bidCount === 1 ? "" : "s"}
               </p>
-              <p className="text-stone-600" data-testid="auction-card-closing-time">
+              <p className="mk-muted-text" data-testid="auction-card-closing-time">
                 Ends: <LocalTime value={item.closingTimeUtc} />
               </p>
             </>
@@ -101,10 +124,11 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
 
         <Link
           href={item.href}
-          className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700"
+          className="mk-cta mt-auto inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
           data-testid="auction-card-link"
         >
           {isScheduled ? "View upcoming auction" : "View auction"}
+          <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
     </article>

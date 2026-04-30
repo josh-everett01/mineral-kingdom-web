@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
+import { Gem } from "lucide-react"
 
 type ListingGalleryImage = {
   id: string
@@ -48,8 +49,9 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
         className="space-y-4"
         aria-label={`${title} image gallery`}
       >
-        <div className="relative aspect-square overflow-hidden rounded-2xl border bg-muted">
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)]">
+          <div className="flex h-full items-center justify-center text-sm mk-muted-text">
+            <Gem className="mr-2 h-5 w-5 text-[color:var(--mk-gold)]" />
             No image available
           </div>
         </div>
@@ -76,43 +78,45 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
       className="space-y-4"
       aria-label={`${title} image gallery`}
     >
-      <div className="relative aspect-square overflow-hidden rounded-2xl border bg-muted">
-        <Image
-          key={selectedImage.id}
-          data-testid="listing-gallery-main-image"
-          src={selectedImage.url}
-          alt={getImageAltText(title, selectedImage, safeSelectedIndex)}
-          fill
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          className="object-cover"
-          priority={safeSelectedIndex === 0}
-        />
+      <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] p-2">
+        <div className="relative h-full overflow-hidden rounded-[1.5rem] bg-[color:var(--mk-panel-muted)]">
+          <Image
+            key={selectedImage.id}
+            data-testid="listing-gallery-main-image"
+            src={selectedImage.url}
+            alt={getImageAltText(title, selectedImage, safeSelectedIndex)}
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover"
+            priority={safeSelectedIndex === 0}
+          />
 
-        {hasMultipleImages ? (
-          <>
-            <button
-              type="button"
-              data-testid="listing-gallery-prev"
-              aria-label="Previous image"
-              onClick={handlePrevious}
-              disabled={safeSelectedIndex === 0}
-              className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border bg-background/90 text-sm font-medium shadow-sm transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              ‹
-            </button>
+          {hasMultipleImages ? (
+            <>
+              <button
+                type="button"
+                data-testid="listing-gallery-prev"
+                aria-label="Previous image"
+                onClick={handlePrevious}
+                disabled={safeSelectedIndex === 0}
+                className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[color:var(--mk-border)] bg-[rgb(var(--mk-page-rgb)/0.88)] text-lg font-semibold text-[color:var(--mk-ink)] shadow-sm backdrop-blur transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ‹
+              </button>
 
-            <button
-              type="button"
-              data-testid="listing-gallery-next"
-              aria-label="Next image"
-              onClick={handleNext}
-              disabled={safeSelectedIndex === maxIndex}
-              className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border bg-background/90 text-sm font-medium shadow-sm transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              ›
-            </button>
-          </>
-        ) : null}
+              <button
+                type="button"
+                data-testid="listing-gallery-next"
+                aria-label="Next image"
+                onClick={handleNext}
+                disabled={safeSelectedIndex === maxIndex}
+                className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[color:var(--mk-border)] bg-[rgb(var(--mk-page-rgb)/0.88)] text-lg font-semibold text-[color:var(--mk-ink)] shadow-sm backdrop-blur transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {hasMultipleImages ? (
@@ -129,10 +133,12 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
                 aria-label={`View image ${index + 1}`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedIndex(index)}
-                className={`relative aspect-square overflow-hidden rounded-xl border transition ${isSelected
-                    ? "ring-2 ring-foreground ring-offset-2"
-                    : "opacity-85 hover:opacity-100"
-                  }`}
+                className={[
+                  "relative aspect-square overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] transition",
+                  isSelected
+                    ? "ring-2 ring-[color:var(--mk-gold)] ring-offset-2 ring-offset-[color:var(--mk-page)]"
+                    : "opacity-85 hover:opacity-100",
+                ].join(" ")}
               >
                 <Image
                   src={image.url}

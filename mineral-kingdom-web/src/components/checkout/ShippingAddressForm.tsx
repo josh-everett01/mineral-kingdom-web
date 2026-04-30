@@ -44,6 +44,10 @@ function validate(fields: FormState): ValidationErrors {
   return errs
 }
 
+const labelClass = "mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
+const optionalClass = "font-normal mk-muted-text"
+const errorTextClass = "mt-1 text-xs text-[color:var(--mk-danger)]"
+
 export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: Props) {
   const [fields, setFields] = useState<FormState>({
     fullName: initialValues?.fullName ?? "",
@@ -87,11 +91,12 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
 
   function fieldClass(key: keyof FormState) {
     const hasError = showErrors && validationErrors[key]
+
     return [
-      "w-full rounded-md border px-3 py-2 text-sm outline-none",
+      "w-full rounded-2xl border px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition disabled:cursor-not-allowed disabled:opacity-60",
       hasError
-        ? "border-red-400 bg-red-50 focus:ring-2 focus:ring-red-300"
-        : "border-stone-300 bg-white focus:ring-2 focus:ring-stone-300",
+        ? "border-[color:var(--mk-danger)] bg-[color:var(--mk-panel-muted)] focus:ring-2 focus:ring-[color:var(--mk-danger)]/20"
+        : "border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20",
     ].join(" ")
   }
 
@@ -103,8 +108,8 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
       data-testid="shipping-address-form"
     >
       <div>
-        <label htmlFor="ship-full-name" className="mb-1 block text-sm font-medium text-stone-700">
-          Full name <span className="text-red-500">*</span>
+        <label htmlFor="ship-full-name" className={labelClass}>
+          Full name <span className="text-[color:var(--mk-danger)]">*</span>
         </label>
         <input
           id="ship-full-name"
@@ -117,18 +122,15 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
           data-testid="ship-full-name"
         />
         {showErrors && validationErrors.fullName ? (
-          <p className="mt-1 text-xs text-red-600" role="alert" data-testid="ship-full-name-error">
+          <p className={errorTextClass} role="alert" data-testid="ship-full-name-error">
             {validationErrors.fullName}
           </p>
         ) : null}
       </div>
 
       <div>
-        <label
-          htmlFor="ship-address-line1"
-          className="mb-1 block text-sm font-medium text-stone-700"
-        >
-          Address line 1 <span className="text-red-500">*</span>
+        <label htmlFor="ship-address-line1" className={labelClass}>
+          Address line 1 <span className="text-[color:var(--mk-danger)]">*</span>
         </label>
         <input
           id="ship-address-line1"
@@ -141,23 +143,15 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
           data-testid="ship-address-line1"
         />
         {showErrors && validationErrors.addressLine1 ? (
-          <p
-            className="mt-1 text-xs text-red-600"
-            role="alert"
-            data-testid="ship-address-line1-error"
-          >
+          <p className={errorTextClass} role="alert" data-testid="ship-address-line1-error">
             {validationErrors.addressLine1}
           </p>
         ) : null}
       </div>
 
       <div>
-        <label
-          htmlFor="ship-address-line2"
-          className="mb-1 block text-sm font-medium text-stone-700"
-        >
-          Address line 2{" "}
-          <span className="text-stone-400 font-normal">(optional)</span>
+        <label htmlFor="ship-address-line2" className={labelClass}>
+          Address line 2 <span className={optionalClass}>(optional)</span>
         </label>
         <input
           id="ship-address-line2"
@@ -173,8 +167,8 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="ship-city" className="mb-1 block text-sm font-medium text-stone-700">
-            City <span className="text-red-500">*</span>
+          <label htmlFor="ship-city" className={labelClass}>
+            City <span className="text-[color:var(--mk-danger)]">*</span>
           </label>
           <input
             id="ship-city"
@@ -187,18 +181,15 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
             data-testid="ship-city"
           />
           {showErrors && validationErrors.city ? (
-            <p className="mt-1 text-xs text-red-600" role="alert" data-testid="ship-city-error">
+            <p className={errorTextClass} role="alert" data-testid="ship-city-error">
               {validationErrors.city}
             </p>
           ) : null}
         </div>
 
         <div>
-          <label
-            htmlFor="ship-state"
-            className="mb-1 block text-sm font-medium text-stone-700"
-          >
-            State / province <span className="text-red-500">*</span>
+          <label htmlFor="ship-state" className={labelClass}>
+            State / province <span className="text-[color:var(--mk-danger)]">*</span>
           </label>
           <input
             id="ship-state"
@@ -211,7 +202,7 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
             data-testid="ship-state"
           />
           {showErrors && validationErrors.stateOrProvince ? (
-            <p className="mt-1 text-xs text-red-600" role="alert" data-testid="ship-state-error">
+            <p className={errorTextClass} role="alert" data-testid="ship-state-error">
               {validationErrors.stateOrProvince}
             </p>
           ) : null}
@@ -220,11 +211,8 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label
-            htmlFor="ship-postal"
-            className="mb-1 block text-sm font-medium text-stone-700"
-          >
-            Postal code <span className="text-red-500">*</span>
+          <label htmlFor="ship-postal" className={labelClass}>
+            Postal code <span className="text-[color:var(--mk-danger)]">*</span>
           </label>
           <input
             id="ship-postal"
@@ -237,22 +225,15 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
             data-testid="ship-postal"
           />
           {showErrors && validationErrors.postalCode ? (
-            <p
-              className="mt-1 text-xs text-red-600"
-              role="alert"
-              data-testid="ship-postal-error"
-            >
+            <p className={errorTextClass} role="alert" data-testid="ship-postal-error">
               {validationErrors.postalCode}
             </p>
           ) : null}
         </div>
 
         <div>
-          <label
-            htmlFor="ship-country"
-            className="mb-1 block text-sm font-medium text-stone-700"
-          >
-            Country <span className="text-red-500">*</span>
+          <label htmlFor="ship-country" className={labelClass}>
+            Country <span className="text-[color:var(--mk-danger)]">*</span>
           </label>
           <select
             id="ship-country"
@@ -276,11 +257,7 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
             <option value="CH">Switzerland</option>
           </select>
           {showErrors && validationErrors.countryCode ? (
-            <p
-              className="mt-1 text-xs text-red-600"
-              role="alert"
-              data-testid="ship-country-error"
-            >
+            <p className={errorTextClass} role="alert" data-testid="ship-country-error">
               {validationErrors.countryCode}
             </p>
           ) : null}
@@ -289,7 +266,7 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
 
       {error ? (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-3 text-sm text-[color:var(--mk-danger)]"
           role="alert"
           data-testid="shipping-address-form-error"
         >
@@ -300,7 +277,7 @@ export function ShippingAddressForm({ initialValues, onSave, isSaving, error }: 
       <button
         type="submit"
         disabled={isSaving}
-        className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         data-testid="ship-save-btn"
       >
         {isSaving ? "Saving…" : "Save shipping address"}

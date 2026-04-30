@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+
 import { cancelDelayedBid, placeBid } from "@/lib/auctions/placeBid"
 import { formatMoney } from "@/lib/auctions/getAuctionDetail"
 
@@ -18,6 +19,12 @@ type Props = {
   onBidPlaced: () => Promise<void> | void
   onDelayedBidCancelled: () => Promise<void> | void
 }
+
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+const secondaryButtonClass =
+  "rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
 
 export function AuctionBidPanel({
   auctionId,
@@ -166,11 +173,11 @@ export function AuctionBidPanel({
   if (!isAuthenticated) {
     return (
       <section
-        className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-5 shadow-sm"
         data-testid="auction-detail-bidding-guest"
       >
-        <h2 className="text-lg font-semibold text-amber-950">Member bidding</h2>
-        <p className="mt-2 text-sm leading-6 text-amber-900">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Member bidding</h2>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
           Sign in to place a max bid on this auction.
         </p>
       </section>
@@ -180,26 +187,23 @@ export function AuctionBidPanel({
   return (
     <>
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="mk-glass-strong rounded-[2rem] p-5 sm:p-6"
         data-testid="auction-detail-bidding-panel"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Place a max bid</h2>
-        <p className="mt-2 text-sm text-stone-600">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Place a max bid</h2>
+        <p className="mt-2 text-sm mk-muted-text">
           Current bid: {formatMoney(currentPriceCents) ?? "—"}
         </p>
-        <p
-          className="mt-1 text-sm text-stone-600"
-          data-testid="auction-detail-minimum-next-bid-hint"
-        >
+        <p className="mt-1 text-sm mk-muted-text" data-testid="auction-detail-minimum-next-bid-hint">
           Minimum next bid: {formatMoney(minimumNextBidCents) ?? "—"}
         </p>
 
         {showCancelableDelayedBid ? (
           <div
-            className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm text-sky-900"
+            className="mt-4 rounded-2xl border border-[color:var(--mk-cyan)]/40 bg-[color:var(--mk-panel-muted)] px-4 py-4 text-sm mk-muted-text"
             data-testid="auction-detail-bid-existing-delayed"
           >
-            <p className="font-medium text-sky-950">
+            <p className="font-semibold text-[color:var(--mk-ink)]">
               You currently have a delayed bid scheduled.
             </p>
             <p className="mt-1">
@@ -217,7 +221,7 @@ export function AuctionBidPanel({
               type="button"
               onClick={handleCancelDelayedBid}
               disabled={isCancellingDelayedBid}
-              className="mt-3 inline-flex rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-medium text-sky-900 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className={`${secondaryButtonClass} mt-3`}
               data-testid="auction-detail-cancel-delayed-bid"
             >
               {isCancellingDelayedBid ? "Cancelling delayed bid..." : "Cancel delayed bid"}
@@ -227,27 +231,31 @@ export function AuctionBidPanel({
 
         <form className="mt-4 space-y-4" onSubmit={beginSubmit}>
           <fieldset className="space-y-2">
-            <legend className="block text-sm font-medium text-stone-900">Bid timing</legend>
+            <legend className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Bid timing
+            </legend>
             <div className="flex flex-wrap gap-3" data-testid="auction-detail-bid-mode-group">
-              <label className="inline-flex items-center gap-2 text-sm text-stone-900">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                 <input
                   type="radio"
                   name="bid-mode"
                   value="IMMEDIATE"
                   checked={mode === "IMMEDIATE"}
                   onChange={() => setMode("IMMEDIATE")}
+                  className="accent-[color:var(--mk-amethyst)]"
                   data-testid="auction-detail-bid-mode-immediate"
                 />
                 Immediate
               </label>
 
-              <label className="inline-flex items-center gap-2 text-sm text-stone-900">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                 <input
                   type="radio"
                   name="bid-mode"
                   value="DELAYED"
                   checked={mode === "DELAYED"}
                   onChange={() => setMode("DELAYED")}
+                  className="accent-[color:var(--mk-amethyst)]"
                   data-testid="auction-detail-bid-mode-delayed"
                 />
                 Delayed
@@ -256,29 +264,23 @@ export function AuctionBidPanel({
           </fieldset>
 
           <div
-            className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-700"
+            className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm mk-muted-text"
             data-testid="auction-detail-bid-mode-help"
           >
             {mode === "DELAYED" ? (
               <>
-                <p className="font-medium text-stone-900">How delayed max bidding works</p>
+                <p className="font-semibold text-[color:var(--mk-ink)]">How delayed max bidding works</p>
                 <p className="mt-1">
                   Immediate max bids are active now. Delayed max bids are saved now and activate
                   when the auction enters closing.
                 </p>
-                <p className="mt-1">
-                  Delayed bids must be placed at least 3 hours before close.
-                </p>
+                <p className="mt-1">Delayed bids must be placed at least 3 hours before close.</p>
                 <p className="mt-1">
                   You may keep one delayed bid per auction. You may also place immediate bids while
                   your delayed bid remains scheduled.
                 </p>
-                <p className="mt-1">
-                  Submitting a new delayed bid replaces your previous delayed bid.
-                </p>
-                <p className="mt-1">
-                  You may cancel a delayed bid before it activates.
-                </p>
+                <p className="mt-1">Submitting a new delayed bid replaces your previous delayed bid.</p>
+                <p className="mt-1">You may cancel a delayed bid before it activates.</p>
                 <p className="mt-1">
                   If the live auction price reaches or exceeds your delayed bid, it may no longer be
                   needed. You can submit another delayed bid above the current price if the auction
@@ -287,7 +289,7 @@ export function AuctionBidPanel({
               </>
             ) : (
               <>
-                <p className="font-medium text-stone-900">How max bidding works</p>
+                <p className="font-semibold text-[color:var(--mk-ink)]">How max bidding works</p>
                 <p className="mt-1">
                   Immediate max bids are active right away. We’ll bid only as much as needed, up to
                   your maximum.
@@ -301,7 +303,7 @@ export function AuctionBidPanel({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="bid-dollars" className="block text-sm font-medium text-stone-900">
+            <label htmlFor="bid-dollars" className="block text-sm font-semibold text-[color:var(--mk-ink)]">
               Your max bid (whole dollars)
             </label>
             <input
@@ -310,7 +312,7 @@ export function AuctionBidPanel({
               pattern="[0-9]*"
               value={bidDollars}
               onChange={(e) => setBidDollars(e.target.value)}
-              className="w-full rounded-xl border border-stone-300 px-3 py-2 text-sm text-stone-900 outline-none ring-0 transition focus:border-stone-500"
+              className={inputClass}
               data-testid="auction-detail-bid-input"
             />
           </div>
@@ -318,7 +320,7 @@ export function AuctionBidPanel({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="auction-detail-bid-submit"
           >
             {isSubmitting ? "Submitting max bid..." : "Submit max bid"}
@@ -326,7 +328,7 @@ export function AuctionBidPanel({
 
           {success ? (
             <div
-              className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+              className="rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-success)]"
               data-testid="auction-detail-bid-success"
             >
               {success}
@@ -335,10 +337,10 @@ export function AuctionBidPanel({
 
           {sessionExpired ? (
             <div
-              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900"
+              className="rounded-2xl border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm mk-muted-text"
               data-testid="auction-detail-bid-auth-expired"
             >
-              <p className="font-medium text-amber-950">Your session expired</p>
+              <p className="font-semibold text-[color:var(--mk-ink)]">Your session expired</p>
               <p className="mt-1">
                 Please sign in again before changing your bids. We’ll bring you back to this
                 auction.
@@ -346,7 +348,7 @@ export function AuctionBidPanel({
               <button
                 type="button"
                 onClick={goToLogin}
-                className="mt-3 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+                className="mk-cta mt-3 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
                 data-testid="auction-detail-bid-sign-in-again"
               >
                 Sign in again
@@ -356,7 +358,7 @@ export function AuctionBidPanel({
 
           {!sessionExpired && error ? (
             <div
-              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-danger)]"
               data-testid="auction-detail-bid-error"
             >
               {error}
@@ -367,25 +369,27 @@ export function AuctionBidPanel({
 
       {isConfirmOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
           data-testid="auction-detail-bid-confirm-overlay"
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl"
+            className="w-full max-w-md rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-strong)] p-6 shadow-[var(--mk-shadow)]"
             data-testid="auction-detail-bid-confirm-dialog"
           >
-            <h3 className="text-lg font-semibold text-stone-900">{confirmationTitle}</h3>
-            <p className="mt-2 text-sm leading-6 text-stone-700">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">{confirmationTitle}</h3>
+            <p className="mt-2 text-sm leading-6 mk-muted-text">
               You are about to submit a max bid of{" "}
-              <span className="font-semibold">{formatMoney(parsedBidCents) ?? "—"}</span>.
+              <span className="font-semibold text-[color:var(--mk-ink)]">
+                {formatMoney(parsedBidCents) ?? "—"}
+              </span>.
             </p>
-            <p className="mt-2 text-sm leading-6 text-stone-600">{confirmationBody}</p>
+            <p className="mt-2 text-sm leading-6 mk-muted-text">{confirmationBody}</p>
 
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsConfirmOpen(false)}
-                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+                className={secondaryButtonClass}
                 data-testid="auction-detail-bid-confirm-cancel"
               >
                 Cancel
@@ -394,7 +398,7 @@ export function AuctionBidPanel({
                 type="button"
                 onClick={confirmSubmit}
                 disabled={isSubmitting}
-                className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mk-cta rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 data-testid="auction-detail-bid-confirm-submit"
               >
                 {isSubmitting

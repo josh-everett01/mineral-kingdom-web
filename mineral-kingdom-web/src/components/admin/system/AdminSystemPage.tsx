@@ -40,7 +40,7 @@ export function AdminSystemPage() {
 
   useEffect(() => {
     void load()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is defined in this component, stable across renders
+  }, [])
 
   const appHealthy = summary?.appHealthy ?? false
   const dbHealthy = summary?.databaseReachable ?? false

@@ -2,8 +2,12 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
+import { Menu } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth/useAuth"
+
+const THEME_MENU_OPEN_EVENT = "mk:theme-menu-open"
 
 function hasAnyRole(roles: string[], allowedRoles: readonly string[]) {
   const granted = new Set(roles)
@@ -21,7 +25,7 @@ function MobileMenuLink({ href, children, testId, onNavigate }: MobileMenuLinkPr
   return (
     <Link
       href={href}
-      className="block rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+      className="block rounded-xl px-3 py-2 text-sm font-medium text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
       data-testid={testId}
       onClick={onNavigate}
     >
@@ -40,6 +44,18 @@ export function HeaderMobileMenu() {
   const canSeeAdmin = hasAnyRole(me.roles, ["STAFF", "OWNER"])
 
   const closeMenu = () => setOpen(false)
+
+  useEffect(() => {
+    function handleThemeMenuOpen() {
+      setOpen(false)
+    }
+
+    window.addEventListener(THEME_MENU_OPEN_EVENT, handleThemeMenuOpen)
+
+    return () => {
+      window.removeEventListener(THEME_MENU_OPEN_EVENT, handleThemeMenuOpen)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -75,14 +91,16 @@ export function HeaderMobileMenu() {
         aria-controls="mobile-site-menu"
         onClick={() => setOpen((value) => !value)}
         data-testid="nav-menu-button"
+        className="h-10 rounded-2xl border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-ink)] shadow-sm transition hover:scale-[1.02] hover:bg-[color:var(--mk-panel-muted)]"
       >
+        <Menu className="mr-2 h-4 w-4" />
         Menu
       </Button>
 
       {open ? (
         <div
           id="mobile-site-menu"
-          className="absolute right-0 top-12 z-50 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-stone-200 bg-white p-3 shadow-lg"
+          className="absolute right-0 top-12 z-[100] w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[#fffaf2] p-3 text-[color:var(--mk-ink)] shadow-[var(--mk-shadow)] dark:bg-[#050712]"
           style={{ right: "0", left: "auto" }}
           data-testid="nav-mobile-menu"
         >

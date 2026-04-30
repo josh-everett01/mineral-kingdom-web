@@ -2,14 +2,16 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { CartDto } from "@/lib/cart/cartTypes"
+import type { ReactNode } from "react"
+
+import { ShippingAddressForm, type ShippingAddressDto } from "@/components/checkout/ShippingAddressForm"
 import {
   type ShippingRegionCode,
   SHIPPING_REGION_OPTIONS,
   formatShippingRegionLabel,
   isShippingRegionCode,
 } from "@/components/shipping/shippingRegions"
-import { ShippingAddressForm, type ShippingAddressDto } from "@/components/checkout/ShippingAddressForm"
+import type { CartDto } from "@/lib/cart/cartTypes"
 
 type Props = {
   initialHoldId?: string | null
@@ -66,6 +68,12 @@ type CheckoutPricingPreviewResponse = {
 const CHECKOUT_HOLD_STORAGE_KEY = "mk_checkout_hold"
 const CHECKOUT_PAYMENT_STORAGE_KEY = "mk_checkout_payment_id"
 
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+const secondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatCountdown(expiresAt?: string | null, nowMs?: number) {
   if (!expiresAt) return null
 
@@ -94,7 +102,7 @@ export function CheckoutPayClient({
   isAuthenticated,
   initialCart,
 }: Props) {
-  const [selectedProvider, setSelectedProvider] = useState<"stripe" | "paypal">("stripe")
+  const [selectedProvider] = useState<"stripe" | "paypal">("stripe")
   const [selectedShippingMode, setSelectedShippingMode] = useState<"SHIP_NOW" | "OPEN_BOX">(
     "SHIP_NOW",
   )
@@ -113,6 +121,7 @@ export function CheckoutPayClient({
       return "US"
     }
   })
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isExtending, setIsExtending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -174,9 +183,7 @@ export function CheckoutPayClient({
       nextShippingMode?: "SHIP_NOW" | "OPEN_BOX",
       nextRegionCode?: ShippingRegionCode,
     ) => {
-      if (!holdId) {
-        return
-      }
+      if (!holdId) return
 
       const requestSeq = ++previewRequestSeqRef.current
 
@@ -209,10 +216,7 @@ export function CheckoutPayClient({
           | { message?: string; error?: string }
           | null
 
-        if (requestSeq !== previewRequestSeqRef.current) {
-
-          return
-        }
+        if (requestSeq !== previewRequestSeqRef.current) return
 
         if (!res.ok || !body || !("totalCents" in body)) {
           setPricingPreview(null)
@@ -229,11 +233,7 @@ export function CheckoutPayClient({
         setError(null)
         setIsLoadingPreview(false)
       } catch {
-
-        if (requestSeq !== previewRequestSeqRef.current) {
-
-          return
-        }
+        if (requestSeq !== previewRequestSeqRef.current) return
 
         setPricingPreview(null)
         setError("We couldn't load checkout pricing.")
@@ -242,17 +242,6 @@ export function CheckoutPayClient({
     },
     [holdId, isAuthenticated, selectedRegionCode, selectedShippingMode],
   )
-
-  useEffect(() => {
-  }, [selectedRegionCode])
-
-  useEffect(() => {
-  }, [selectedShippingMode])
-
-  useEffect(() => {
-  }, [pricingPreview])
-
-  // selectedRegionCode is initialized from sessionStorage in useState above; no effect needed here.
 
   useEffect(() => {
     if (!holdId) return
@@ -273,6 +262,7 @@ export function CheckoutPayClient({
         setCanExtend(Boolean(body.canExtend))
         setExtensionCount(body.extensionCount ?? 0)
         setMaxExtensions(body.maxExtensions ?? 0)
+
         if (body.shippingAddress) {
           setShippingAddress(body.shippingAddress)
           setAddressSaved(true)
@@ -335,17 +325,24 @@ export function CheckoutPayClient({
         })
 
         if (!res.ok) {
-          setError("Your checkout hold expired. Return to checkout to start again.")
+          if (res.status === 404 || res.status === 409 || res.status === 410) {
+            setError("Your checkout hold expired. Return to checkout to start again.")
+            return
+          }
+
+          setError("We couldn’t verify your checkout reservation. Retrying automatically.")
           return
         }
 
         const data = (await res.json()) as CheckoutHeartbeatResponse
+
+        setError(null)
         setExpiresAt(data.expiresAt)
         setCanExtend(Boolean(data.canExtend))
         setExtensionCount(data.extensionCount ?? 0)
         setMaxExtensions(data.maxExtensions ?? 0)
       } catch {
-        setError("We couldn't verify your checkout reservation.")
+        setError("We couldn’t verify your checkout reservation. Retrying automatically.")
       }
     }
 
@@ -546,19 +543,21 @@ export function CheckoutPayClient({
   if (!holdId) {
     return (
       <section
-        className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-5 shadow-sm sm:p-6"
         data-testid="checkout-pay-missing-hold"
       >
-        <p className="text-sm font-semibold uppercase tracking-wide text-amber-700">Payment</p>
-        <h1 className="text-2xl font-bold tracking-tight text-amber-950">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Payment
+        </p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
           A checkout hold is required before payment can begin
         </h1>
-        <p className="text-sm text-amber-900">
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
           Start checkout first so inventory is safely reserved before payment is initiated.
         </p>
         <Link
           href="/checkout"
-          className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white"
+          className="mk-cta mt-5 inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold"
           data-testid="checkout-pay-return-to-checkout"
         >
           Return to checkout
@@ -568,67 +567,65 @@ export function CheckoutPayClient({
   }
 
   return (
-    <section className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Payment</p>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+    <section className="space-y-6">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Payment
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
           Choose payment and shipping preference
         </h1>
-        <p className="text-sm text-stone-600 sm:text-base">
+        <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
           Payment can only start from an active checkout hold. Final paid status is confirmed by
           backend webhook processing, not redirect parameters.
         </p>
-      </div>
+      </section>
 
-      <dl className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
-        <div>
-          <dt className="font-medium">Checkout hold ID</dt>
-          <dd data-testid="checkout-pay-hold-id">{holdId}</dd>
-        </div>
-        <div>
-          <dt className="font-medium">Selected provider</dt>
-          <dd data-testid="checkout-pay-provider">{selectedProvider}</dd>
-        </div>
-        <div>
-          <dt className="font-medium">Reservation expires in</dt>
-          <dd data-testid="checkout-pay-countdown">{countdownLabel ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium">Extensions used</dt>
-          <dd data-testid="checkout-pay-extension-count">
+      <section className="mk-glass-strong space-y-6 rounded-[2rem] p-5 sm:p-6">
+        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <DetailItem label="Checkout hold ID" testId="checkout-pay-hold-id">
+            {holdId}
+          </DetailItem>
+          <DetailItem label="Selected provider" testId="checkout-pay-provider">
+            {selectedProvider}
+          </DetailItem>
+          <DetailItem label="Reservation expires in" testId="checkout-pay-countdown">
+            {countdownLabel ?? "—"}
+          </DetailItem>
+          <DetailItem label="Extensions used" testId="checkout-pay-extension-count">
             {extensionCount} / {maxExtensions}
-          </dd>
-        </div>
-      </dl>
+          </DetailItem>
+        </dl>
 
-      {canExtend ? (
-        <button
-          type="button"
-          onClick={() => void handleExtendReservation()}
-          disabled={isExtending}
-          className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-900 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
-          data-testid="checkout-pay-extend-reservation"
-        >
-          {isExtending ? "Extending..." : "Extend reservation"}
-        </button>
-      ) : null}
+        {canExtend ? (
+          <button
+            type="button"
+            onClick={() => void handleExtendReservation()}
+            disabled={isExtending}
+            className={secondaryButtonClass}
+            data-testid="checkout-pay-extend-reservation"
+          >
+            {isExtending ? "Extending..." : "Extend reservation"}
+          </button>
+        ) : null}
 
-      {extensionMessage ? (
-        <div
-          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
-          data-testid="checkout-pay-extension-message"
-        >
-          {extensionMessage}
-        </div>
-      ) : null}
+        {extensionMessage ? (
+          <Alert tone="success" testId="checkout-pay-extension-message">
+            {extensionMessage}
+          </Alert>
+        ) : null}
+
+        {error ? (
+          <Alert tone="danger" testId="checkout-pay-error">
+            {error}
+          </Alert>
+        ) : null}
+      </section>
 
       {initialCart ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-          data-testid="checkout-pay-summary-card"
-        >
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-6" data-testid="checkout-pay-summary-card">
           <div className="flex gap-4">
-            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-white">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
               {firstLine?.primaryImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -637,358 +634,161 @@ export function CheckoutPayClient({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
+                <div className="flex h-full w-full items-center justify-center text-xs mk-muted-text">
                   No image
                 </div>
               )}
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
                 Store payment
               </p>
               <h2
-                className="mt-1 text-lg font-semibold text-stone-900"
+                className="mt-1 text-lg font-semibold text-[color:var(--mk-ink)]"
                 data-testid="checkout-pay-summary-title"
               >
                 {paymentTitle}
               </h2>
-              <p
-                className="mt-1 text-sm text-stone-600"
-                data-testid="checkout-pay-summary-context"
-              >
+              <p className="mt-1 text-sm mk-muted-text" data-testid="checkout-pay-summary-context">
                 {paymentContext}
               </p>
-              <p
-                className="mt-2 text-sm text-stone-700"
-                data-testid="checkout-pay-summary-line-count"
-              >
+              <p className="mt-2 text-sm mk-muted-text" data-testid="checkout-pay-summary-line-count">
                 {lineCount} item{lineCount === 1 ? "" : "s"} in cart
               </p>
             </div>
           </div>
 
-          <dl className="mt-4 grid gap-3 text-sm text-stone-700 sm:grid-cols-3">
-            <div>
-              <dt className="font-medium text-stone-500">Subtotal</dt>
-              <dd data-testid="checkout-pay-summary-subtotal">{subtotalLabel ?? "—"}</dd>
-            </div>
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+            <DetailItem label="Subtotal" testId="checkout-pay-summary-subtotal">
+              {subtotalLabel ?? "—"}
+            </DetailItem>
 
-            <div>
-              <dt className="font-medium text-stone-500">Selected region</dt>
-              <dd data-testid="checkout-pay-summary-region">
-                {formatShippingRegionLabel(selectedRegionCode)}
-              </dd>
-            </div>
+            <DetailItem label="Selected region" testId="checkout-pay-summary-region">
+              {formatShippingRegionLabel(selectedRegionCode)}
+            </DetailItem>
 
-            <div>
-              <dt className="font-medium text-stone-500">Estimated total</dt>
-              <dd data-testid="checkout-pay-summary-total">
-                {formatMoney(pricingPreview?.totalCents ?? initialCart?.subtotalCents ?? null) ??
-                  "—"}
-              </dd>
-            </div>
+            <DetailItem label="Estimated total" testId="checkout-pay-summary-total">
+              {formatMoney(pricingPreview?.totalCents ?? initialCart?.subtotalCents ?? null) ?? "—"}
+            </DetailItem>
           </dl>
         </section>
       ) : null}
 
-      {isAuthenticated ? (
-        <>
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-stone-900">Shipping preference</legend>
-
-            <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-4">
-              <input
-                type="radio"
-                name="shipping-mode"
-                value="SHIP_NOW"
-                checked={selectedShippingMode === "SHIP_NOW"}
-                onChange={() => {
-                  setSelectedShippingMode("SHIP_NOW")
-                  void loadPricingPreview("SHIP_NOW", selectedRegionCode)
-                }}
-                data-testid="checkout-pay-shipping-ship-now"
-              />
-              <span className="text-sm text-stone-800">
-                <span className="block font-medium">Ship now</span>
-                <span className="block text-stone-600">
-                  Complete this purchase for normal shipment now.
-                </span>
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-4">
-              <input
-                type="radio"
-                name="shipping-mode"
-                value="OPEN_BOX"
-                checked={selectedShippingMode === "OPEN_BOX"}
-                onChange={() => {
-                  setSelectedShippingMode("OPEN_BOX")
-                  void loadPricingPreview("OPEN_BOX")
-                }}
-                data-testid="checkout-pay-shipping-open-box"
-              />
-              <span className="text-sm text-stone-800">
-                <span className="block font-medium">Add to Open Box</span>
-                <span className="block text-stone-600">
-                  Keep this order with your Open Box so it can be grouped with other eligible
-                  purchases.
-                </span>
-              </span>
-            </label>
-          </fieldset>
-
-          {selectedShippingMode === "SHIP_NOW" ? (
+      <section className="mk-glass-strong space-y-6 rounded-[2rem] p-5 sm:p-6">
+        {isAuthenticated ? (
+          <>
             <fieldset className="space-y-3">
-              <legend className="text-sm font-medium text-stone-900">Shipping region</legend>
+              <legend className="text-sm font-semibold text-[color:var(--mk-ink)]">
+                Shipping preference
+              </legend>
 
-              <div className="sm:w-72">
-                <label
-                  htmlFor="checkout-pay-region-select"
-                  className="mb-1 block text-sm font-medium text-stone-700"
-                >
-                  Region
-                </label>
-                <select
-                  id="checkout-pay-region-select"
-                  data-testid="checkout-pay-region-select"
-                  value={selectedRegionCode}
-                  onChange={(e) => {
-                    const next = e.currentTarget.value as ShippingRegionCode
-                    setSelectedRegionCode(next)
-                    persistSelectedRegion(next)
-                    void loadPricingPreview("SHIP_NOW", next)
+              <ChoiceCard
+                checked={selectedShippingMode === "SHIP_NOW"}
+                title="Ship now"
+                description="Complete this purchase for normal shipment now."
+              >
+                <input
+                  type="radio"
+                  name="shipping-mode"
+                  value="SHIP_NOW"
+                  checked={selectedShippingMode === "SHIP_NOW"}
+                  onChange={() => {
+                    setSelectedShippingMode("SHIP_NOW")
+                    void loadPricingPreview("SHIP_NOW", selectedRegionCode)
                   }}
-                  className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none"
-                >
-                  {SHIPPING_REGION_OPTIONS.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  className="mt-1 accent-[color:var(--mk-amethyst)]"
+                  data-testid="checkout-pay-shipping-ship-now"
+                />
+              </ChoiceCard>
 
-              <div
-                className="rounded-xl border border-stone-200 bg-stone-50 p-4"
-                data-testid="checkout-pay-region-summary"
+              <ChoiceCard
+                checked={selectedShippingMode === "OPEN_BOX"}
+                title="Add to Open Box"
+                description="Keep this order with your Open Box so it can be grouped with other eligible purchases."
               >
-                <p className="text-sm text-stone-700">
-                  <span className="font-medium text-stone-900">Selected region:</span>{" "}
-                  <span data-testid="checkout-pay-region-label">
-                    {formatShippingRegionLabel(selectedRegionCode)}
-                  </span>
-                </p>
-
-                <dl className="mt-3 space-y-2 text-sm text-stone-700">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt>Subtotal</dt>
-                    <dd data-testid="checkout-pay-preview-subtotal">
-                      {formatMoney(
-                        pricingPreview?.subtotalCents ?? initialCart?.subtotalCents ?? null,
-                      ) ?? "—"}
-                    </dd>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <dt>Shipping</dt>
-                    <dd data-testid="checkout-pay-preview-shipping">
-                      {isLoadingPreview
-                        ? "Loading..."
-                        : formatMoney(pricingPreview?.shippingAmountCents ?? null) ?? "—"}
-                    </dd>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-stone-200 pt-2 font-semibold text-stone-900">
-                    <dt>Total</dt>
-                    <dd data-testid="checkout-pay-preview-total">
-                      {isLoadingPreview
-                        ? "Loading..."
-                        : formatMoney(pricingPreview?.totalCents ?? null) ??
-                        formatMoney(initialCart?.subtotalCents ?? null) ??
-                        "—"}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+                <input
+                  type="radio"
+                  name="shipping-mode"
+                  value="OPEN_BOX"
+                  checked={selectedShippingMode === "OPEN_BOX"}
+                  onChange={() => {
+                    setSelectedShippingMode("OPEN_BOX")
+                    void loadPricingPreview("OPEN_BOX")
+                  }}
+                  className="mt-1 accent-[color:var(--mk-amethyst)]"
+                  data-testid="checkout-pay-shipping-open-box"
+                />
+              </ChoiceCard>
             </fieldset>
-          ) : (
-            <div
-              className="rounded-xl border border-stone-200 bg-stone-50 p-4"
-              data-testid="checkout-pay-open-box-summary"
-            >
-              <p className="text-sm text-stone-700">
-                <span className="font-medium text-stone-900">Open Box selected:</span> shipping
-                will be billed later when your combined shipment is ready.
-              </p>
 
-              <dl className="mt-3 space-y-2 text-sm text-stone-700">
-                <div className="flex items-center justify-between gap-3">
-                  <dt>Subtotal</dt>
-                  <dd data-testid="checkout-pay-open-box-subtotal">
-                    {formatMoney(
-                      pricingPreview?.subtotalCents ?? initialCart?.subtotalCents ?? null,
-                    ) ?? "—"}
-                  </dd>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <dt>Shipping now</dt>
-                  <dd data-testid="checkout-pay-open-box-shipping">
-                    {isLoadingPreview
-                      ? "Loading..."
-                      : formatMoney(pricingPreview?.shippingAmountCents ?? 0) ?? "$0.00"}
-                  </dd>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 border-t border-stone-200 pt-2 font-semibold text-stone-900">
-                  <dt>Total due now</dt>
-                  <dd data-testid="checkout-pay-open-box-total">
-                    {isLoadingPreview
-                      ? "Loading..."
-                      : formatMoney(pricingPreview?.totalCents ?? initialCart?.subtotalCents ?? null) ??
-                      "—"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div
-            className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-700"
-            data-testid="checkout-pay-guest-shipping-mode"
-          >
-            Guest checkout always uses normal shipment.
-          </div>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-stone-900">Shipping region</legend>
-
-            <div className="sm:w-72">
-              <label
-                htmlFor="checkout-pay-region-select"
-                className="mb-1 block text-sm font-medium text-stone-700"
-              >
-                Region
-              </label>
-              <select
-                id="checkout-pay-region-select"
-                data-testid="checkout-pay-region-select"
-                value={selectedRegionCode}
-                onChange={(e) => {
-                  const next = e.currentTarget.value as ShippingRegionCode
+            {selectedShippingMode === "SHIP_NOW" ? (
+              <ShippingRegionAndTotals
+                selectedRegionCode={selectedRegionCode}
+                pricingPreview={pricingPreview}
+                initialSubtotalCents={initialCart?.subtotalCents ?? null}
+                isLoadingPreview={isLoadingPreview}
+                onRegionChange={(next) => {
                   setSelectedRegionCode(next)
                   persistSelectedRegion(next)
                   void loadPricingPreview("SHIP_NOW", next)
                 }}
-                className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none"
-              >
-                {SHIPPING_REGION_OPTIONS.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+              />
+            ) : (
+              <OpenBoxTotals
+                pricingPreview={pricingPreview}
+                initialSubtotalCents={initialCart?.subtotalCents ?? null}
+                isLoadingPreview={isLoadingPreview}
+              />
+            )}
+          </>
+        ) : (
+          <>
             <div
-              className="rounded-xl border border-stone-200 bg-stone-50 p-4"
-              data-testid="checkout-pay-region-summary"
+              className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm mk-muted-text"
+              data-testid="checkout-pay-guest-shipping-mode"
             >
-              <p className="text-sm text-stone-700">
-                <span className="font-medium text-stone-900">Selected region:</span>{" "}
-                <span data-testid="checkout-pay-region-label">
-                  {formatShippingRegionLabel(selectedRegionCode)}
-                </span>
-              </p>
-
-              <dl className="mt-3 space-y-2 text-sm text-stone-700">
-                <div className="flex items-center justify-between gap-3">
-                  <dt>Subtotal</dt>
-                  <dd data-testid="checkout-pay-preview-subtotal">
-                    {formatMoney(
-                      pricingPreview?.subtotalCents ?? initialCart?.subtotalCents ?? null,
-                    ) ?? "—"}
-                  </dd>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <dt>Shipping</dt>
-                  <dd data-testid="checkout-pay-preview-shipping">
-                    {isLoadingPreview
-                      ? "Loading..."
-                      : formatMoney(pricingPreview?.shippingAmountCents ?? null) ?? "—"}
-                  </dd>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 border-t border-stone-200 pt-2 font-semibold text-stone-900">
-                  <dt>Total</dt>
-                  <dd data-testid="checkout-pay-preview-total">
-                    {isLoadingPreview
-                      ? "Loading..."
-                      : formatMoney(pricingPreview?.totalCents ?? null) ??
-                      formatMoney(initialCart?.subtotalCents ?? null) ??
-                      "—"}
-                  </dd>
-                </div>
-              </dl>
+              Guest checkout always uses normal shipment.
             </div>
-          </fieldset>
-        </>
-      )}
+
+            <ShippingRegionAndTotals
+              selectedRegionCode={selectedRegionCode}
+              pricingPreview={pricingPreview}
+              initialSubtotalCents={initialCart?.subtotalCents ?? null}
+              isLoadingPreview={isLoadingPreview}
+              onRegionChange={(next) => {
+                setSelectedRegionCode(next)
+                persistSelectedRegion(next)
+                void loadPricingPreview("SHIP_NOW", next)
+              }}
+            />
+          </>
+        )}
+      </section>
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium text-stone-900">Payment method</legend>
 
         <label className="flex items-center gap-3 rounded-xl border border-stone-200 p-4">
-          <input
-            type="radio"
-            name="payment-provider"
-            value="stripe"
-            checked={selectedProvider === "stripe"}
-            onChange={() => setSelectedProvider("stripe")}
-          />
-          <span className="text-sm text-stone-800">Stripe</span>
+          ...
         </label>
 
         <label className="flex items-center gap-3 rounded-xl border border-stone-200 p-4">
-          <input
-            type="radio"
-            name="payment-provider"
-            value="paypal"
-            checked={selectedProvider === "paypal"}
-            onChange={() => setSelectedProvider("paypal")}
-          />
-          <span className="text-sm text-stone-800">PayPal / Venmo</span>
+          ...
         </label>
       </fieldset>
 
-      {error ? (
-        <div
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-          data-testid="checkout-pay-error"
-        >
-          {error}
-        </div>
-      ) : null}
-
       <section
-        className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-5"
+        className="mk-glass-strong space-y-4 rounded-[2rem] p-5 sm:p-6"
         data-testid="checkout-pay-shipping-address-section"
       >
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
               Shipping address
             </p>
             {addressSaved && shippingAddress ? (
-              <p
-                className="mt-1 text-sm text-stone-700"
-                data-testid="checkout-pay-address-summary"
-              >
+              <p className="mt-1 text-sm mk-muted-text" data-testid="checkout-pay-address-summary">
                 {shippingAddress.fullName} · {shippingAddress.addressLine1},{" "}
                 {shippingAddress.city}, {shippingAddress.stateOrProvince}{" "}
                 {shippingAddress.postalCode} · {shippingAddress.countryCode}
@@ -999,7 +799,7 @@ export function CheckoutPayClient({
             <button
               type="button"
               onClick={() => setAddressSaved(false)}
-              className="shrink-0 text-xs text-stone-500 underline hover:text-stone-700"
+              className="shrink-0 text-xs font-semibold mk-muted-text underline underline-offset-4 hover:text-[color:var(--mk-ink)]"
               data-testid="checkout-pay-edit-address"
             >
               Edit
@@ -1017,12 +817,12 @@ export function CheckoutPayClient({
         ) : null}
       </section>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
           onClick={handleStartPayment}
           disabled={isSubmitting || isLoadingPreview || !addressSaved}
-          className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mk-cta inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-56"
           data-testid="checkout-pay-start"
         >
           {isSubmitting ? "Redirecting…" : "Continue to provider"}
@@ -1030,12 +830,242 @@ export function CheckoutPayClient({
 
         <Link
           href="/checkout"
-          className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white"
+          className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-3 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:bg-[color:var(--mk-panel-muted)] sm:min-w-48"
           data-testid="checkout-pay-return-to-checkout"
         >
           Return to checkout
         </Link>
       </div>
     </section>
+  )
+}
+
+function DetailItem({
+  label,
+  testId,
+  children,
+}: {
+  label: string
+  testId: string
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd
+        className="mt-1 break-all text-sm mk-muted-text"
+        data-testid={testId}
+        suppressHydrationWarning
+      >
+        {children}
+      </dd>
+    </div>
+  )
+}
+
+function ChoiceCard({
+  checked,
+  title,
+  description,
+  children,
+}: {
+  checked: boolean
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <label
+      className={[
+        "flex items-start gap-3 rounded-2xl border p-4 transition",
+        checked
+          ? "border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)]"
+          : "border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] hover:bg-[color:var(--mk-panel-muted)]",
+      ].join(" ")}
+    >
+      {children}
+      <span className="text-sm">
+        <span className="block font-semibold text-[color:var(--mk-ink)]">{title}</span>
+        <span className="block leading-6 mk-muted-text">{description}</span>
+      </span>
+    </label>
+  )
+}
+
+function ShippingRegionAndTotals({
+  selectedRegionCode,
+  pricingPreview,
+  initialSubtotalCents,
+  isLoadingPreview,
+  onRegionChange,
+}: {
+  selectedRegionCode: ShippingRegionCode
+  pricingPreview: CheckoutPricingPreviewResponse | null
+  initialSubtotalCents: number | null
+  isLoadingPreview: boolean
+  onRegionChange: (next: ShippingRegionCode) => void
+}) {
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-sm font-semibold text-[color:var(--mk-ink)]">Shipping region</legend>
+
+      <div className="sm:w-72">
+        <label htmlFor="checkout-pay-region-select" className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+          Region
+        </label>
+        <select
+          id="checkout-pay-region-select"
+          data-testid="checkout-pay-region-select"
+          value={selectedRegionCode}
+          onChange={(e) => onRegionChange(e.currentTarget.value as ShippingRegionCode)}
+          className={inputClass}
+        >
+          {SHIPPING_REGION_OPTIONS.map((option) => (
+            <option key={option.code} value={option.code}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <TotalsCard
+        testId="checkout-pay-region-summary"
+        selectedRegionCode={selectedRegionCode}
+        subtotalCents={pricingPreview?.subtotalCents ?? initialSubtotalCents}
+        shippingCents={pricingPreview?.shippingAmountCents ?? null}
+        totalCents={pricingPreview?.totalCents ?? initialSubtotalCents}
+        isLoadingPreview={isLoadingPreview}
+        shippingLabel="Shipping"
+        totalLabel="Total"
+      />
+    </fieldset>
+  )
+}
+
+function OpenBoxTotals({
+  pricingPreview,
+  initialSubtotalCents,
+  isLoadingPreview,
+}: {
+  pricingPreview: CheckoutPricingPreviewResponse | null
+  initialSubtotalCents: number | null
+  isLoadingPreview: boolean
+}) {
+  return (
+    <div
+      className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+      data-testid="checkout-pay-open-box-summary"
+    >
+      <p className="text-sm mk-muted-text">
+        <span className="font-semibold text-[color:var(--mk-ink)]">Open Box selected:</span>{" "}
+        shipping will be billed later when your combined shipment is ready.
+      </p>
+
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 mk-muted-text">
+          <dt>Subtotal</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-open-box-subtotal">
+            {formatMoney(pricingPreview?.subtotalCents ?? initialSubtotalCents) ?? "—"}
+          </dd>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 mk-muted-text">
+          <dt>Shipping now</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-open-box-shipping">
+            {isLoadingPreview ? "Loading..." : formatMoney(pricingPreview?.shippingAmountCents ?? 0) ?? "$0.00"}
+          </dd>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 border-t border-[color:var(--mk-border)] pt-2 font-semibold text-[color:var(--mk-ink)]">
+          <dt>Total due now</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-open-box-total">
+            {isLoadingPreview ? "Loading..." : formatMoney(pricingPreview?.totalCents ?? initialSubtotalCents) ?? "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+function TotalsCard({
+  testId,
+  selectedRegionCode,
+  subtotalCents,
+  shippingCents,
+  totalCents,
+  isLoadingPreview,
+  shippingLabel,
+  totalLabel,
+}: {
+  testId: string
+  selectedRegionCode: ShippingRegionCode
+  subtotalCents?: number | null
+  shippingCents?: number | null
+  totalCents?: number | null
+  isLoadingPreview: boolean
+  shippingLabel: string
+  totalLabel: string
+}) {
+  return (
+    <div
+      className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+      data-testid={testId}
+    >
+      <p className="text-sm mk-muted-text">
+        <span className="font-semibold text-[color:var(--mk-ink)]">Selected region:</span>{" "}
+        <span data-testid="checkout-pay-region-label">
+          {formatShippingRegionLabel(selectedRegionCode)}
+        </span>
+      </p>
+
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 mk-muted-text">
+          <dt>Subtotal</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-preview-subtotal">
+            {formatMoney(subtotalCents) ?? "—"}
+          </dd>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 mk-muted-text">
+          <dt>{shippingLabel}</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-preview-shipping">
+            {isLoadingPreview ? "Loading..." : formatMoney(shippingCents) ?? "—"}
+          </dd>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4 border-t border-[color:var(--mk-border)] pt-2 font-semibold text-[color:var(--mk-ink)]">
+          <dt>{totalLabel}</dt>
+          <dd className="text-right tabular-nums" data-testid="checkout-pay-preview-total">
+            {isLoadingPreview ? "Loading..." : formatMoney(totalCents) ?? "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+function Alert({
+  tone,
+  testId,
+  children,
+}: {
+  tone: "success" | "danger"
+  testId: string
+  children: ReactNode
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-[color:var(--mk-success)]/40 text-[color:var(--mk-success)]"
+      : "border-[color:var(--mk-danger)]/50 text-[color:var(--mk-danger)]"
+
+  return (
+    <div
+      className={`rounded-2xl border ${toneClass} bg-[color:var(--mk-panel-muted)] p-3 text-sm`}
+      data-testid={testId}
+    >
+      {children}
+    </div>
   )
 }

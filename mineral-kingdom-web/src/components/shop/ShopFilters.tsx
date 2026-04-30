@@ -7,6 +7,12 @@ type Props = {
   availableFilters: ListingBrowseAvailableFiltersDto
 }
 
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] shadow-sm outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+const labelClass = "space-y-1 text-sm"
+const labelTextClass = "font-medium mk-muted-text"
+
 export function ShopFilters({ availableFilters }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -31,17 +37,17 @@ export function ShopFilters({ availableFilters }: Props) {
 
   return (
     <div
-      className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"
+      className="mk-glass-strong space-y-4 rounded-[2rem] p-4 sm:p-5"
       data-testid="shop-filters"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-700">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Filters
         </h2>
         <button
           type="button"
           onClick={clearFilters}
-          className="text-sm font-medium text-stone-600 hover:text-stone-900"
+          className="text-sm font-semibold mk-muted-text transition hover:text-[color:var(--mk-ink)]"
           data-testid="shop-filters-clear"
         >
           Clear all
@@ -49,10 +55,10 @@ export function ShopFilters({ availableFilters }: Props) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Listing type</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Listing type</span>
           <select
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             value={searchParams.get("listingType") ?? ""}
             onChange={(e) => updateParam("listingType", e.target.value)}
             data-testid="shop-filter-listing-type"
@@ -63,10 +69,10 @@ export function ShopFilters({ availableFilters }: Props) {
           </select>
         </label>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Mineral type</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Mineral type</span>
           <select
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             value={searchParams.get("mineralType") ?? ""}
             onChange={(e) => updateParam("mineralType", e.target.value)}
             data-testid="shop-filter-mineral-type"
@@ -80,10 +86,10 @@ export function ShopFilters({ availableFilters }: Props) {
           </select>
         </label>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Size class</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Size class</span>
           <select
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             value={searchParams.get("sizeClass") ?? ""}
             onChange={(e) => updateParam("sizeClass", e.target.value)}
             data-testid="shop-filter-size-class"
@@ -97,10 +103,10 @@ export function ShopFilters({ availableFilters }: Props) {
           </select>
         </label>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Sort</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Sort</span>
           <select
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             value={searchParams.get("sort") ?? "newest"}
             onChange={(e) => updateParam("sort", e.target.value)}
             data-testid="shop-filter-sort"
@@ -114,34 +120,34 @@ export function ShopFilters({ availableFilters }: Props) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Min price</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Min price</span>
           <input
             type="number"
             min="0"
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             defaultValue={searchParams.get("minPrice") ?? ""}
             onBlur={(e) => updateParam("minPrice", e.target.value)}
             data-testid="shop-filter-min-price"
           />
         </label>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-stone-700">Max price</span>
+        <label className={labelClass}>
+          <span className={labelTextClass}>Max price</span>
           <input
             type="number"
             min="0"
-            className="w-full rounded-xl border border-stone-300 px-3 py-2"
+            className={inputClass}
             defaultValue={searchParams.get("maxPrice") ?? ""}
             onBlur={(e) => updateParam("maxPrice", e.target.value)}
             data-testid="shop-filter-max-price"
           />
         </label>
 
-        <label className="flex items-end gap-3 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+        <label className="flex items-end gap-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm font-medium mk-muted-text shadow-sm">
           <input
             type="checkbox"
-            className="h-4 w-4"
+            className="h-4 w-4 accent-[color:var(--mk-amethyst)]"
             checked={searchParams.get("fluorescent") === "true"}
             onChange={(e) => updateParam("fluorescent", e.target.checked ? "true" : "")}
             data-testid="shop-filter-fluorescent"
