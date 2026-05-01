@@ -692,3 +692,269 @@ body {
     height: 24%;
   }
 }
+
+/* Homepage production artwork pass */
+
+.mk-home-hero {
+  background:
+    radial-gradient(circle at 82% 18%, rgb(216 180 254 / 0.34), transparent 32%),
+    radial-gradient(circle at 82% 84%, rgb(103 232 249 / 0.18), transparent 34%),
+    linear-gradient(135deg, rgb(var(--mk-panel-rgb) / 0.92), rgb(var(--mk-panel-muted-rgb) / 0.74));
+}
+
+.dark .mk-home-hero {
+  background:
+    radial-gradient(circle at 78% 18%, rgb(168 85 247 / 0.34), transparent 34%),
+    radial-gradient(circle at 84% 72%, rgb(14 165 233 / 0.2), transparent 35%),
+    linear-gradient(135deg, rgb(5 7 18 / 0.96), rgb(14 10 34 / 0.92));
+}
+
+.mk-home-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 18%, rgb(255 255 255 / 0.32), transparent 24%),
+    radial-gradient(circle at 70% 16%, rgb(236 72 153 / 0.14), transparent 26%),
+    linear-gradient(110deg, transparent 0%, rgb(255 255 255 / 0.24) 46%, transparent 78%);
+  opacity: 0.9;
+}
+
+.dark .mk-home-hero-bg {
+  background-image:
+    radial-gradient(circle at 16% 16%, rgb(255 255 255 / 0.08), transparent 24%),
+    radial-gradient(circle at 66% 22%, rgb(236 72 153 / 0.22), transparent 28%),
+    linear-gradient(110deg, transparent 0%, rgb(99 102 241 / 0.12) 46%, transparent 78%);
+  opacity: 1;
+}
+
+.mk-home-hero-crystals {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/art/mk-home-hero-light.webp");
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-size: min(62vw, 940px) auto;
+  opacity: 0.96;
+  filter: saturate(1.12) contrast(1.04);
+}
+
+.dark .mk-home-hero-crystals {
+  background-image: url("/art/mk-home-hero-dark.webp");
+  opacity: 0.98;
+  filter: saturate(1.24) contrast(1.08);
+}
+
+.mk-home-hero-stage {
+  display: grid;
+  place-items: end center;
+}
+
+.mk-home-hero-orb {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(30px);
+}
+
+.mk-home-hero-orb-a {
+  right: 12%;
+  top: 12%;
+  height: 12rem;
+  width: 12rem;
+  background: rgb(217 70 239 / 0.22);
+}
+
+.mk-home-hero-orb-b {
+  bottom: 8%;
+  left: 12%;
+  height: 10rem;
+  width: 10rem;
+  background: rgb(34 211 238 / 0.18);
+}
+
+.mk-home-hero-shine {
+  position: absolute;
+  right: 10%;
+  top: 12%;
+  height: 70%;
+  width: 78%;
+  border-radius: 999px;
+  background:
+    linear-gradient(120deg, transparent, rgb(255 255 255 / 0.24), transparent),
+    radial-gradient(circle at 70% 40%, rgb(255 255 255 / 0.18), transparent 44%);
+  opacity: 0.55;
+  transform: rotate(-10deg);
+  pointer-events: none;
+}
+
+.dark .mk-home-hero-shine {
+  background:
+    linear-gradient(120deg, transparent, rgb(217 70 239 / 0.18), transparent),
+    radial-gradient(circle at 70% 40%, rgb(56 189 248 / 0.14), transparent 44%);
+  opacity: 0.7;
+}
+
+.mk-home-hero-specimen {
+  position: relative;
+  min-height: 22rem;
+  width: min(100%, 46rem);
+}
+
+.mk-home-hero-specimen-glow {
+  position: absolute;
+  inset-inline: 15%;
+  bottom: 6%;
+  height: 18%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgb(168 85 247 / 0.22), transparent 70%);
+  filter: blur(18px);
+}
+
+.dark .mk-home-hero-specimen-glow {
+  background: radial-gradient(ellipse, rgb(236 72 153 / 0.32), transparent 70%);
+}
+
+.mk-home-section {
+  --mk-home-section-accent: var(--mk-gold);
+  position: relative;
+}
+
+.mk-home-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--mk-home-section-accent) 22%, transparent), transparent 28%),
+    radial-gradient(circle at 90% 100%, color-mix(in srgb, var(--mk-home-section-accent) 12%, transparent), transparent 32%);
+  opacity: 0.45;
+}
+
+.mk-home-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mk-home-section-featured {
+  --mk-home-section-accent: #a855f7;
+}
+
+.mk-home-section-ending {
+  --mk-home-section-accent: #ec4899;
+}
+
+.mk-home-section-upcoming {
+  --mk-home-section-accent: #06b6d4;
+}
+
+.mk-home-section-new {
+  --mk-home-section-accent: #f97316;
+}
+
+.mk-home-item-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.mk-home-item-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--mk-home-section-accent, var(--mk-gold)) 42%, var(--mk-border));
+  box-shadow: 0 18px 60px rgb(15 23 42 / 0.12);
+}
+
+.dark .mk-home-item-card:hover {
+  box-shadow: 0 18px 70px rgb(0 0 0 / 0.42);
+}
+
+.mk-home-trust-strip {
+  background:
+    radial-gradient(circle at 8% 70%, rgb(168 85 247 / 0.16), transparent 28%),
+    radial-gradient(circle at 95% 80%, rgb(217 119 6 / 0.12), transparent 28%),
+    rgb(var(--mk-panel-rgb) / 0.82);
+}
+
+.dark .mk-home-trust-strip {
+  background:
+    radial-gradient(circle at 8% 70%, rgb(168 85 247 / 0.18), transparent 28%),
+    radial-gradient(circle at 95% 80%, rgb(236 72 153 / 0.14), transparent 28%),
+    rgb(5 7 18 / 0.72);
+}
+
+.mk-home-trust-crystal {
+  position: absolute;
+  bottom: -12px;
+  height: 110px;
+  width: 180px;
+  pointer-events: none;
+  background-image: url("/art/mk-crystal-corner-light.webp");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.9;
+}
+
+.dark .mk-home-trust-crystal {
+  background-image: url("/art/mk-crystal-corner-dark.webp");
+  opacity: 0.9;
+}
+
+.mk-home-trust-crystal-left {
+  left: 0;
+  background-position: left bottom;
+}
+
+.mk-home-trust-crystal-right {
+  right: 0;
+  background-position: right bottom;
+  transform: scaleX(-1);
+}
+
+@media (max-width: 1023px) {
+  .mk-home-hero-crystals {
+    background-position: center bottom;
+    background-size: min(100vw, 680px) auto;
+    opacity: 0.52;
+  }
+
+  .mk-home-hero-stage {
+    min-height: 300px;
+  }
+
+  .mk-home-hero-specimen {
+    min-height: 18rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .mk-home-hero {
+    border-radius: 1.75rem;
+  }
+
+  .mk-home-hero-crystals {
+    background-position: center bottom;
+    background-size: 126vw auto;
+    opacity: 0.42;
+  }
+
+  .dark .mk-home-hero-crystals {
+    opacity: 0.54;
+  }
+
+  .mk-home-hero-stage {
+    min-height: 240px;
+  }
+
+  .mk-home-hero-specimen {
+    min-height: 14rem;
+  }
+
+  .mk-home-trust-crystal {
+    opacity: 0.34;
+  }
+}

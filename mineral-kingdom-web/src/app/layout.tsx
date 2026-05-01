@@ -13,6 +13,14 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "Mineral Kingdom",
   description: "Minerals, crystals, fixed-price shop, and live auctions.",
+  icons: {
+
+    icon: "/brand/mineral-kingdom-icon-transparent.png",
+
+    shortcut: "/brand/mineral-kingdom-icon-transparent.png",
+
+    apple: "/brand/mineral-kingdom-icon-transparent.png",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

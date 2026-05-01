@@ -77,17 +77,31 @@ function getEmptyMessage(kind: "listing" | "auction") {
     : "No listings to show yet. New specimens will appear here once published."
 }
 
+function sectionToneClass(sectionTitle: string, kind: "listing" | "auction") {
+  const normalized = sectionTitle.toLowerCase()
+
+  if (normalized.includes("ending")) return "mk-home-section-ending"
+  if (normalized.includes("upcoming")) return "mk-home-section-upcoming"
+  if (normalized.includes("new")) return "mk-home-section-new"
+  if (kind === "auction") return "mk-home-section-auction"
+
+  return "mk-home-section-featured"
+}
+
 export function HomeSection({ section, kind }: HomeSectionProps) {
+  const sectionSlug = section.title.toLowerCase().replace(/\s+/g, "-")
+  const toneClass = sectionToneClass(section.title, kind)
+
   return (
     <section
-      className="mk-glass-strong w-full max-w-full overflow-hidden rounded-[2rem] p-4 sm:p-5"
-      data-testid={`home-section-${section.title.toLowerCase().replace(/\s+/g, "-")}`}
+      className={`mk-home-section mk-glass-strong w-full max-w-full overflow-hidden rounded-[2rem] p-4 sm:p-5 ${toneClass}`}
+      data-testid={`home-section-${sectionSlug}`}
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2 text-[color:var(--mk-gold)]">
+          <div className="mb-1 flex items-center gap-2 text-[color:var(--mk-home-section-accent,var(--mk-gold))]">
             {getSectionIcon(section.title, kind)}
-            <h2 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+            <h2 className="truncate text-xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-2xl">
               {section.title}
             </h2>
           </div>
@@ -101,11 +115,11 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
           asChild
           variant="outline"
           size="sm"
-          className="shrink-0 rounded-2xl border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]"
+          className="shrink-0 rounded-2xl border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]/75 text-[color:var(--mk-ink)] backdrop-blur hover:bg-[color:var(--mk-panel-muted)]"
         >
           <Link
             href={section.browseHref}
-            data-testid={`home-section-browse-${section.title.toLowerCase().replace(/\s+/g, "-")}`}
+            data-testid={`home-section-browse-${sectionSlug}`}
           >
             Browse all
             <ArrowRight className="h-3.5 w-3.5" />
@@ -189,7 +203,7 @@ function HomeItemCard({
   const [specimenA, specimenB] = specimenGradients[index % specimenGradients.length]
 
   return (
-    <article className="mk-glass mk-scroll-card flex flex-col overflow-hidden rounded-3xl p-3">
+    <article className="mk-home-item-card mk-glass mk-scroll-card flex flex-col overflow-hidden rounded-3xl p-3">
       <Link href={item.href} className="group block">
         <div className="relative overflow-hidden rounded-2xl">
           {item.primaryImageUrl ? (
@@ -231,7 +245,10 @@ function HomeItemCard({
 
       <div className="flex flex-1 flex-col pt-4">
         <div className="space-y-1">
-          <Link href={item.href} className="line-clamp-2 font-semibold tracking-tight hover:underline">
+          <Link
+            href={item.href}
+            className="line-clamp-2 font-semibold tracking-tight text-[color:var(--mk-ink)] hover:underline"
+          >
             {item.title}
           </Link>
 
@@ -286,10 +303,7 @@ function HomeItemCard({
           )}
         </div>
 
-        <Button
-          asChild
-          className="mk-cta mt-auto w-full rounded-2xl"
-        >
+        <Button asChild className="mk-cta mt-auto w-full rounded-2xl">
           <Link href={item.href}>
             {kind === "auction" ? (
               scheduledAuction ? (
