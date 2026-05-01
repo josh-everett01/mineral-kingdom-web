@@ -124,7 +124,7 @@ export default async function HomePage() {
         </section>
 
         {sections ? (
-          <div className="grid min-w-0 gap-6 xl:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-4">
             <HomeSection section={sections.featuredListings} kind="listing" />
             <HomeSection section={sections.endingSoonAuctions} kind="auction" />
             <HomeSection section={sections.upcomingAuctions} kind="auction" />
