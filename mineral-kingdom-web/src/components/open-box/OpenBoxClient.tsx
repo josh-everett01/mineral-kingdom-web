@@ -62,14 +62,28 @@ function displayOpenBoxStatus(openBox: OpenBoxDto | null) {
 function statusToneClasses(status: string) {
   switch (status) {
     case "OPEN":
-      return "border-blue-200 bg-blue-50 text-blue-950"
+      return "border-[color:var(--mk-sky)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
     case "CLOSED":
     case "LOCKED_FOR_REVIEW":
-      return "border-amber-200 bg-amber-50 text-amber-950"
+      return "border-[color:var(--mk-gold)]/50 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
     case "SHIPPED":
-      return "border-green-200 bg-green-50 text-green-950"
+      return "border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
     default:
-      return "border-stone-200 bg-stone-50 text-stone-900"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
+  }
+}
+
+function statusAccentClass(status: string) {
+  switch (status) {
+    case "OPEN":
+      return "text-[color:var(--mk-sky)]"
+    case "CLOSED":
+    case "LOCKED_FOR_REVIEW":
+      return "text-[color:var(--mk-gold)]"
+    case "SHIPPED":
+      return "text-[color:var(--mk-success)]"
+    default:
+      return "text-[color:var(--mk-gold)]"
   }
 }
 
@@ -173,10 +187,10 @@ function buildOrderTitle(order: OpenBoxOrderItemDto) {
 function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
   return (
     <li
-      className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      className="flex flex-col gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 sm:flex-row sm:items-start"
       data-testid="open-box-order-row"
     >
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
         {order.previewImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -185,29 +199,31 @@ function OrderRow({ order }: { order: OpenBoxOrderItemDto }) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="px-2 text-center text-[11px] font-medium text-stone-500">Order</span>
+          <span className="px-2 text-center text-[11px] font-semibold text-[color:var(--mk-gold)]">
+            Order
+          </span>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-stone-900">
+        <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
           {buildOrderTitle(order)}
         </p>
-        <p className="mt-1 text-sm text-stone-600">
+        <p className="mt-1 text-sm mk-muted-text">
           Order {order.orderNumber} • {order.sourceType === "AUCTION" ? "Auction" : "Store"}
         </p>
-        <p className="mt-1 text-sm text-stone-600">
+        <p className="mt-1 text-sm mk-muted-text">
           {formatOrderStatus(order.status)}
           {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
         </p>
-        <p className="mt-1 text-sm text-stone-700">
+        <p className="mt-1 text-sm font-semibold text-[color:var(--mk-ink)]">
           {formatMoney(order.totalCents, order.currencyCode)}
         </p>
       </div>
 
       <Link
         href={`/orders/${order.orderId}`}
-        className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+        className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel)]"
         data-testid={`open-box-order-${order.orderId}-view`}
       >
         View
@@ -309,6 +325,7 @@ export function OpenBoxClient() {
 
   const openBoxStatus = useMemo(() => displayOpenBoxStatus(openBox), [openBox])
   const toneClasses = statusToneClasses(openBoxStatus)
+  const accentClass = statusAccentClass(openBoxStatus)
   const invoiceStatus = normalizeInvoiceStatus(invoice?.status)
   const showInvoiceForCurrentBox = shouldShowInvoiceForOpenBox(openBoxStatus)
   const visibleInvoice = showInvoiceForCurrentBox ? invoice : null
@@ -323,7 +340,7 @@ export function OpenBoxClient() {
     : "/support/new?category=OPEN_BOX_HELP"
 
   const shipmentRequestStatus =
-    ((openBox as OpenBoxWithShipmentStatus | null)?.shipmentRequestStatus ?? null)
+    (openBox as OpenBoxWithShipmentStatus | null)?.shipmentRequestStatus ?? null
 
   async function handleCloseBox() {
     setCloseError(null)
@@ -371,11 +388,14 @@ export function OpenBoxClient() {
 
   if (isLoading) {
     return (
-      <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-        data-testid="open-box-loading"
-      >
-        <p className="text-sm text-stone-600">Loading Open Box…</p>
+      <section className="mk-glass-strong rounded-[2rem] p-6" data-testid="open-box-loading">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Open Box
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+          Loading your Open Box
+        </h1>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">Loading Open Box…</p>
       </section>
     )
   }
@@ -383,17 +403,22 @@ export function OpenBoxClient() {
   if (error) {
     return (
       <section
-        className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-6 shadow-sm"
         data-testid="open-box-error"
       >
-        <h1 className="text-2xl font-semibold text-red-900">We couldn’t load your Open Box</h1>
-        <p className="mt-2 text-sm text-red-800">{error}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-danger)]">
+          Open Box
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold text-[color:var(--mk-ink)]">
+          We couldn’t load your Open Box
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-[color:var(--mk-danger)]">{error}</p>
 
         <div className="mt-4 flex flex-wrap gap-3">
           {sessionExpired || errorStatus === 401 ? (
             <Link
               href="/login?returnTo=%2Fopen-box"
-              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
               data-testid="open-box-sign-in-again"
             >
               Sign in again
@@ -402,7 +427,7 @@ export function OpenBoxClient() {
 
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-900 transition hover:bg-red-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="open-box-back-dashboard"
           >
             Back to dashboard
@@ -414,16 +439,15 @@ export function OpenBoxClient() {
 
   if (!openBox) {
     return (
-      <section
-        className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-        data-testid="open-box-empty"
-      >
+      <section className="mk-glass-strong space-y-6 rounded-[2rem] p-6" data-testid="open-box-empty">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Open Box</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-900">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Open Box
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
             You do not have an Open Box yet
           </h1>
-          <p className="mt-2 text-sm text-stone-600 sm:text-base">
+          <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
             Open Box lets you combine eligible purchases into one shipment. When you keep an item in
             Open Box, it will appear here.
           </p>
@@ -432,14 +456,14 @@ export function OpenBoxClient() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="open-box-empty-dashboard"
           >
             Back to dashboard
           </Link>
           <Link
             href="/shop"
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+            className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
             data-testid="open-box-empty-shop"
           >
             Browse shop
@@ -450,24 +474,23 @@ export function OpenBoxClient() {
   }
 
   return (
-    <section
-      className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-      data-testid="open-box-page"
-    >
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Open Box</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-900">
+    <div className="space-y-6" data-testid="open-box-page">
+      <section className="mk-glass-strong rounded-[2rem] p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Open Box
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
           Combined shipping made simple
         </h1>
-        <p className="mt-2 text-sm text-stone-600 sm:text-base">
+        <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
           Open Box lets you combine eligible purchases into one shipment. This page shows what is
           currently grouped together and what the next step is.
         </p>
-      </div>
+      </section>
 
       {closeSuccess ? (
         <div
-          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm text-[color:var(--mk-success)]"
           data-testid="open-box-close-success"
         >
           {closeSuccess}
@@ -475,17 +498,21 @@ export function OpenBoxClient() {
       ) : null}
 
       <section
-        className={`rounded-2xl border p-5 shadow-sm ${toneClasses}`}
+        className={`rounded-[2rem] border p-5 shadow-sm ${toneClasses}`}
         data-testid="open-box-status-card"
       >
-        <p className="text-xs font-semibold uppercase tracking-wide">Status</p>
+        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${accentClass}`}>
+          Status
+        </p>
         <h2 className="mt-2 text-xl font-semibold" data-testid="open-box-status">
           {openBoxStatus}
         </h2>
-        <p className="mt-2 text-sm font-medium">{statusTitle(openBoxStatus)}</p>
-        <p className="mt-2 text-sm opacity-90">{statusDescription(openBoxStatus, hasInvoice)}</p>
+        <p className="mt-2 text-sm font-semibold">{statusTitle(openBoxStatus)}</p>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          {statusDescription(openBoxStatus, hasInvoice)}
+        </p>
         {openBox.closedAt ? (
-          <p className="mt-3 text-xs opacity-80">
+          <p className="mt-3 text-xs mk-muted-text">
             Closed {formatDate(openBox.closedAt) ?? "recently"}
           </p>
         ) : null}
@@ -500,12 +527,14 @@ export function OpenBoxClient() {
       ) : null}
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
         data-testid="open-box-items"
       >
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-stone-900">Orders in your Open Box</h2>
-          <p className="text-sm text-stone-500">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+            Orders in your Open Box
+          </h2>
+          <p className="text-sm mk-muted-text">
             {openBox.orderCount} order{openBox.orderCount === 1 ? "" : "s"}
           </p>
         </div>
@@ -517,7 +546,7 @@ export function OpenBoxClient() {
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-stone-600" data-testid="open-box-items-empty">
+          <p className="mt-4 text-sm mk-muted-text" data-testid="open-box-items-empty">
             Your Open Box exists, but orders are not visible yet.
           </p>
         )}
@@ -525,18 +554,20 @@ export function OpenBoxClient() {
 
       {canRequestShipment ? (
         <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
           data-testid="open-box-request-shipment"
         >
-          <h2 className="text-lg font-semibold text-stone-900">Ready to ship these items?</h2>
-          <p className="mt-2 text-sm text-stone-600">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+            Ready to ship these items?
+          </h2>
+          <p className="mt-2 text-sm leading-6 mk-muted-text">
             This will submit your shipment request for the items shown here. Shipping is not charged
             yet. We’ll review your box and create a shipping invoice next.
           </p>
 
           {closeError ? (
             <div
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              className="mt-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-danger)]"
               data-testid="open-box-close-error"
             >
               {closeError}
@@ -548,7 +579,7 @@ export function OpenBoxClient() {
               type="button"
               onClick={() => void handleCloseBox()}
               disabled={isClosingBox}
-              className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="open-box-close-button"
             >
               {isClosingBox ? "Submitting request…" : "Ship all items now"}
@@ -558,18 +589,18 @@ export function OpenBoxClient() {
       ) : null}
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
         data-testid="open-box-invoice-section"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Shipping invoice</h2>
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Shipping invoice</h2>
 
         {!showInvoiceForCurrentBox ? (
-          <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
+          <p className="mt-2 text-sm leading-6 mk-muted-text" data-testid="open-box-no-invoice">
             Shipping will be billed after you request shipment for your Open Box.
           </p>
         ) : visibleInvoice ? (
           <>
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 text-sm leading-6 mk-muted-text">
               {isInvoicePayable
                 ? "Your Open Box shipping invoice is ready."
                 : isInvoicePaid
@@ -577,17 +608,17 @@ export function OpenBoxClient() {
                   : "Your Open Box shipping invoice is available."}
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4">
               <div>
-                <p className="text-sm font-semibold text-stone-900">
+                <p className="text-sm font-semibold text-[color:var(--mk-ink)]">
                   {formatMoney(visibleInvoice.amountCents, visibleInvoice.currencyCode)}
                 </p>
-                <p className="mt-1 text-sm text-stone-600">Status: {visibleInvoice.status}</p>
+                <p className="mt-1 text-sm mk-muted-text">Status: {visibleInvoice.status}</p>
               </div>
 
               <Link
                 href={`/shipping-invoices/${visibleInvoice.shippingInvoiceId}`}
-                className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+                className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
                 data-testid="open-box-pay-shipping"
               >
                 {isInvoicePayable ? "Pay shipping" : "View invoice"}
@@ -595,7 +626,7 @@ export function OpenBoxClient() {
             </div>
           </>
         ) : (
-          <p className="mt-2 text-sm text-stone-600" data-testid="open-box-no-invoice">
+          <p className="mt-2 text-sm leading-6 mk-muted-text" data-testid="open-box-no-invoice">
             {openBoxStatus === "LOCKED_FOR_REVIEW"
               ? "Your shipment request is under review. A shipping invoice will appear here when ready."
               : openBoxStatus === "CLOSED"
@@ -608,11 +639,11 @@ export function OpenBoxClient() {
       </section>
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
         data-testid="open-box-support"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
-        <p className="mt-2 text-sm text-stone-600">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Need help?</h2>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
           If you have questions about what is in your Open Box or when shipping will be ready,
           contact support.
         </p>
@@ -620,20 +651,20 @@ export function OpenBoxClient() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="open-box-support-dashboard"
           >
             Back to dashboard
           </Link>
           <Link
             href={openBoxSupportHref}
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+            className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
             data-testid="open-box-support-link"
           >
             Contact support
           </Link>
         </div>
       </section>
-    </section>
+    </div>
   )
 }

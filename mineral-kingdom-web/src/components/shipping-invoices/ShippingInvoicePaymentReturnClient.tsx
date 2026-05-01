@@ -161,7 +161,8 @@ function buildShippingContext(invoice: ShippingInvoiceDto | null) {
   }
 
   if ((invoice.relatedOrders?.length ?? 0) > 1 && firstOrder?.orderNumber) {
-    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber} + ${invoice.relatedOrders!.length - 1} more`
+    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber} + ${invoice.relatedOrders!.length - 1
+      } more`
   }
 
   return "Shipping invoice • Open Box"
@@ -571,7 +572,7 @@ export function ShippingInvoicePaymentReturnClient() {
 
   if (!hasResolvedContext) {
     return (
-      <div className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl space-y-5">
         <PaymentStatusPanel
           testId="shipping-payment-return-locating"
           tone="info"
@@ -584,7 +585,7 @@ export function ShippingInvoicePaymentReturnClient() {
 
   if (contextResolutionFailed && !invoiceId) {
     return (
-      <div className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl space-y-5">
         <PaymentStatusPanel
           testId="shipping-payment-return-missing-context"
           tone="error"
@@ -592,7 +593,11 @@ export function ShippingInvoicePaymentReturnClient() {
           body="We couldn’t match this return to a shipping invoice. Returning from the payment provider is never treated as proof of payment. Please go back to your dashboard or shipping invoice to check the current status."
           actions={[
             { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-            { label: "Contact support", href: "/support/new?category=PAYMENT_HELP", variant: "secondary" },
+            {
+              label: "Contact support",
+              href: "/support/new?category=PAYMENT_HELP",
+              variant: "secondary",
+            },
           ]}
         />
       </div>
@@ -601,7 +606,7 @@ export function ShippingInvoicePaymentReturnClient() {
 
   if (!invoiceId) {
     return (
-      <div className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl space-y-5">
         <PaymentStatusPanel
           testId="shipping-payment-return-locating-fallback"
           tone="info"
@@ -613,19 +618,25 @@ export function ShippingInvoicePaymentReturnClient() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+    <div className="mx-auto max-w-4xl space-y-5">
+      <section className="mk-glass-strong rounded-[2rem] p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Shipping payment return
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
           {isPaid(invoice)
             ? "Shipping payment confirmed"
             : "Waiting for shipping payment confirmation"}
         </h1>
 
-        <p className="text-sm text-stone-600" data-testid="shipping-payment-return-copy">
+        <p
+          className="mt-3 text-sm leading-6 mk-muted-text sm:text-base"
+          data-testid="shipping-payment-return-copy"
+        >
           Returning from the payment provider does not itself finalize shipping payment. Your
           shipping invoice updates only after backend confirmation is received.
         </p>
-      </div>
+      </section>
 
       {invoice ? (
         <PaymentContextRow
@@ -666,21 +677,24 @@ export function ShippingInvoicePaymentReturnClient() {
 
       {!isPaid(invoice) ? (
         <div
-          className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-800 shadow-sm"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-ink)] shadow-sm"
           data-testid="shipping-payment-return-status-message"
         >
           <div className="space-y-3">
             <p>{stageMessage}</p>
 
             <div className="space-y-2" data-testid="shipping-payment-return-progress">
-              <div className="flex items-center justify-between text-xs font-medium text-stone-500">
+              <div className="flex items-center justify-between text-xs font-semibold mk-muted-text">
                 <span>Progress</span>
                 <span>{progressPercent}%</span>
               </div>
 
-              <div aria-hidden="true" className="h-2 overflow-hidden rounded-full bg-stone-200">
+              <div
+                aria-hidden="true"
+                className="h-2 overflow-hidden rounded-full bg-[color:var(--mk-panel)]"
+              >
                 <div
-                  className="h-full rounded-full bg-stone-900 transition-all duration-500"
+                  className="h-full rounded-full bg-[color:var(--mk-gold)] transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -688,14 +702,14 @@ export function ShippingInvoicePaymentReturnClient() {
 
             {fallbackMessage ? (
               <div
-                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                className="rounded-2xl border border-[color:var(--mk-gold)]/50 bg-[color:var(--mk-panel)] px-3 py-2 text-xs text-[color:var(--mk-gold)]"
                 data-testid="shipping-payment-return-fallback-copy"
               >
                 {fallbackMessage}
               </div>
             ) : null}
 
-            <div className="text-xs text-stone-500" data-testid="shipping-payment-return-live-status">
+            <div className="text-xs mk-muted-text" data-testid="shipping-payment-return-live-status">
               {invoice?.status
                 ? sse.connected
                   ? `Live shipping invoice updates connected. Current invoice status: ${invoice.status}.`
@@ -711,7 +725,9 @@ export function ShippingInvoicePaymentReturnClient() {
       ) : null}
 
       {isLoading ? (
-        <div className="text-sm text-stone-500">Loading shipping payment status…</div>
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm mk-muted-text">
+          Loading shipping payment status…
+        </div>
       ) : null}
 
       {error ? (
@@ -727,40 +743,50 @@ export function ShippingInvoicePaymentReturnClient() {
               variant: "secondary",
             },
             { label: "Back to dashboard", href: "/dashboard", variant: "secondary" },
-            { label: "Contact support", href: invoiceId ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP` : "/support/new?category=PAYMENT_HELP", variant: "secondary" },
+            {
+              label: "Contact support",
+              href: invoiceId
+                ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP`
+                : "/support/new?category=PAYMENT_HELP",
+              variant: "secondary",
+            },
           ]}
         />
       ) : null}
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
         data-testid="shipping-payment-return-support"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
-        <p className="mt-2 text-sm text-stone-600">
-          If this page does not update as expected, return to your shipping invoice or dashboard
-          to check the latest backend-confirmed state. If something still looks wrong, contact
-          support and include your shipping invoice id.
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Need help?</h2>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          If this page does not update as expected, return to your shipping invoice or dashboard to
+          check the latest backend-confirmed state. If something still looks wrong, contact support
+          and include your shipping invoice id.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={invoiceId ? `/shipping-invoices/${encodeURIComponent(invoiceId)}` : "/dashboard"}
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="shipping-payment-return-back-invoice"
           >
             Back to shipping invoice
           </Link>
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="shipping-payment-return-back-dashboard"
           >
             Back to dashboard
           </Link>
           <Link
-            href={invoiceId ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP` : "/support/new?category=PAYMENT_HELP"}
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+            href={
+              invoiceId
+                ? `/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=PAYMENT_HELP`
+                : "/support/new?category=PAYMENT_HELP"
+            }
+            className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
             data-testid="shipping-payment-return-support-link"
           >
             Contact support

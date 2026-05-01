@@ -9,15 +9,15 @@ type Props = {
 function badgeClass(status: string) {
   switch (status) {
     case "REQUESTED":
-      return "bg-amber-100 text-amber-900 border border-amber-200"
+      return "border-[color:var(--mk-gold)]/50 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-gold)]"
     case "UNDER_REVIEW":
-      return "bg-blue-100 text-blue-900 border border-blue-200"
+      return "border-[color:var(--mk-sky)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-sky)]"
     case "INVOICED":
-      return "bg-purple-100 text-purple-900 border border-purple-200"
+      return "border-[color:var(--mk-amethyst)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-amethyst)]"
     case "PAID":
-      return "bg-emerald-100 text-emerald-900 border border-emerald-200"
+      return "border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-success)]"
     default:
-      return "bg-muted text-foreground border border-border"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]"
   }
 }
 
@@ -59,25 +59,25 @@ export function OpenBoxShipmentStatusNotice({
 
   return (
     <div
-      className="rounded-xl border bg-card p-4 space-y-3"
+      className="space-y-3 rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 shadow-sm"
       data-testid="open-box-shipment-status-notice"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-base font-semibold">{title}</h3>
+        <h3 className="text-base font-semibold text-[color:var(--mk-ink)]">{title}</h3>
         <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass(normalized)}`}
+          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass(normalized)}`}
           data-testid="open-box-shipment-status-badge"
         >
           {statusLabel(normalized)}
         </span>
       </div>
 
-      <p className="text-sm text-muted-foreground">{body}</p>
+      <p className="text-sm leading-6 mk-muted-text">{body}</p>
 
       {normalized === "REQUESTED" || normalized === "UNDER_REVIEW" ? (
-        <div className="rounded-lg border p-3 text-sm space-y-2">
-          <div className="font-medium">What happens next</div>
-          <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+        <div className="space-y-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-3 text-sm">
+          <div className="font-semibold text-[color:var(--mk-ink)]">What happens next</div>
+          <ol className="list-decimal space-y-1 pl-5 mk-muted-text">
             <li>We review your shipment request</li>
             <li>We create your shipping invoice</li>
             <li>You pay shipping once the invoice is ready</li>
@@ -87,7 +87,7 @@ export function OpenBoxShipmentStatusNotice({
       ) : null}
 
       {normalized === "INVOICED" && hasInvoice && !invoicePaid ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm mk-muted-text">
           You can continue below to review and pay the shipping invoice.
         </p>
       ) : null}

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSse } from "@/lib/sse/useSse"
@@ -74,6 +75,25 @@ function formatPaymentProvider(value?: string | null) {
   }
 }
 
+function formatOrderStatus(value?: string | null) {
+  if (!value) return "—"
+
+  switch (value.toUpperCase()) {
+    case "READY_TO_FULFILL":
+      return "Ready to fulfill"
+    case "PAID":
+      return "Paid"
+    case "COMPLETED":
+      return "Completed"
+    case "DELIVERED":
+      return "Delivered"
+    case "AWAITING_PAYMENT":
+      return "Awaiting payment"
+    default:
+      return value
+  }
+}
+
 function isConfirmedOrder(order: OrderConfirmationDto | null) {
   if (!order) return false
 
@@ -84,10 +104,95 @@ function isConfirmedOrder(order: OrderConfirmationDto | null) {
   )
 }
 
+function DetailItem({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string
+  testId: string
+}) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4">
+      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd className="mt-1 break-all text-sm text-[color:var(--mk-ink)]" data-testid={testId}>
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function OrderConfirmationShell({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  children?: React.ReactNode
+}) {
+  return (
+    <section className="space-y-5" data-testid="order-confirmation-card">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          {eyebrow}
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+          {title}
+        </h1>
+        <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
+          {description}
+        </p>
+      </section>
+
+      {children}
+    </section>
+  )
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <OrderConfirmationShell
+      eyebrow="Order confirmation"
+      title="Order not found"
+      description="We could not find this order, or it is not available for this session."
+    >
+      <section className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 shadow-sm">
+        <p className="text-sm font-semibold text-[color:var(--mk-danger)]">{message}</p>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          Check that the order link is correct. If payment just completed, return to your dashboard
+          and refresh your orders.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/dashboard"
+            className="mk-cta inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold"
+          >
+            Back to dashboard
+          </Link>
+          <Link
+            href="/support/new?category=ORDER_HELP"
+            className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+          >
+            Contact support
+          </Link>
+        </div>
+      </section>
+    </OrderConfirmationShell>
+  )
+}
+
 export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
   const router = useRouter()
   const [order, setOrder] = useState<OrderConfirmationDto | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [paymentId] = useState<string | null>(() => {
     if (initialPaymentId) return initialPaymentId
     if (typeof window === "undefined") return null
@@ -118,18 +223,23 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
         | null
 
       if (!res.ok || !body || !("id" in body)) {
+        setOrder(null)
         setError(
           (body && "message" in body && body.message) ||
           (body && "error" in body && body.error) ||
           "We couldn't load the confirmed order state.",
         )
+        setHasLoaded(true)
         return
       }
 
       setOrder(body)
       setError(null)
+      setHasLoaded(true)
     } catch {
+      setOrder(null)
       setError("We couldn't load the confirmed order state.")
+      setHasLoaded(true)
     }
   }, [orderId, paymentId])
 
@@ -173,67 +283,76 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
     })()
   }, [order, router])
 
+  if (!hasLoaded) {
+    return (
+      <OrderConfirmationShell
+        eyebrow="Order confirmation"
+        title="Loading confirmed order state"
+        description="We are checking the backend-confirmed order status. Provider redirects are never treated as proof of payment."
+      >
+        <section className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text shadow-sm">
+          Loading order confirmation…
+        </section>
+      </OrderConfirmationShell>
+    )
+  }
+
+  if (error && !order) {
+    return <ErrorState message={error} />
+  }
+
   const total = formatMoney(order?.totalCents, order?.currencyCode)
   const paidAt = formatDateTime(order?.paidAt)
 
   return (
-    <section
-      className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-      data-testid="order-confirmation-card"
+    <OrderConfirmationShell
+      eyebrow="Order confirmation"
+      title="Your order status is backend-confirmed"
+      description="This page reflects trusted order state from the backend. It never treats provider redirect data as proof that payment succeeded."
     >
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-          Order confirmation
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-          Your order status is backend-confirmed
-        </h1>
-        <p className="text-sm text-stone-600 sm:text-base">
-          This page reflects trusted order state from the backend. It never treats provider redirect
-          data as proof that payment succeeded.
-        </p>
-      </div>
-
-      <dl className="grid gap-3 text-sm text-stone-700 sm:grid-cols-2">
-        <div>
-          <dt className="font-medium text-stone-500">Order number</dt>
-          <dd data-testid="order-confirmation-number">{order?.orderNumber ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Status</dt>
-          <dd data-testid="order-confirmation-status">{order?.status ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Payment status</dt>
-          <dd data-testid="order-confirmation-payment-status">
-            {formatPaymentStatus(order?.paymentStatus)}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Provider</dt>
-          <dd data-testid="order-confirmation-provider">
-            {formatPaymentProvider(order?.paymentProvider ?? order?.provider)}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Paid at</dt>
-          <dd data-testid="order-confirmation-paid-at">{paidAt ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Total</dt>
-          <dd data-testid="order-confirmation-total">{total ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-stone-500">Guest email</dt>
-          <dd data-testid="order-confirmation-guest-email">{order?.guestEmail ?? "—"}</dd>
-        </div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <DetailItem
+          label="Order number"
+          value={order?.orderNumber ?? "—"}
+          testId="order-confirmation-number"
+        />
+        <DetailItem
+          label="Status"
+          value={formatOrderStatus(order?.status)}
+          testId="order-confirmation-status"
+        />
+        <DetailItem
+          label="Payment status"
+          value={formatPaymentStatus(order?.paymentStatus)}
+          testId="order-confirmation-payment-status"
+        />
+        <DetailItem
+          label="Provider"
+          value={formatPaymentProvider(order?.paymentProvider ?? order?.provider)}
+          testId="order-confirmation-provider"
+        />
+        <DetailItem
+          label="Paid at"
+          value={paidAt ?? "—"}
+          testId="order-confirmation-paid-at"
+        />
+        <DetailItem
+          label="Total"
+          value={total ?? "—"}
+          testId="order-confirmation-total"
+        />
+        <DetailItem
+          label="Guest email"
+          value={order?.guestEmail ?? "—"}
+          testId="order-confirmation-guest-email"
+        />
       </dl>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <section className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
           {error}
-        </div>
+        </section>
       ) : null}
-    </section>
+    </OrderConfirmationShell>
   )
 }

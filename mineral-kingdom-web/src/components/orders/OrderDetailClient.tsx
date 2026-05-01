@@ -1,3 +1,4 @@
+// src/components/orders/OrderDetailClient.tsx
 "use client"
 
 import Link from "next/link"
@@ -292,9 +293,7 @@ function formatRegionLabel(value?: string | null) {
   if (!value) return "—"
 
   const normalized = value.toUpperCase()
-  return (
-    SHIPPING_REGION_OPTIONS.find((option) => option.code === normalized)?.label ?? value
-  )
+  return SHIPPING_REGION_OPTIONS.find((option) => option.code === normalized)?.label ?? value
 }
 
 function isOpenBoxOrder(order: OrderDto | null) {
@@ -396,8 +395,7 @@ function normalizeSseSnapshot(payload: unknown): OrderRealtimeSnapshot {
     orderNumber: typeof source.OrderNumber === "string" ? source.OrderNumber : undefined,
     status: typeof source.Status === "string" ? source.Status : undefined,
     paymentStatus: typeof source.PaymentStatus === "string" ? source.PaymentStatus : undefined,
-    paymentProvider:
-      typeof source.PaymentProvider === "string" ? source.PaymentProvider : undefined,
+    paymentProvider: typeof source.PaymentProvider === "string" ? source.PaymentProvider : undefined,
     paidAt:
       typeof source.PaidAt === "string" || source.PaidAt === null
         ? (source.PaidAt as string | null)
@@ -593,6 +591,111 @@ function listingHref(line: OrderLineDto) {
   return `/listing/${line.listingId}`
 }
 
+function GlassPanel({
+  children,
+  testId,
+  className = "",
+}: {
+  children: React.ReactNode
+  testId?: string
+  className?: string
+}) {
+  return (
+    <section
+      className={`mk-glass-strong rounded-[2rem] p-5 shadow-sm sm:p-6 ${className}`}
+      data-testid={testId}
+    >
+      {children}
+    </section>
+  )
+}
+
+function MutedPanel({
+  children,
+  testId,
+  className = "",
+}: {
+  children: React.ReactNode
+  testId?: string
+  className?: string
+}) {
+  return (
+    <section
+      className={`rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 shadow-sm ${className}`}
+      data-testid={testId}
+    >
+      {children}
+    </section>
+  )
+}
+
+function DetailCell({
+  label,
+  children,
+  testId,
+  emphasized = false,
+}: {
+  label: string
+  children: React.ReactNode
+  testId?: string
+  emphasized?: boolean
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </p>
+      <p
+        className={`mt-1 break-words text-sm ${emphasized ? "font-semibold text-[color:var(--mk-ink)]" : "text-[color:var(--mk-ink)]"
+          }`}
+        data-testid={testId}
+      >
+        {children}
+      </p>
+    </div>
+  )
+}
+
+function SecondaryLink({
+  href,
+  children,
+  testId,
+}: {
+  href: string
+  children: React.ReactNode
+  testId?: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+      data-testid={testId}
+    >
+      {children}
+    </Link>
+  )
+}
+
+function PrimaryLink({
+  href,
+  children,
+  testId,
+}: {
+  href: string
+  children: React.ReactNode
+  testId?: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
+      data-testid={testId}
+    >
+      {children}
+    </Link>
+  )
+}
+
 export function OrderDetailClient({ orderId }: Props) {
   const router = useRouter()
 
@@ -712,8 +815,7 @@ export function OrderDetailClient({ orderId }: Props) {
         : deriveSseFallbackTimelineEntry(order, snapshot)
 
     const nextStatus = snapshot.status ?? order.status
-    const shouldApplyRealtimeTotals =
-      nextStatus === "READY_TO_FULFILL" || nextStatus === "PAID"
+    const shouldApplyRealtimeTotals = nextStatus === "READY_TO_FULFILL" || nextStatus === "PAID"
 
     return {
       ...order,
@@ -723,7 +825,9 @@ export function OrderDetailClient({ orderId }: Props) {
       paymentProvider: snapshot.paymentProvider ?? order.paymentProvider,
       paidAt: snapshot.paidAt ?? order.paidAt,
       paymentDueAt: snapshot.paymentDueAt ?? order.paymentDueAt,
-      totalCents: shouldApplyRealtimeTotals ? (snapshot.totalCents ?? order.totalCents) : order.totalCents,
+      totalCents: shouldApplyRealtimeTotals
+        ? (snapshot.totalCents ?? order.totalCents)
+        : order.totalCents,
       currencyCode: snapshot.currencyCode ?? order.currencyCode,
       sourceType: snapshot.sourceType ?? order.sourceType,
       auctionId: snapshot.auctionId !== undefined ? snapshot.auctionId : order.auctionId,
@@ -947,32 +1051,29 @@ export function OrderDetailClient({ orderId }: Props) {
 
   if (isLoading) {
     return (
-      <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-        data-testid="order-detail-loading"
-      >
-        <p className="text-sm text-stone-600">Loading order…</p>
-      </section>
+      <GlassPanel testId="order-detail-loading">
+        <p className="text-sm mk-muted-text">Loading order…</p>
+      </GlassPanel>
     )
   }
 
   if (error && !liveOrder) {
     return (
       <section
-        className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 shadow-sm sm:p-6"
         data-testid="order-detail-error"
       >
-        <h1 className="text-xl font-semibold text-red-900">
+        <h1 className="text-xl font-semibold text-[color:var(--mk-danger)]">
           {errorStatus === 404 ? "Order not found" : "We couldn’t load this order"}
         </h1>
-        <p className="mt-2 text-sm text-red-800">{error}</p>
+        <p className="mt-2 text-sm mk-muted-text">{error}</p>
 
         <div className="mt-4 flex flex-wrap gap-3">
           {sessionExpired || errorStatus === 401 ? (
             <button
               type="button"
               onClick={goToLogin}
-              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
               data-testid="order-detail-sign-in-again"
             >
               Sign in again
@@ -980,47 +1081,39 @@ export function OrderDetailClient({ orderId }: Props) {
           ) : null}
 
           {errorStatus === 403 ? (
-            <Link
-              href="/403"
-              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
-              data-testid="order-detail-go-forbidden"
-            >
+            <PrimaryLink href="/403" testId="order-detail-go-forbidden">
               View access information
-            </Link>
+            </PrimaryLink>
           ) : null}
 
-          <Link
-            href="/dashboard"
-            className="inline-flex rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-900 transition hover:bg-red-100"
-            data-testid="order-detail-back-dashboard"
-          >
+          <SecondaryLink href="/dashboard" testId="order-detail-back-dashboard">
             Back to dashboard
-          </Link>
+          </SecondaryLink>
         </div>
       </section>
     )
   }
 
   return (
-    <section
-      className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-      data-testid="order-detail-card"
-    >
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Order</p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-6" data-testid="order-detail-card">
+      <GlassPanel>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Order
+        </p>
+
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+            <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
               {isAwaitingPayment(liveOrder) ? "Complete payment for your order" : "Order details"}
             </h1>
-            <p className="mt-2 text-sm text-stone-600 sm:text-base">
+            <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
               This page shows backend-confirmed order and payment status and updates live when that
               status changes.
             </p>
           </div>
 
           <div
-            className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-700"
+            className="rounded-full border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--mk-ink)]"
             data-testid="order-detail-live-status"
           >
             {sse.connected
@@ -1034,123 +1127,73 @@ export function OrderDetailClient({ orderId }: Props) {
         </div>
 
         {sse.error ? (
-          <p className="text-xs text-amber-700" data-testid="order-detail-live-status-message">
+          <p className="mt-3 text-xs text-[color:var(--mk-gold)]" data-testid="order-detail-live-status-message">
             Showing the last known order state. You can refresh the page if needed.
           </p>
         ) : null}
-      </div>
+      </GlassPanel>
 
-      <section
-        className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-2 lg:grid-cols-3"
-        data-testid="order-detail-summary"
-      >
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Order number</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-number">
-            {liveOrder?.orderNumber ?? "—"}
-          </p>
-        </div>
+      <MutedPanel testId="order-detail-summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <DetailCell label="Order number" testId="order-detail-number">
+          {liveOrder?.orderNumber ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Status</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-status">
-            {formatOrderStatus(liveOrder?.status)}
-          </p>
-        </div>
+        <DetailCell label="Status" testId="order-detail-status">
+          {formatOrderStatus(liveOrder?.status)}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Source</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-source">
-            {liveOrder?.sourceType ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Source" testId="order-detail-source">
+          {liveOrder?.sourceType ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Auction</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-auction-id">
-            {liveOrder?.auctionId ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Auction" testId="order-detail-auction-id">
+          {liveOrder?.auctionId ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Payment due</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-due">
-            {paymentDueAt ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Payment due" testId="order-detail-payment-due">
+          {paymentDueAt ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Paid at</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-paid-at">
-            {paidAt ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Paid at" testId="order-detail-paid-at">
+          {paidAt ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-            Payment status
-          </p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-status">
-            {paymentStatus}
-          </p>
-        </div>
+        <DetailCell label="Payment status" testId="order-detail-payment-status">
+          {paymentStatus}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Provider</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-payment-provider">
-            {paymentProvider}
-          </p>
-        </div>
+        <DetailCell label="Provider" testId="order-detail-payment-provider">
+          {paymentProvider}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Last updated</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-updated-at">
-            {updatedAt ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Last updated" testId="order-detail-updated-at">
+          {updatedAt ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Shipping mode</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-shipping-mode">
-            {formatShippingMode(liveOrder?.shippingMode)}
-          </p>
-        </div>
+        <DetailCell label="Shipping mode" testId="order-detail-shipping-mode">
+          {formatShippingMode(liveOrder?.shippingMode)}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Selected region</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-selected-region-value">
-            {formatRegionLabel(liveOrder?.selectedRegionCode)}
-          </p>
-        </div>
+        <DetailCell label="Selected region" testId="order-detail-selected-region-value">
+          {formatRegionLabel(liveOrder?.selectedRegionCode)}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Subtotal</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-subtotal">
-            {subtotal ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Subtotal" testId="order-detail-subtotal">
+          {subtotal ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Discount</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-discount">
-            {discount ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Discount" testId="order-detail-discount">
+          {discount ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Shipping</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="order-detail-shipping">
-            {shipping ?? "—"}
-          </p>
-        </div>
+        <DetailCell label="Shipping" testId="order-detail-shipping">
+          {shipping ?? "—"}
+        </DetailCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Total</p>
-          <p className="mt-1 text-sm font-semibold text-stone-900" data-testid="order-detail-total">
-            {total ?? "—"}
-          </p>
-        </div>
-      </section>
+        <DetailCell label="Total" testId="order-detail-total" emphasized>
+          {total ?? "—"}
+        </DetailCell>
+      </MutedPanel>
 
       {isAwaitingPayment(liveOrder) ? (
         <PaymentContextRow
@@ -1168,19 +1211,23 @@ export function OrderDetailClient({ orderId }: Props) {
 
       {isAwaitingPayment(liveOrder) && liveOrder?.sourceType === "AUCTION" ? (
         <section
-          className="rounded-2xl border border-amber-200 bg-amber-50 p-6"
+          className="rounded-[2rem] border border-amber-300/50 bg-amber-500/10 p-5 shadow-sm sm:p-6"
           data-testid="order-detail-auction-shipping-choice-panel"
         >
-          <h2 className="text-lg font-semibold text-amber-950">Choose how you want this auction shipped</h2>
-          <p className="mt-2 text-sm leading-6 text-amber-900">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+            Choose how you want this auction shipped
+          </h2>
+          <p className="mt-2 text-sm leading-6 mk-muted-text">
             Standard auction checkout includes shipping in this payment. If you prefer to combine
             shipping later, choose Open Box and shipping will be billed later by shipping invoice.
           </p>
 
           <fieldset className="mt-4 space-y-3">
-            <legend className="block text-sm font-medium text-amber-950">Shipping choice</legend>
+            <legend className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Shipping choice
+            </legend>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-950">
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 text-sm text-[color:var(--mk-ink)]">
               <input
                 type="radio"
                 name="auction-shipping-mode"
@@ -1191,13 +1238,13 @@ export function OrderDetailClient({ orderId }: Props) {
               />
               <span>
                 <span className="block font-semibold">Ship now</span>
-                <span className="mt-1 block text-amber-800">
+                <span className="mt-1 block mk-muted-text">
                   Pay your auction total including shipping in one transaction now.
                 </span>
               </span>
             </label>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-amber-950">
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 text-sm text-[color:var(--mk-ink)]">
               <input
                 type="radio"
                 name="auction-shipping-mode"
@@ -1208,7 +1255,7 @@ export function OrderDetailClient({ orderId }: Props) {
               />
               <span>
                 <span className="block font-semibold">Keep in Open Box</span>
-                <span className="mt-1 block text-amber-800">
+                <span className="mt-1 block mk-muted-text">
                   Pay for this item now and pay shipping later when your Open Box shipment is ready.
                 </span>
               </span>
@@ -1219,7 +1266,7 @@ export function OrderDetailClient({ orderId }: Props) {
             <div className="mt-4">
               <label
                 htmlFor="order-detail-selected-region-select"
-                className="mb-1 block text-sm font-medium text-amber-950"
+                className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
               >
                 Shipping region
               </label>
@@ -1227,7 +1274,7 @@ export function OrderDetailClient({ orderId }: Props) {
                 id="order-detail-selected-region-select"
                 value={selectedRegionCode}
                 onChange={(e) => setSelectedRegionCode(e.target.value as ShippingRegionCode)}
-                className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950"
+                className="w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)]"
                 data-testid="order-detail-selected-region-select"
               >
                 {SHIPPING_REGION_OPTIONS.map((option) => (
@@ -1236,7 +1283,7 @@ export function OrderDetailClient({ orderId }: Props) {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-sm text-amber-800">
+              <p className="mt-2 text-sm mk-muted-text">
                 Select your region to see shipping cost. Full shipping address will be collected before final checkout.
               </p>
             </div>
@@ -1247,7 +1294,7 @@ export function OrderDetailClient({ orderId }: Props) {
               type="button"
               onClick={handleSaveShippingChoice}
               disabled={isSavingShippingChoice}
-              className="inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="order-detail-save-shipping-choice"
             >
               {isSavingShippingChoice ? "Saving choice..." : "Update total"}
@@ -1256,7 +1303,7 @@ export function OrderDetailClient({ orderId }: Props) {
 
           {shippingChoiceRequired ? (
             <p
-              className="mt-4 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm text-amber-900"
+              className="mt-4 rounded-2xl border border-amber-300/50 bg-amber-500/10 px-3 py-2 text-sm text-[color:var(--mk-ink)]"
               data-testid="order-detail-shipping-choice-required"
             >
               Choose Ship now or Open Box before starting payment.
@@ -1264,10 +1311,7 @@ export function OrderDetailClient({ orderId }: Props) {
           ) : null}
 
           {effectiveShippingMode === "OPEN_BOX" ? (
-            <p
-              className="mt-4 text-sm text-amber-900"
-              data-testid="order-detail-open-box-note"
-            >
+            <p className="mt-4 text-sm mk-muted-text" data-testid="order-detail-open-box-note">
               Open Box means you are paying for this auction item now. Shipping will be billed
               later through a separate shipping invoice when your Open Box shipment is closed.
             </p>
@@ -1275,7 +1319,7 @@ export function OrderDetailClient({ orderId }: Props) {
 
           {shippingChoiceError ? (
             <div
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              className="mt-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-danger)]"
               data-testid="order-detail-shipping-choice-error"
             >
               {shippingChoiceError}
@@ -1296,19 +1340,21 @@ export function OrderDetailClient({ orderId }: Props) {
 
       {isAwaitingPayment(liveOrder) ? (
         <section
-          className="rounded-2xl border border-blue-200 bg-blue-50 p-6"
+          className="rounded-[2rem] border border-blue-300/50 bg-blue-500/10 p-5 shadow-sm sm:p-6"
           data-testid="order-detail-payment-panel"
         >
-          <h2 className="text-lg font-semibold text-blue-950">Payment is due</h2>
-          <p className="mt-2 text-sm leading-6 text-blue-900">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Payment is due</h2>
+          <p className="mt-2 text-sm leading-6 mk-muted-text">
             Choose a payment provider to complete this order. Payment is only considered complete
             when the backend confirms it.
           </p>
 
           <fieldset className="mt-4 space-y-2">
-            <legend className="block text-sm font-medium text-blue-950">Payment provider</legend>
+            <legend className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Payment provider
+            </legend>
             <div className="flex flex-wrap gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-blue-950">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                 <input
                   type="radio"
                   name="order-payment-provider"
@@ -1320,7 +1366,7 @@ export function OrderDetailClient({ orderId }: Props) {
                 Stripe
               </label>
 
-              <label className="inline-flex items-center gap-2 text-sm text-blue-950">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                 <input
                   type="radio"
                   name="order-payment-provider"
@@ -1339,20 +1385,19 @@ export function OrderDetailClient({ orderId }: Props) {
               type="button"
               onClick={handleStartPayment}
               disabled={isSubmittingPayment || shippingChoiceRequired}
-              className="inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="order-detail-start-payment"
             >
               {isSubmittingPayment ? "Starting payment..." : "Pay now"}
             </button>
 
             {liveOrder?.auctionId ? (
-              <Link
+              <SecondaryLink
                 href={`/auctions/${liveOrder.auctionId}`}
-                className="inline-flex rounded-full border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-950 transition hover:bg-blue-100"
-                data-testid="order-detail-back-to-auction"
+                testId="order-detail-back-to-auction"
               >
                 Back to auction
-              </Link>
+              </SecondaryLink>
             ) : null}
           </div>
 
@@ -1372,7 +1417,7 @@ export function OrderDetailClient({ orderId }: Props) {
             <button
               type="button"
               onClick={goToLogin}
-              className="mt-4 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+              className="mt-4 mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
               data-testid="order-detail-payment-sign-in-again"
             >
               Sign in again
@@ -1382,149 +1427,76 @@ export function OrderDetailClient({ orderId }: Props) {
       ) : null}
 
       {isPaidOrder(liveOrder) ? (
-        <>
-          <PaymentStatusPanel
-            testId="order-detail-payment-confirmed"
-            tone="success"
-            title="Order payment confirmed"
-            body="We’ve confirmed payment for this order. You can continue tracking it from your order details and dashboard."
-            actions={[{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]}
-          />
-
-          <section
-            className="rounded-2xl border border-green-200 bg-green-50 p-6"
-            data-testid="order-detail-paid-state"
-          >
-            <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
-            <p className="mt-2 text-sm leading-6 text-green-800">
-              {isOpenBoxOrder(liveOrder)
-                ? "Payment has been confirmed. This order is now part of your Open Box shipment workflow."
-                : "Payment has been confirmed and this order is moving through direct fulfillment."}
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              {liveOrder?.auctionId ? (
-                <Link
-                  href={`/auctions/${liveOrder.auctionId}`}
-                  className="inline-flex rounded-full border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-900 transition hover:bg-green-100"
-                  data-testid="order-detail-paid-back-to-auction"
-                >
-                  Back to auction
-                </Link>
-              ) : null}
-
-              <Link
-                href="/dashboard"
-                className="inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
-                data-testid="order-detail-paid-go-dashboard"
-              >
-                Go to dashboard
-              </Link>
-            </div>
-          </section>
-        </>
+        <PaymentStatusPanel
+          testId="order-detail-payment-confirmed"
+          tone="success"
+          title="Payment confirmed"
+          body={
+            isOpenBoxOrder(liveOrder)
+              ? "We’ve confirmed payment for this order. It is now part of your Open Box shipment workflow."
+              : "We’ve confirmed payment for this order. It is now moving through direct fulfillment."
+          }
+          actions={[{ label: "Back to dashboard", href: "/dashboard", variant: "secondary" }]}
+        />
       ) : null}
 
       {liveOrder?.fulfillmentGroupId ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-          data-testid="order-detail-shipment-progress"
-        >
+        <MutedPanel testId="order-detail-shipment-progress">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-stone-900">Shipment progress</h2>
-            <p className="text-xs text-stone-500">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Shipment progress</h2>
+            <p className="text-xs mk-muted-text">
               Fulfillment group {liveOrder.fulfillmentGroupId}
             </p>
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Fulfillment status
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatFulfillmentStatus(liveOrder.fulfillmentStatus)}
-              </p>
-            </div>
+            <DetailCell label="Fulfillment status">
+              {formatFulfillmentStatus(liveOrder.fulfillmentStatus)}
+            </DetailCell>
+
+            <DetailCell label={shipmentStateLabel(liveOrder)}>
+              {formatShipmentRequestStatus(liveOrder.shipmentRequestStatus)}
+            </DetailCell>
+
+            <DetailCell label={shipmentGroupTypeLabel(liveOrder)}>
+              {formatBoxStatus(liveOrder.boxStatus)}
+            </DetailCell>
+
+            <DetailCell label="Packed at">
+              {formatDateTime(liveOrder.packedAt) ?? "—"}
+            </DetailCell>
+
+            <DetailCell label="Shipped at">
+              {formatDateTime(liveOrder.shippedAt) ?? "—"}
+            </DetailCell>
+
+            <DetailCell label="Delivered at">
+              {formatDateTime(liveOrder.deliveredAt) ?? "—"}
+            </DetailCell>
+
+            <DetailCell label="Carrier">
+              {liveOrder.shippingCarrier ?? "—"}
+            </DetailCell>
+
+            <DetailCell label="Tracking number">
+              {liveOrder.trackingNumber ?? "—"}
+            </DetailCell>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                {shipmentStateLabel(liveOrder)}
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatShipmentRequestStatus(liveOrder.shipmentRequestStatus)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                {shipmentGroupTypeLabel(liveOrder)}
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatBoxStatus(liveOrder.boxStatus)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Packed at
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatDateTime(liveOrder.packedAt) ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Shipped at
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatDateTime(liveOrder.shippedAt) ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Delivered at
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {formatDateTime(liveOrder.deliveredAt) ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Carrier
-              </p>
-              <p className="mt-1 text-sm text-stone-900">
-                {liveOrder.shippingCarrier ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                Tracking number
-              </p>
-              <p className="mt-1 break-all text-sm text-stone-900">
-                {liveOrder.trackingNumber ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
                 Shipping invoice
               </p>
               {requiresShippingInvoice && liveOrder.shippingInvoiceId ? (
                 <Link
                   href={`/shipping-invoices/${encodeURIComponent(liveOrder.shippingInvoiceId)}`}
-                  className="mt-1 inline-flex text-sm text-stone-900 underline underline-offset-4 hover:text-stone-700"
+                  className="mt-1 inline-flex text-sm font-semibold text-[color:var(--mk-ink)] underline underline-offset-4 hover:opacity-80"
                   data-testid="order-detail-shipping-invoice-link"
                 >
                   View invoice ({liveOrder.shippingInvoiceStatus ?? "Unknown"})
                 </Link>
               ) : (
                 <p
-                  className="mt-1 text-sm text-stone-900"
+                  className="mt-1 text-sm text-[color:var(--mk-ink)]"
                   data-testid="order-detail-shipping-invoice-none"
                 >
                   {shippingInvoiceEmptyLabel(liveOrder)}
@@ -1538,28 +1510,25 @@ export function OrderDetailClient({ orderId }: Props) {
               {shipmentTimelineEntries.map((entry) => (
                 <li
                   key={entry.key}
-                  className="border-l-2 border-stone-200 pl-4"
+                  className="border-l-2 border-[color:var(--mk-border)] pl-4"
                   data-testid="order-detail-shipment-timeline-entry"
                 >
-                  <p className="text-sm font-semibold text-stone-900">{entry.title}</p>
+                  <p className="text-sm font-semibold text-[color:var(--mk-ink)]">{entry.title}</p>
                   {entry.description ? (
-                    <p className="mt-1 text-sm text-stone-600">{entry.description}</p>
+                    <p className="mt-1 text-sm mk-muted-text">{entry.description}</p>
                   ) : null}
-                  <p className="mt-1 text-xs text-stone-500">
+                  <p className="mt-1 text-xs mk-muted-text">
                     {formatDateTime(entry.occurredAt) ?? "—"}
                   </p>
                 </li>
               ))}
             </ol>
           ) : null}
-        </section>
+        </MutedPanel>
       ) : null}
 
-      <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-        data-testid="order-detail-lines"
-      >
-        <h2 className="text-lg font-semibold text-stone-900">Line items</h2>
+      <MutedPanel testId="order-detail-lines">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Line items</h2>
         {liveOrder?.lines?.length ? (
           <ul className="mt-3 space-y-3">
             {liveOrder.lines.map((line) => {
@@ -1570,10 +1539,10 @@ export function OrderDetailClient({ orderId }: Props) {
               return (
                 <li
                   key={line.id ?? `${line.listingId}-${line.quantity}`}
-                  className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700"
+                  className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 text-sm text-[color:var(--mk-ink)]"
                 >
                   <div className="flex gap-4">
-                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
                       {line.primaryImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -1582,7 +1551,7 @@ export function OrderDetailClient({ orderId }: Props) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
+                        <div className="flex h-full w-full items-center justify-center text-xs mk-muted-text">
                           No image
                         </div>
                       )}
@@ -1592,34 +1561,34 @@ export function OrderDetailClient({ orderId }: Props) {
                       {href ? (
                         <Link
                           href={href}
-                          className="text-base font-semibold text-stone-900 hover:underline"
+                          className="text-base font-semibold text-[color:var(--mk-ink)] hover:underline"
                           data-testid="order-detail-line-link"
                         >
                           {line.title ?? "Listing"}
                         </Link>
                       ) : (
-                        <p className="text-base font-semibold text-stone-900">
+                        <p className="text-base font-semibold text-[color:var(--mk-ink)]">
                           {line.title ?? "Listing"}
                         </p>
                       )}
 
                       {line.mineralName || line.locality ? (
-                        <p className="mt-1 text-sm text-stone-600">
+                        <p className="mt-1 text-sm mk-muted-text">
                           {[line.mineralName, line.locality].filter(Boolean).join(" • ")}
                         </p>
                       ) : null}
 
-                      <dl className="mt-3 grid gap-2 text-sm text-stone-700 sm:grid-cols-3">
+                      <dl className="mt-3 grid gap-2 text-sm text-[color:var(--mk-ink)] sm:grid-cols-3">
                         <div>
-                          <dt className="font-medium text-stone-500">Quantity</dt>
+                          <dt className="font-semibold text-[color:var(--mk-gold)]">Quantity</dt>
                           <dd>{line.quantity ?? 0}</dd>
                         </div>
                         <div>
-                          <dt className="font-medium text-stone-500">Unit price</dt>
+                          <dt className="font-semibold text-[color:var(--mk-gold)]">Unit price</dt>
                           <dd>{unitFinal ?? "—"}</dd>
                         </div>
                         <div>
-                          <dt className="font-medium text-stone-500">Line total</dt>
+                          <dt className="font-semibold text-[color:var(--mk-gold)]">Line total</dt>
                           <dd>{lineTotal ?? "—"}</dd>
                         </div>
                       </dl>
@@ -1630,17 +1599,14 @@ export function OrderDetailClient({ orderId }: Props) {
             })}
           </ul>
         ) : (
-          <p className="mt-3 text-sm text-stone-600">No line items are available for this order yet.</p>
+          <p className="mt-3 text-sm mk-muted-text">No line items are available for this order yet.</p>
         )}
-      </section>
+      </MutedPanel>
 
-      <section
-        className="rounded-2xl border border-stone-200 bg-white p-4"
-        data-testid="order-detail-timeline"
-      >
+      <MutedPanel testId="order-detail-timeline" className="bg-[color:var(--mk-panel)]">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-stone-900">Order history</h2>
-          {updatedAt ? <p className="text-xs text-stone-500">Last updated {updatedAt}</p> : null}
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Order history</h2>
+          {updatedAt ? <p className="text-xs mk-muted-text">Last updated {updatedAt}</p> : null}
         </div>
 
         {timelineEntries.length ? (
@@ -1648,54 +1614,46 @@ export function OrderDetailClient({ orderId }: Props) {
             {timelineEntries.map((entry, index) => (
               <li
                 key={`${entry.type ?? "entry"}-${entry.occurredAt ?? index}-${entry.title ?? ""}-${entry.description ?? ""}-${index}`}
-                className="border-l-2 border-stone-200 pl-4"
+                className="border-l-2 border-[color:var(--mk-border)] pl-4"
                 data-testid="order-detail-timeline-entry"
               >
-                <p className="text-sm font-semibold text-stone-900">
+                <p className="text-sm font-semibold text-[color:var(--mk-ink)]">
                   {entry.title ?? formatOrderStatus(entry.type)}
                 </p>
                 {entry.description ? (
-                  <p className="mt-1 text-sm text-stone-600">{entry.description}</p>
+                  <p className="mt-1 text-sm mk-muted-text">{entry.description}</p>
                 ) : null}
-                <p className="mt-1 text-xs text-stone-500">
+                <p className="mt-1 text-xs mk-muted-text">
                   {formatDateTime(entry.occurredAt) ?? "—"}
                 </p>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="mt-3 text-sm text-stone-600">
+          <p className="mt-3 text-sm mk-muted-text">
             Order history is not available yet for this order.
           </p>
         )}
-      </section>
+      </MutedPanel>
 
-      <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
-        data-testid="order-detail-support"
-      >
-        <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
-        <p className="mt-2 text-sm text-stone-600">
+      <MutedPanel testId="order-detail-support">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Need help?</h2>
+        <p className="mt-2 text-sm mk-muted-text">
           If something looks wrong with this order or payment state, contact support and include
           your order number.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
-            data-testid="order-detail-support-dashboard"
-          >
+          <SecondaryLink href="/dashboard" testId="order-detail-support-dashboard">
             Back to dashboard
-          </Link>
-          <Link
+          </SecondaryLink>
+          <PrimaryLink
             href={`/support/new?orderId=${encodeURIComponent(orderId)}&category=ORDER_HELP`}
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
-            data-testid="order-detail-support-link"
+            testId="order-detail-support-link"
           >
             Contact support
-          </Link>
+          </PrimaryLink>
         </div>
-      </section>
-    </section>
+      </MutedPanel>
+    </div>
   )
 }

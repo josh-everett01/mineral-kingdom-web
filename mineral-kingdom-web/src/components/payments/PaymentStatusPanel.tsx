@@ -1,80 +1,107 @@
+"use client"
+
 import Link from "next/link"
 
-type PaymentStatusTone = "neutral" | "info" | "success" | "error"
+type PaymentStatusPanelTone = "info" | "success" | "warning" | "error"
 
-type PaymentStatusPanelProps = {
+type PaymentStatusPanelAction = {
+  label: string
+  href: string
+  variant?: "primary" | "secondary"
+}
+
+type Props = {
+  testId?: string
+  tone?: PaymentStatusPanelTone
   title: string
   body: string
-  tone?: PaymentStatusTone
-  actions?: Array<{
-    label: string
-    href: string
-    variant?: "primary" | "secondary"
-  }>
-  testId?: string
+  actions?: PaymentStatusPanelAction[]
 }
 
-function toneClasses(tone: PaymentStatusTone) {
+function toneClasses(tone: PaymentStatusPanelTone) {
   switch (tone) {
-    case "info":
-      return "border-blue-200 bg-blue-50 text-blue-950"
     case "success":
-      return "border-green-200 bg-green-50 text-green-950"
+      return {
+        panel:
+          "border-emerald-300/50 bg-emerald-500/10 shadow-[0_18px_55px_rgba(16,185,129,0.12)]",
+        title: "text-[color:var(--mk-ink)]",
+        accent: "bg-emerald-400",
+      }
+    case "warning":
+      return {
+        panel:
+          "border-amber-300/50 bg-amber-500/10 shadow-[0_18px_55px_rgba(245,158,11,0.12)]",
+        title: "text-[color:var(--mk-ink)]",
+        accent: "bg-amber-400",
+      }
     case "error":
-      return "border-red-200 bg-red-50 text-red-950"
+      return {
+        panel:
+          "border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] shadow-[0_18px_55px_rgba(239,68,68,0.12)]",
+        title: "text-[color:var(--mk-danger)]",
+        accent: "bg-[color:var(--mk-danger)]",
+      }
+    case "info":
     default:
-      return "border-stone-200 bg-stone-50 text-stone-900"
+      return {
+        panel:
+          "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] shadow-[0_18px_55px_rgba(0,0,0,0.08)]",
+        title: "text-[color:var(--mk-ink)]",
+        accent: "bg-[color:var(--mk-gold)]",
+      }
   }
 }
 
-function primaryLinkClasses(tone: PaymentStatusTone) {
-  switch (tone) {
-    case "info":
-      return "bg-blue-900 text-white hover:bg-blue-800"
-    case "success":
-      return "bg-green-900 text-white hover:bg-green-800"
-    case "error":
-      return "bg-red-900 text-white hover:bg-red-800"
-    default:
-      return "bg-stone-900 text-white hover:bg-stone-800"
+function actionClass(variant: PaymentStatusPanelAction["variant"]) {
+  if (variant === "primary") {
+    return "mk-cta inline-flex min-h-10 items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
   }
+
+  return "inline-flex min-h-10 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
 }
 
 export function PaymentStatusPanel({
+  testId,
+  tone = "info",
   title,
   body,
-  tone = "neutral",
   actions = [],
-  testId,
-}: PaymentStatusPanelProps) {
-  const panelToneClasses = toneClasses(tone)
-  const primaryClasses = primaryLinkClasses(tone)
+}: Props) {
+  const classes = toneClasses(tone)
 
   return (
     <section
-      className={`rounded-2xl border p-4 shadow-sm ${panelToneClasses}`}
+      className={`relative overflow-hidden rounded-[2rem] border p-5 sm:p-6 ${classes.panel}`}
       data-testid={testId}
     >
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 opacity-90">{body}</p>
+      <div
+        aria-hidden="true"
+        className={`absolute left-0 top-6 h-10 w-1 rounded-r-full ${classes.accent}`}
+      />
 
-      {actions.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-3">
-          {actions.map((action) => (
-            <Link
-              key={`${action.label}-${action.href}`}
-              href={action.href}
-              className={
-                action.variant === "secondary"
-                  ? "inline-flex rounded-full border border-current bg-white px-4 py-2 text-sm font-medium transition hover:bg-black/5"
-                  : `inline-flex rounded-full px-4 py-2 text-sm font-medium transition ${primaryClasses}`
-              }
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+      <div className="pl-2">
+        <h2 className={`text-base font-semibold sm:text-lg ${classes.title}`}>
+          {title}
+        </h2>
+
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          {body}
+        </p>
+
+        {actions.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {actions.map((action) => (
+              <Link
+                key={`${action.href}-${action.label}`}
+                href={action.href}
+                className={actionClass(action.variant)}
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </section>
   )
 }
