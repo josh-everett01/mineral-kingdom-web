@@ -373,11 +373,11 @@ export function CheckoutStartClient({
           Checkout
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
-          Secure your checkout hold
+          Reserve your items for checkout
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
-          We&apos;ll create a temporary checkout hold before payment so availability can be confirmed
-          safely.
+          Start checkout to place a temporary hold on your cart before payment. Your items stay reserved
+          while you complete shipping and payment.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -446,7 +446,7 @@ export function CheckoutStartClient({
             className="mk-cta rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
             data-testid="checkout-start-button"
           >
-            Start checkout
+            Reserve items
           </button>
         </section>
       ) : isExpired ? (
@@ -516,9 +516,9 @@ export function CheckoutStartClient({
             ) : null}
           </dl>
 
-          <p className="text-sm mk-muted-text" data-testid="checkout-hold-message">
-            Your reservation remains active until the countdown ends. You can extend it near expiry,
-            subject to limits.
+          <p className="text-sm leading-6 mk-muted-text" data-testid="checkout-hold-message">
+            Your items are reserved while the countdown is active. Continue to payment before the hold
+            expires, or return to cart if you need to make changes.
           </p>
 
           {canExtend ? (

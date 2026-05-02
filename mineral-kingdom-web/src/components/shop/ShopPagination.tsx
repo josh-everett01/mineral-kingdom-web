@@ -13,6 +13,8 @@ function buildHref(
   const qp = new URLSearchParams()
 
   for (const [key, value] of Object.entries(searchParams)) {
+    if (key === "listingType") continue
+
     if (typeof value === "string" && value.length > 0) {
       qp.set(key, value)
     }

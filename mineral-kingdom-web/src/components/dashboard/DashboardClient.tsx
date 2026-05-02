@@ -928,8 +928,8 @@ export function DashboardClient() {
       {(payableOrders.length > 0 || payableInvoices.length > 0) ? (
         <section className="space-y-4" data-testid="dashboard-action-needed">
           <div>
-            <h2 className="text-lg font-semibold text-stone-900">Action needed</h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Action needed</h2>
+            <p className="mt-1 text-sm mk-muted-text">
               Review item payments and Open Box shipping payments that still need attention.
             </p>
           </div>

@@ -147,7 +147,7 @@ function getStageMessage(args: {
   }
 
   if (elapsedMs >= 10_000) {
-    return "Almost there — we’re still waiting for backend confirmation."
+    return "Almost there — we’re still waiting for secure payment confirmation."
   }
 
   return "We recorded your return from the payment provider. Confirming payment now…"
@@ -488,7 +488,7 @@ export function OrderPaymentReturnClient() {
       <ReturnHeader
         eyebrow="Order payment return"
         title="We recorded your return from the payment provider"
-        description="Returning from the payment provider is never treated as proof of payment. Your order will update only after backend confirmation is received."
+        description="Returning from the payment provider is never treated as proof of payment. Your order will update only after secure payment confirmation is received."
       />
 
       {displayMessage ? (

@@ -163,7 +163,7 @@ export function HomeSection({ section, kind }: HomeSectionProps) {
 
   return (
     <section
-      className={`mk-home-section mk-glass-strong flex min-h-[720px] w-full max-w-full flex-col overflow-hidden rounded-[2rem] p-4 sm:p-5 ${toneClass}`}
+      className={`mk-home-section mk-glass-strong w-full max-w-full overflow-hidden rounded-[2rem] p-4 sm:p-5 ${toneClass}`}
       data-testid={`home-section-${sectionSlug}`}
     >
       <div className="relative z-10 mb-4 flex items-start justify-between gap-4">

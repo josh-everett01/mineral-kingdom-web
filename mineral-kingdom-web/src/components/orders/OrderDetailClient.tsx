@@ -213,7 +213,7 @@ function formatOrderStatus(value?: string | null) {
     case "AWAITING_PAYMENT":
       return "Awaiting payment"
     case "READY_TO_FULFILL":
-      return "Paid / Ready to fulfill"
+      return "Paid — preparing for fulfillment"
     case "DRAFT":
       return "Draft"
     default:
@@ -241,7 +241,7 @@ function formatFulfillmentStatus(value?: string | null) {
 
   switch (value.toUpperCase()) {
     case "READY_TO_FULFILL":
-      return "Ready to fulfill"
+      return "Paid — preparing for fulfillment"
     case "PACKED":
       return "Packed"
     case "SHIPPED":
@@ -1345,8 +1345,7 @@ export function OrderDetailClient({ orderId }: Props) {
         >
           <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Payment is due</h2>
           <p className="mt-2 text-sm leading-6 mk-muted-text">
-            Choose a payment provider to complete this order. Payment is only considered complete
-            when the backend confirms it.
+            Choose a payment provider to complete this order. Payment is complete once secure provider confirmation is received.
           </p>
 
           <fieldset className="mt-4 space-y-2">

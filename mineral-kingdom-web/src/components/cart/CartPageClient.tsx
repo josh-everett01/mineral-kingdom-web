@@ -8,6 +8,7 @@ import { CartNoticesToastClient } from "@/components/cart/CartNoticesToastClient
 import { CartRealtimeClient } from "@/components/cart/CartRealtimeClient"
 import { formatCurrency } from "@/lib/format/currency"
 import type { CartDto } from "@/lib/cart/cartTypes"
+import { ShoppingBag, ShieldCheck } from "lucide-react"
 
 type LoadableError = {
   status?: number
@@ -178,16 +179,23 @@ export function CartPageClient() {
             className="mk-glass-strong rounded-[2rem] p-8 text-center"
             data-testid="cart-empty-state"
           >
-            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-gold)] shadow-sm">
+              <ShoppingBag className="h-5 w-5" />
+            </div>
+
+            <h2 className="mt-4 text-lg font-semibold text-[color:var(--mk-ink)]">
               Your cart is empty
             </h2>
-            <p className="mt-2 text-sm mk-muted-text">
-              Browse available specimens and add something to get started.
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 mk-muted-text">
+              Browse available direct-buy specimens and add something to get started.
             </p>
+
             <Link
               href="/shop"
-              className="mk-cta mt-5 inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
+              className="mk-cta mt-5 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
             >
+              <ShoppingBag className="h-4 w-4" />
               Continue shopping
             </Link>
           </section>
@@ -203,7 +211,12 @@ export function CartPageClient() {
               className="mk-glass-strong h-fit rounded-[2rem] p-5"
               data-testid="cart-summary"
             >
-              <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Summary</h2>
+              <div className="flex items-center gap-2">
+                <span className="grid h-9 w-9 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-gold)] shadow-sm">
+                  <ShieldCheck className="h-4 w-4" />
+                </span>
+                <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Summary</h2>
+              </div>
 
               <dl className="mt-4 space-y-3 text-sm mk-muted-text">
                 <div className="flex items-center justify-between gap-3">
@@ -225,6 +238,10 @@ export function CartPageClient() {
               >
                 Proceed to checkout
               </Link>
+
+              <p className="mt-3 text-xs leading-5 mk-muted-text">
+                Items are not reserved until checkout begins. Shipping and payment options are reviewed during checkout.
+              </p>
             </aside>
           </section>
         )}

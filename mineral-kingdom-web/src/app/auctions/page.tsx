@@ -4,7 +4,7 @@ import { fetchAuctions } from "@/lib/auctions/getAuctions"
 
 export const metadata: Metadata = {
   title: "Auctions | Mineral Kingdom",
-  description: "Browse live and closing mineral auctions.",
+  description: "Browse live, ending soon, and upcoming mineral auctions.",
   alternates: {
     canonical: "/auctions",
   },
@@ -17,8 +17,8 @@ export default async function AuctionsPage() {
     <AuctionBrowseView
       data={data}
       eyebrow="Mineral Kingdom Auctions"
-      title="Browse auctions"
-      description="Discover live and closing auctions, watch what’s ending soon, and open auction detail pages for the latest bidding activity."
+      title="Live & Upcoming Auctions"
+      description="Bid on active mineral auctions, watch what’s closing soon, and preview scheduled auctions before bidding opens."
     />
   )
 }

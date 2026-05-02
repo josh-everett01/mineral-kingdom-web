@@ -1,16 +1,13 @@
 import Link from "next/link"
-import { ArrowRight, Gem, Sparkles } from "lucide-react"
+import { ArrowRight, Gem, ShoppingBag, Sparkles } from "lucide-react"
 
 import { formatMoney, type ListingBrowseItemDto } from "@/lib/shop/getListings"
-import { LocalTime } from "@/components/ui/LocalTime"
 
 type Props = {
   item: ListingBrowseItemDto
 }
 
 function getStoreSavingsLabel(item: ListingBrowseItemDto): string | null {
-  if (item.listingType === "AUCTION") return null
-
   if (
     typeof item.priceCents !== "number" ||
     typeof item.effectivePriceCents !== "number" ||
@@ -32,23 +29,16 @@ function getStoreSavingsLabel(item: ListingBrowseItemDto): string | null {
 }
 
 export function ListingBrowseCard({ item }: Props) {
-  const isAuction = item.listingType === "AUCTION"
-
-  const displayPrice = isAuction
-    ? formatMoney(item.currentBidCents)
-    : formatMoney(item.effectivePriceCents ?? item.priceCents)
+  const displayPrice = formatMoney(item.effectivePriceCents ?? item.priceCents)
 
   const originalPrice =
-    !isAuction &&
-      typeof item.effectivePriceCents === "number" &&
+    typeof item.effectivePriceCents === "number" &&
       typeof item.priceCents === "number" &&
       item.effectivePriceCents < item.priceCents
       ? formatMoney(item.priceCents)
       : null
 
   const savingsLabel = getStoreSavingsLabel(item)
-  const priceLabel = isAuction ? "Current bid" : "Price"
-  const endsAt = isAuction ? item.endsAt : null
 
   return (
     <article
@@ -74,7 +64,7 @@ export function ListingBrowseCard({ item }: Props) {
           </div>
 
           <div className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-            {item.listingType}
+            Available now
           </div>
 
           {item.isFluorescent ? (
@@ -94,6 +84,7 @@ export function ListingBrowseCard({ item }: Props) {
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
             {item.primaryMineral ?? "Mineral specimen"}
           </div>
+
           <h3
             className="mt-1 line-clamp-2 text-base font-semibold text-[color:var(--mk-ink)]"
             data-testid="shop-listing-card-title"
@@ -108,52 +99,35 @@ export function ListingBrowseCard({ item }: Props) {
           <p data-testid="shop-listing-card-locality">
             {item.localityDisplay ?? "Locality not specified"}
           </p>
+
           <p data-testid="shop-listing-card-size">
             {item.sizeClass ?? "Size not specified"}
           </p>
         </div>
 
         <div className="border-t border-[color:var(--mk-border)] pt-3 text-sm">
-          {isAuction ? (
-            <div className="min-h-[56px] space-y-1">
-              <p
-                className="font-semibold text-[color:var(--mk-gold)]"
-                data-testid="shop-listing-card-price"
-              >
-                {priceLabel}: {displayPrice ?? "—"}
-              </p>
-              {endsAt ? (
-                <p className="mk-muted-text" data-testid="shop-listing-card-ends-at">
-                  Ends: <LocalTime value={endsAt} />
-                </p>
-              ) : (
-                <div className="h-[20px]" />
-              )}
-            </div>
-          ) : (
-            <div className="min-h-[72px] space-y-1">
-              <p
-                className="font-semibold text-[color:var(--mk-gold)]"
-                data-testid="shop-listing-card-price"
-              >
-                {priceLabel}: {displayPrice ?? "—"}
-              </p>
+          <div className="min-h-[72px] space-y-1">
+            <p
+              className="font-semibold text-[color:var(--mk-gold)]"
+              data-testid="shop-listing-card-price"
+            >
+              Price: {displayPrice ?? "—"}
+            </p>
 
-              <p
-                className={`mk-muted-text ${originalPrice ? "line-through" : "invisible"}`}
-                data-testid="shop-listing-card-original-price"
-              >
-                {originalPrice ?? "$0.00"}
-              </p>
+            <p
+              className={`mk-muted-text ${originalPrice ? "line-through" : "invisible"}`}
+              data-testid="shop-listing-card-original-price"
+            >
+              {originalPrice ?? "$0.00"}
+            </p>
 
-              <p
-                className={`text-xs font-semibold text-[color:var(--mk-success)] ${savingsLabel ? "" : "invisible"}`}
-                data-testid="shop-listing-card-savings"
-              >
-                {savingsLabel ?? "placeholder"}
-              </p>
-            </div>
-          )}
+            <p
+              className={`text-xs font-semibold text-[color:var(--mk-success)] ${savingsLabel ? "" : "invisible"}`}
+              data-testid="shop-listing-card-savings"
+            >
+              {savingsLabel ?? "placeholder"}
+            </p>
+          </div>
         </div>
 
         <div className="mt-auto pt-1">
@@ -162,6 +136,7 @@ export function ListingBrowseCard({ item }: Props) {
             className="mk-cta inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
             data-testid="shop-listing-card-link"
           >
+            <ShoppingBag className="h-4 w-4" />
             View listing
             <ArrowRight className="h-4 w-4" />
           </Link>

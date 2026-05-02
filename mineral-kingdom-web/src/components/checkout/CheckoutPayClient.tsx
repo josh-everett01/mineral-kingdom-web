@@ -573,11 +573,11 @@ export function CheckoutPayClient({
           Payment
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
-          Choose payment and shipping preference
+          Choose shipping and payment
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
-          Payment can only start from an active checkout hold. Final paid status is confirmed by
-          backend webhook processing, not redirect parameters.
+          Confirm your shipping preference, add your shipping address, then continue to the secure
+          payment provider. Your order is marked paid only after payment confirmation is received.
         </p>
       </section>
 
@@ -642,7 +642,7 @@ export function CheckoutPayClient({
 
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
-                Store payment
+                Direct-buy checkout
               </p>
               <h2
                 className="mt-1 text-lg font-semibold text-[color:var(--mk-ink)]"
@@ -851,7 +851,7 @@ export function CheckoutPayClient({
           className="mk-cta inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-56"
           data-testid="checkout-pay-start"
         >
-          {isSubmitting ? "Redirecting…" : "Continue to provider"}
+          {isSubmitting ? "Redirecting…" : "Continue to secure payment"}
         </button>
 
         <Link

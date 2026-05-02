@@ -21,6 +21,8 @@ export function ShopFilters({ availableFilters }: Props) {
   const updateParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString())
 
+    next.delete("listingType")
+
     if (!value) {
       next.delete(key)
     } else {
@@ -28,7 +30,7 @@ export function ShopFilters({ availableFilters }: Props) {
     }
 
     next.delete("page")
-    router.push(`${pathname}?${next.toString()}`)
+    router.push(next.toString() ? `${pathname}?${next.toString()}` : pathname)
   }
 
   const clearFilters = () => {
@@ -44,6 +46,7 @@ export function ShopFilters({ availableFilters }: Props) {
         <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Filters
         </h2>
+
         <button
           type="button"
           onClick={clearFilters}
@@ -54,21 +57,7 @@ export function ShopFilters({ availableFilters }: Props) {
         </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label className={labelClass}>
-          <span className={labelTextClass}>Listing type</span>
-          <select
-            className={inputClass}
-            value={searchParams.get("listingType") ?? ""}
-            onChange={(e) => updateParam("listingType", e.target.value)}
-            data-testid="shop-filter-listing-type"
-          >
-            <option value="">All</option>
-            <option value="STORE">Store</option>
-            <option value="AUCTION">Auction</option>
-          </select>
-        </label>
-
+      <div className="grid gap-4 md:grid-cols-3">
         <label className={labelClass}>
           <span className={labelTextClass}>Mineral type</span>
           <select
@@ -114,7 +103,6 @@ export function ShopFilters({ availableFilters }: Props) {
             <option value="newest">Newest</option>
             <option value="price_asc">Price: Low to high</option>
             <option value="price_desc">Price: High to low</option>
-            <option value="ending_soon">Ending soon</option>
           </select>
         </label>
       </div>

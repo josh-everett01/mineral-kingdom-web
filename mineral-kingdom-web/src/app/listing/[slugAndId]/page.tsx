@@ -33,6 +33,9 @@ export default async function ListingDetailPage({ params }: Props) {
 
   const { listing, storeOffer, auction, purchaseContext } = data
 
+  const isDirectBuy = purchaseContext.showAddToCart && storeOffer
+  const isAuctionListing = purchaseContext.showAuctionWidget && auction
+
   const galleryImages = [...listing.media]
     .filter((media: (typeof listing.media)[number]) => media.mediaType === "IMAGE")
     .map((media: (typeof listing.media)[number]) => ({
@@ -62,7 +65,7 @@ export default async function ListingDetailPage({ params }: Props) {
             <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-6">
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
-                  Listing
+                  {isDirectBuy ? "Available Now" : isAuctionListing ? "Auction Listing" : "Listing"}
                 </p>
                 <h1
                   className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl"
@@ -70,7 +73,13 @@ export default async function ListingDetailPage({ params }: Props) {
                 >
                   {listing.title ?? "Untitled listing"}
                 </h1>
-                <p className="text-sm mk-muted-text">Status: {listing.status}</p>
+                <p className="text-sm mk-muted-text">
+                  {isDirectBuy
+                    ? "Available for direct purchase."
+                    : isAuctionListing
+                      ? "This specimen is attached to an auction."
+                      : `Status: ${listing.status}`}
+                </p>
               </div>
             </section>
 
@@ -116,7 +125,7 @@ export default async function ListingDetailPage({ params }: Props) {
               >
                 <div className="space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-success)]">
-                    Fixed price
+                    Direct Buy
                   </p>
 
                   {storeOffer.effectivePriceCents < storeOffer.priceCents ? (

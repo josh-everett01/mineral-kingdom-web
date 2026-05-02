@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Clock3, Gem, Sparkles } from "lucide-react"
+import { ArrowRight, Bell, Clock3, Gavel, Gem, Sparkles } from "lucide-react"
 
 import {
   formatMoney,
@@ -12,13 +12,36 @@ type Props = {
   highlightEndingSoon?: boolean
 }
 
+function normalizeStatus(status?: string | null) {
+  return (status ?? "").trim().toUpperCase()
+}
+
+function getStatusLabel(status?: string | null, highlightEndingSoon?: boolean) {
+  if (highlightEndingSoon) return "Closing soon"
+
+  switch (normalizeStatus(status)) {
+    case "SCHEDULED":
+      return "Upcoming"
+    case "LIVE":
+      return "Live auction"
+    case "CLOSING":
+      return "Closing"
+    case "ENDED":
+      return "Ended"
+    default:
+      return status?.replaceAll("_", " ") ?? "Auction"
+  }
+}
+
 export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
-  const isScheduled = (item.status ?? "").toUpperCase() === "SCHEDULED"
+  const status = normalizeStatus(item.status)
+  const isScheduled = status === "SCHEDULED"
+  const statusLabel = getStatusLabel(item.status, highlightEndingSoon)
 
   return (
     <article
       className={[
-        "mk-glass flex h-full flex-col overflow-hidden rounded-[2rem]",
+        "mk-glass flex h-full flex-col overflow-hidden rounded-[2rem] transition duration-300 hover:-translate-y-0.5",
         highlightEndingSoon ? "ring-1 ring-[color:var(--mk-gold)]" : "",
       ].join(" ")}
       data-testid="auction-card"
@@ -41,8 +64,10 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
             )}
           </div>
 
-          <div className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-            {isScheduled ? "Upcoming" : item.status}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10 opacity-80" />
+
+          <div className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
+            {statusLabel}
           </div>
 
           {highlightEndingSoon ? (
@@ -67,8 +92,9 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
       <div className="flex flex-1 flex-col space-y-3 p-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
-            {isScheduled ? "Upcoming auction" : item.status}
+            {isScheduled ? "Opening bid" : "Current bid"}
           </div>
+
           <h3
             className="mt-1 line-clamp-2 text-base font-semibold text-[color:var(--mk-ink)]"
             data-testid="auction-card-title"
@@ -127,7 +153,17 @@ export function AuctionCard({ item, highlightEndingSoon = false }: Props) {
           className="mk-cta mt-auto inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
           data-testid="auction-card-link"
         >
-          {isScheduled ? "View upcoming auction" : "View auction"}
+          {isScheduled ? (
+            <>
+              <Bell className="h-4 w-4" />
+              View upcoming
+            </>
+          ) : (
+            <>
+              <Gavel className="h-4 w-4" />
+              View auction
+            </>
+          )}
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>

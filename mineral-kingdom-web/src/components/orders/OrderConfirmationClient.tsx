@@ -287,8 +287,8 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
     return (
       <OrderConfirmationShell
         eyebrow="Order confirmation"
-        title="Loading confirmed order state"
-        description="We are checking the backend-confirmed order status. Provider redirects are never treated as proof of payment."
+        title="Confirming your order"
+        description="We’re securely checking your payment and order status. This usually only takes a moment."
       >
         <section className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text shadow-sm">
           Loading order confirmation…
@@ -307,8 +307,8 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
   return (
     <OrderConfirmationShell
       eyebrow="Order confirmation"
-      title="Your order status is backend-confirmed"
-      description="This page reflects trusted order state from the backend. It never treats provider redirect data as proof that payment succeeded."
+      title="Confirming your order"
+      description="We’re securely checking your payment and order status. This usually only takes a moment."
     >
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <DetailItem
@@ -317,7 +317,7 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
           testId="order-confirmation-number"
         />
         <DetailItem
-          label="Status"
+          label="Order status"
           value={formatOrderStatus(order?.status)}
           testId="order-confirmation-status"
         />
@@ -347,6 +347,33 @@ export function OrderConfirmationClient({ orderId, initialPaymentId }: Props) {
           testId="order-confirmation-guest-email"
         />
       </dl>
+
+      <section className="mk-glass-strong rounded-[2rem] p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+          What happens next?
+        </h2>
+
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          You’ll receive updates as the order moves through fulfillment. You can review order details
+          from your dashboard or contact support if you need help.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/dashboard"
+            className="mk-cta inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold"
+          >
+            View dashboard
+          </Link>
+
+          <Link
+            href="/support/new?category=ORDER_HELP"
+            className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+          >
+            Contact support
+          </Link>
+        </div>
+      </section>
 
       {error ? (
         <section className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
