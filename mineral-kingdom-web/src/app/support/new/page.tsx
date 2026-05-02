@@ -97,7 +97,25 @@ export default async function SupportNewPage({ searchParams }: Props) {
       <Container className="py-8 sm:py-10" data-testid="support-new-page">
         <div className="mx-auto max-w-3xl space-y-6">
           <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
-            {/* keep your existing hero content here */}
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+              Contact Support
+            </p>
+
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+              How can we help?
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
+              Send us a message about an order, auction, shipping invoice, listing, or account question.
+              We’ll keep the conversation organized in your support tickets.
+            </p>
+
+            {contextLabel ? (
+              <div className="mt-5 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm mk-muted-text">
+                This request is linked to{" "}
+                <span className="font-semibold text-[color:var(--mk-ink)]">{contextLabel}</span>.
+              </div>
+            ) : null}
           </section>
 
           <SupportRequestForm

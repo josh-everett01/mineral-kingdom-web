@@ -266,7 +266,7 @@ export function SupportRequestForm({ defaultCategory, linkedContext, contextLabe
         <button
           type="submit"
           disabled={submitting}
-          className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          className="mk-cta inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="support-form-submit"
         >
           {submitting ? "Submitting…" : "Submit request"}

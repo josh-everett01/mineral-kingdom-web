@@ -276,10 +276,10 @@ export function SupportTicketThreadClient({ ticketId, token }: Props) {
           <button
             type="submit"
             disabled={replyPending || replyText.trim().length === 0}
-            className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            className="mk-cta inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="support-thread-reply-submit"
           >
-            <Send className="mr-2 h-4 w-4" />
+            <Send className="h-4 w-4" />
             {replyPending ? "Sending…" : "Send reply"}
           </button>
         </form>

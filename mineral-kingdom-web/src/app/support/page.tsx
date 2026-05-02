@@ -76,7 +76,7 @@ function SupportListContent() {
               Support requests
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
-              Track questions about orders, auctions, shipping invoices, listings, and account help.
+              Track help requests for orders, auctions, shipping invoices, listings, and account questions.
             </p>
           </div>
 
