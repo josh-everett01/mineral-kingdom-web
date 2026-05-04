@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Response } from "@playwright/test"
+import { waitForAuthMe } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -40,6 +41,7 @@ async function login(page: Page, email: string, password: string) {
   }
 
   await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await waitForAuthMe(page, email)
 }
 
 async function loginAsAdmin(page: Page) {

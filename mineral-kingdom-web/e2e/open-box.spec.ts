@@ -259,8 +259,8 @@ test.describe("open box", () => {
 
     await page.goto(OPEN_BOX_URL, { waitUntil: "domcontentloaded" })
 
-    await expect(page.getByTestId("open-box-error")).toBeVisible()
-    await expect(page.getByTestId("open-box-sign-in-again")).toBeVisible()
+    await expect(page).toHaveURL(/\/login\?returnTo=%2Fopen-box/, { timeout: 15_000 })
+    await expect(page.getByTestId("login-title")).toBeVisible()
   })
 
   test("open group ignores historical paid invoice response and does not show shipping CTA", async ({

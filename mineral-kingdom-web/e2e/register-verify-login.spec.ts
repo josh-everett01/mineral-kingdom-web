@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForAuthenticatedSession } from "./helpers/session";
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).");
 
@@ -80,8 +81,5 @@ test("register -> verify -> login happy path", async ({ page }) => {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`);
   }
 
-  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 });
-  await page.goto("/account");
-  await expect(page.getByText("Authenticated:")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(email)).toBeVisible();
+  await waitForAuthenticatedSession(page, email);
 });
