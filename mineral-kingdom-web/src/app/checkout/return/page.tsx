@@ -1,16 +1,18 @@
 import { Suspense } from "react"
+
 import { CheckoutReturnClient } from "@/components/checkout/CheckoutReturnClient"
+import { Container } from "@/components/site/Container"
 
 function CheckoutReturnFallback() {
   return (
-    <section className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-        Checkout Return
+    <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+        Checkout return
       </p>
-      <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
         We recorded your return from the payment provider
       </h1>
-      <p className="text-sm text-stone-600 sm:text-base">
+      <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
         We are restoring your checkout return state now.
       </p>
     </section>
@@ -19,13 +21,14 @@ function CheckoutReturnFallback() {
 
 export default function CheckoutReturnPage() {
   return (
-    <main
-      className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8"
-      data-testid="checkout-return-page"
-    >
-      <Suspense fallback={<CheckoutReturnFallback />}>
-        <CheckoutReturnClient />
-      </Suspense>
-    </main>
+    <div className="mk-preview-page min-h-screen overflow-x-hidden">
+      <Container className="py-8 sm:py-10" data-testid="checkout-return-page">
+        <div className="mx-auto max-w-3xl">
+          <Suspense fallback={<CheckoutReturnFallback />}>
+            <CheckoutReturnClient />
+          </Suspense>
+        </div>
+      </Container>
+    </div>
   )
 }

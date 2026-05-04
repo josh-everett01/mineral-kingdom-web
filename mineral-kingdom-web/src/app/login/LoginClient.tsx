@@ -3,11 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Container } from "@/components/site/Container"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { LockKeyhole, Mail, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 
 function getSafeRedirectTarget(value: string | null | undefined) {
@@ -17,11 +13,14 @@ function getSafeRedirectTarget(value: string | null | undefined) {
   return value
 }
 
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+const labelClass = "block text-sm font-semibold text-[color:var(--mk-ink)]"
+
 export default function LoginClient() {
   const search = useSearchParams()
-  const redirectTarget = getSafeRedirectTarget(
-    search.get("returnTo") ?? search.get("next"),
-  )
+  const redirectTarget = getSafeRedirectTarget(search.get("returnTo") ?? search.get("next"))
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -53,6 +52,7 @@ export default function LoginClient() {
           setEmailNotVerified(true)
           return
         }
+
         const msg = data.message ?? "Login failed"
         setError(msg)
         toast.error(msg)
@@ -61,7 +61,6 @@ export default function LoginClient() {
 
       toast.success("Welcome back")
       window.location.assign(redirectTarget)
-      return
     } catch {
       const msg = "Login failed"
       setError(msg)
@@ -72,18 +71,43 @@ export default function LoginClient() {
   }
 
   return (
-    <Container className="py-12">
-      <Card className="mx-auto max-w-md">
-        <CardHeader>
-          <CardTitle data-testid="login-title">Login</CardTitle>
-          <CardDescription>Sign in to your Mineral Kingdom account.</CardDescription>
-        </CardHeader>
+    <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Member access
+          </p>
+          <h1
+            className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl"
+            data-testid="login-title"
+          >
+            Sign in to Mineral Kingdom
+          </h1>
+          <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
+            Access your dashboard, bids, orders, Open Box shipments, and support tickets.
+          </p>
 
-        <CardContent>
+          <div className="mt-5 grid gap-3">
+            <AuthPill icon={<ShieldCheck className="h-4 w-4" />} label="Secure checkout access" />
+            <AuthPill icon={<LockKeyhole className="h-4 w-4" />} label="Member bidding tools" />
+            <AuthPill icon={<Mail className="h-4 w-4" />} label="Order and shipping updates" />
+          </div>
+        </section>
+
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold text-[color:var(--mk-ink)]">Welcome back</h2>
+            <p className="mt-1 text-sm mk-muted-text">
+              Sign in to continue to your Mineral Kingdom account.
+            </p>
+          </div>
+
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
+              <label className={labelClass} htmlFor="email">
+                Email
+              </label>
+              <input
                 id="email"
                 data-testid="login-email"
                 type="email"
@@ -91,21 +115,24 @@ export default function LoginClient() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className={inputClass}
               />
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between gap-3">
+                <label className={labelClass} htmlFor="password">
+                  Password
+                </label>
                 <Link
                   href="/password-reset/request"
                   data-testid="login-forgot-password"
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="text-sm font-semibold mk-muted-text underline-offset-4 hover:text-[color:var(--mk-ink)] hover:underline"
                 >
                   Forgot password?
                 </Link>
               </div>
-              <Input
+              <input
                 id="password"
                 data-testid="login-password"
                 type="password"
@@ -113,39 +140,72 @@ export default function LoginClient() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className={inputClass}
               />
             </div>
 
-            {emailNotVerified && (
+            {emailNotVerified ? (
               <div
                 data-testid="login-error-email-not-verified"
-                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1"
+                className="space-y-1 rounded-2xl border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm mk-muted-text"
               >
-                <div>Your email address hasn&apos;t been verified yet.</div>
+                <div className="font-semibold text-[color:var(--mk-ink)]">
+                  Your email address hasn&apos;t been verified yet.
+                </div>
                 <Link
                   href={`/resend-verification?email=${encodeURIComponent(email)}`}
-                  className="underline hover:no-underline"
+                  className="font-semibold text-[color:var(--mk-gold)] underline underline-offset-4 hover:no-underline"
                 >
                   Resend verification email
                 </Link>
               </div>
-            )}
+            ) : null}
 
-            {error && (
+            {error ? (
               <div
                 data-testid="login-error"
-                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm text-[color:var(--mk-danger)]"
               >
                 {error}
               </div>
-            )}
+            ) : null}
 
-            <Button className="w-full" type="submit" data-testid="login-submit" disabled={isSubmitting}>
+            <button
+              className="mk-cta inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              type="submit"
+              data-testid="login-submit"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Signing in..." : "Sign in"}
-            </Button>
+            </button>
+
+            <p className="text-center text-sm mk-muted-text">
+              Need an account?{" "}
+              <Link
+                className="font-semibold text-[color:var(--mk-ink)] underline underline-offset-4 hover:text-[color:var(--mk-gold)]"
+                href="/register"
+              >
+                Create one
+              </Link>
+            </p>
           </form>
-        </CardContent>
-      </Card>
-    </Container>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function AuthPill({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <div className="mk-glass flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium">
+      <span className="text-[color:var(--mk-gold)]">{icon}</span>
+      <span>{label}</span>
+    </div>
   )
 }

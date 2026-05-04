@@ -355,10 +355,11 @@ test.describe("order detail", () => {
 
     await page.goto(ORDER_URL, { waitUntil: "domcontentloaded" })
 
-    await expect(page.getByTestId("order-detail-status")).toContainText("Paid / Ready to fulfill")
+    await expect(page.getByTestId("order-detail-status")).toContainText(
+      /Paid.*preparing for fulfillment/,
+    )
     await expect(page.getByTestId("order-detail-payment-status")).toContainText("Paid")
     await expect(page.getByTestId("order-detail-payment-confirmed")).toBeVisible()
-    await expect(page.getByTestId("order-detail-paid-state")).toBeVisible()
   })
 
   test("unauthenticated user is prompted to sign in again", async ({ page }) => {
@@ -411,7 +412,7 @@ test.describe("order detail", () => {
 
     await expect(page.getByTestId("order-detail-status")).toContainText("Awaiting payment")
     await expect(page.getByTestId("order-detail-payment-panel")).toBeVisible()
-    await expect(page.getByTestId("order-detail-paid-state")).toHaveCount(0)
+    await expect(page.getByTestId("order-detail-payment-confirmed")).toHaveCount(0)
   })
 
   test("auction order blocks payment until a shipping choice is selected", async ({ page }) => {

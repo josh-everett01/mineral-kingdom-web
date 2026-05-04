@@ -17,10 +17,34 @@ function statusClasses(status: string) {
     case "PUBLISHED":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     case "ARCHIVED":
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] mk-muted-text"
     default:
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
   }
+}
+
+function readinessClasses(ready: boolean) {
+  return ready
+    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+}
+
+function commerceGuidance(status: string, ready: boolean) {
+  const normalized = status.toUpperCase()
+
+  if (normalized === "DRAFT") {
+    return ready ? "Ready to publish" : "Complete required fields"
+  }
+
+  if (normalized === "PUBLISHED") {
+    return "Catalog-ready; check offer/auction state"
+  }
+
+  if (normalized === "ARCHIVED") {
+    return "Retired from normal workflows"
+  }
+
+  return "Review listing state"
 }
 
 export function AdminListingsTable({
@@ -34,7 +58,7 @@ export function AdminListingsTable({
     return (
       <div
         data-testid="admin-listings-loading"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
         Loading listings…
       </div>
@@ -45,30 +69,39 @@ export function AdminListingsTable({
     return (
       <div
         data-testid="admin-listings-empty"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
-        No listings yet. Create a draft listing to get started.
+        No listings match the current filters. Create a draft listing to get started.
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <section className="mk-glass-strong overflow-hidden rounded-[2rem]">
+      <div className="border-b border-[color:var(--mk-border)] p-5">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Listing records</h2>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
+          This table shows catalog readiness. Commerce assignment is handled through store offers
+          or auctions.
+        </p>
+      </div>
+
       <div className="overflow-x-auto">
         <table data-testid="admin-listings-table" className="min-w-full text-sm">
-          <thead className="bg-muted/40 text-left">
-            <tr className="border-b">
-              <th className="px-4 py-3 font-medium">Title</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Mineral</th>
-              <th className="px-4 py-3 font-medium">Locality</th>
-              <th className="px-4 py-3 font-medium">Inventory</th>
-              <th className="px-4 py-3 font-medium">Updated</th>
-              <th className="px-4 py-3 font-medium">Publish readiness</th>
-              <th className="px-4 py-3 font-medium text-right">Action</th>
+          <thead className="border-b border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-left text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+            <tr>
+              <th className="px-5 py-3">Title</th>
+              <th className="px-5 py-3">Catalog status</th>
+              <th className="px-5 py-3">Mineral</th>
+              <th className="px-5 py-3">Locality</th>
+              <th className="px-5 py-3">Inventory</th>
+              <th className="px-5 py-3">Updated</th>
+              <th className="px-5 py-3">Readiness / next step</th>
+              <th className="px-5 py-3 text-right">Action</th>
             </tr>
           </thead>
-          <tbody>
+
+          <tbody className="divide-y divide-[color:var(--mk-border)]">
             {items.map((item) => {
               const ready = item.publishChecklist?.canPublish ?? false
 
@@ -76,49 +109,57 @@ export function AdminListingsTable({
                 <tr
                   key={item.id}
                   data-testid="admin-listings-row"
-                  className="border-b last:border-b-0"
+                  className="transition hover:bg-[color:var(--mk-panel-muted)]"
                 >
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{item.title?.trim() || "Untitled draft"}</div>
+                  <td className="px-5 py-4 align-top">
+                    <div className="font-semibold text-[color:var(--mk-ink)]">
+                      {item.title?.trim() || "Untitled draft"}
+                    </div>
+                    <div className="mt-1 break-all text-xs mk-muted-text">{item.id}</div>
                   </td>
-                  <td className="px-4 py-3">
+
+                  <td className="px-5 py-4 align-top">
                     <span
                       data-testid={`admin-listing-status-${item.id}`}
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses(
                         item.status,
                       )}`}
                     >
                       {item.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+
+                  <td className="px-5 py-4 align-top mk-muted-text">
                     {item.primaryMineralName || "—"}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+
+                  <td className="px-5 py-4 align-top mk-muted-text">
                     {item.localityDisplay || "—"}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+
+                  <td className="px-5 py-4 align-top mk-muted-text">
                     {item.quantityAvailable} / {item.quantityTotal}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+
+                  <td className="px-5 py-4 align-top mk-muted-text">
                     {formatDate(item.updatedAt)}
                   </td>
-                  <td className="px-4 py-3">
+
+                  <td className="px-5 py-4 align-top">
                     <span
-                      className={
-                        ready
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-amber-700 dark:text-amber-300"
-                      }
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${readinessClasses(
+                        item.status.toUpperCase() === "PUBLISHED" || ready,
+                      )}`}
                     >
-                      {ready ? "Ready to publish" : "Missing requirements"}
+                      {commerceGuidance(item.status, ready)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+
+                  <td className="px-5 py-4 align-top text-right">
                     <Link
                       data-testid={`admin-listing-edit-link-${item.id}`}
                       href={`/admin/listings/${item.id}`}
-                      className="inline-flex rounded-md border px-3 py-1.5 font-medium hover:bg-accent"
+                      className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                     >
                       Edit
                     </Link>
@@ -129,6 +170,6 @@ export function AdminListingsTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   )
 }

@@ -59,6 +59,18 @@ const SHIPPING_REGIONS: Array<{ regionCode: ShippingRegionForm["regionCode"]; la
   { regionCode: "ROW", label: "Rest of World" },
 ]
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminTextareaClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminDangerButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-danger)]/40 bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-danger)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function emptyToNull(value: string) {
   const trimmed = value.trim()
   return trimmed.length === 0 ? null : trimmed
@@ -179,7 +191,7 @@ function statusClasses(status: string) {
     case "PUBLISHED":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     case "ARCHIVED":
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
     default:
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
   }
@@ -461,7 +473,7 @@ export function AdminListingEditorPage({ id }: Props) {
     return (
       <div
         data-testid="admin-listing-editor-loading"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
         Loading listing…
       </div>
@@ -472,7 +484,7 @@ export function AdminListingEditorPage({ id }: Props) {
     return (
       <div
         data-testid="admin-listing-editor-error"
-        className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]"
       >
         {error}
       </div>
@@ -481,7 +493,7 @@ export function AdminListingEditorPage({ id }: Props) {
 
   if (!detail || !form) {
     return (
-      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+      <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
         Listing not found.
       </div>
     )
@@ -489,51 +501,63 @@ export function AdminListingEditorPage({ id }: Props) {
 
   return (
     <div data-testid="admin-listing-editor-page" className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-semibold">{detail.title?.trim() || "Untitled draft"}</h2>
-            <span
-              data-testid="admin-listing-detail-status"
-              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
-                detail.status,
-              )}`}
-            >
-              {detail.status}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Manage listing details, review publish readiness, and control lifecycle state.
-          </p>
-        </div>
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+              Admin listing editor
+            </p>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            data-testid="admin-listing-back-to-list"
-            onClick={() => router.push("/admin/listings")}
-            className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            Back to listings
-          </button>
-          <button
-            type="button"
-            data-testid="admin-listing-save"
-            disabled={archived || isSaving || !isDirty}
-            onClick={() => void handleSave()}
-            className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSaving ? "Saving…" : "Save changes"}
-          </button>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h2 className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+                {detail.title?.trim() || "Untitled draft"}
+              </h2>
+
+              <span
+                data-testid="admin-listing-detail-status"
+                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                  detail.status,
+                )}`}
+              >
+                {detail.status}
+              </span>
+            </div>
+
+            <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+              Manage catalog details, shipping, inventory, media, publish readiness, and lifecycle
+              state for this specimen.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid="admin-listing-back-to-list"
+              onClick={() => router.push("/admin/listings")}
+              className={adminSecondaryButtonClass}
+            >
+              Back to listings
+            </button>
+
+            <button
+              type="button"
+              data-testid="admin-listing-save"
+              disabled={archived || isSaving || !isDirty}
+              onClick={() => void handleSave()}
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSaving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <AdminListingDefinitionNotice />
 
       {archived ? (
         <div
           data-testid="admin-listing-archived-note"
-          className="rounded-xl border bg-muted p-4 text-sm text-muted-foreground"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text"
         >
           Archived listings can no longer be edited.
         </div>
@@ -542,7 +566,7 @@ export function AdminListingEditorPage({ id }: Props) {
       {isDirty ? (
         <div
           data-testid="admin-listing-unsaved"
-          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200"
+          className="rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-amber-800 dark:text-amber-200"
         >
           You have unsaved changes.
         </div>
@@ -551,7 +575,7 @@ export function AdminListingEditorPage({ id }: Props) {
       {error ? (
         <div
           data-testid="admin-listing-action-error"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]"
         >
           {error}
         </div>
@@ -560,7 +584,7 @@ export function AdminListingEditorPage({ id }: Props) {
       {success ? (
         <div
           data-testid="admin-listing-action-success"
-          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200"
+          className="rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm text-emerald-800 dark:text-emerald-200"
         >
           {success}
         </div>
@@ -568,39 +592,53 @@ export function AdminListingEditorPage({ id }: Props) {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Basic info</h3>
-            <div className="grid gap-4">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">Basic info</h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Title and description are required before publishing.
+            </p>
+
+            <div className="mt-4 grid gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium">Title</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Title
+                </label>
                 <input
                   data-testid="admin-listing-title"
                   value={form.title}
                   onChange={(e) => setField("title", e.target.value)}
                   disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Description</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Description
+                </label>
                 <textarea
                   data-testid="admin-listing-description"
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
                   disabled={archived}
                   rows={5}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminTextareaClass}
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Classification</h3>
-            <div className="grid gap-4 md:grid-cols-2">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">Classification</h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Choose the primary mineral and mark special properties such as fluorescence.
+            </p>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Mineral</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Mineral
+                </label>
                 <input
                   data-testid="admin-listing-mineral-search"
                   value={mineralQuery}
@@ -611,16 +649,18 @@ export function AdminListingEditorPage({ id }: Props) {
                   }}
                   disabled={archived}
                   placeholder="Search minerals"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
                 <input type="hidden" value={form.primaryMineralId} />
+
                 {isSearchingMinerals ? (
-                  <div className="mt-2 text-xs text-muted-foreground">Searching minerals…</div>
+                  <div className="mt-2 text-xs mk-muted-text">Searching minerals…</div>
                 ) : null}
+
                 {!archived && mineralResults.length > 0 ? (
                   <div
                     data-testid="admin-listing-mineral-results"
-                    className="mt-2 max-h-52 overflow-auto rounded-md border bg-background"
+                    className="mt-2 max-h-52 overflow-auto rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]"
                   >
                     {mineralResults.map((item) => (
                       <button
@@ -628,19 +668,20 @@ export function AdminListingEditorPage({ id }: Props) {
                         type="button"
                         data-testid={`admin-listing-mineral-option-${item.id}`}
                         onClick={() => selectMineral(item)}
-                        className="block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent last:border-b-0"
+                        className="block w-full border-b border-[color:var(--mk-border)] px-3 py-2 text-left text-sm text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] last:border-b-0"
                       >
                         {item.name}
                       </button>
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-2 text-xs text-muted-foreground">
+
+                <div className="mt-2 text-xs mk-muted-text">
                   Selected mineral id: {form.primaryMineralId || "—"}
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 pt-7 text-sm">
+              <label className="flex items-center gap-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm font-semibold text-[color:var(--mk-ink)]">
                 <input
                   data-testid="admin-listing-is-fluorescent"
                   type="checkbox"
@@ -653,40 +694,53 @@ export function AdminListingEditorPage({ id }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Locality</h3>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Locality display</label>
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">Locality</h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Public locality text helps buyers understand where the specimen is from.
+            </p>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                Locality display
+              </label>
               <input
                 data-testid="admin-listing-locality-display"
                 value={form.localityDisplay}
                 onChange={(e) => setField("localityDisplay", e.target.value)}
                 disabled={archived}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                className={adminInputClass}
               />
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Optional specimen details</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Optional specimen details
+            </h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
               These fields are optional and will only appear on the public listing when filled in.
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Size class</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Size class
+                </label>
                 <input
                   data-testid="admin-listing-size-class"
                   value={form.sizeClass}
                   onChange={(e) => setField("sizeClass", e.target.value)}
                   disabled={archived}
                   placeholder="e.g. CABINET"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Country code</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Country code
+                </label>
                 <input
                   data-testid="admin-listing-country-code"
                   value={form.countryCode}
@@ -699,128 +753,148 @@ export function AdminListingEditorPage({ id }: Props) {
                   disabled={archived}
                   placeholder="US"
                   maxLength={2}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm uppercase outline-none disabled:opacity-60"
+                  className={`${adminInputClass} uppercase`}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Admin area 1</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Admin area 1
+                </label>
                 <input
                   data-testid="admin-listing-admin-area1"
                   value={form.adminArea1}
                   onChange={(e) => setField("adminArea1", e.target.value)}
                   disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Admin area 2</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Admin area 2
+                </label>
                 <input
                   data-testid="admin-listing-admin-area2"
                   value={form.adminArea2}
                   onChange={(e) => setField("adminArea2", e.target.value)}
                   disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Mine name</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Mine name
+                </label>
                 <input
                   data-testid="admin-listing-mine-name"
                   value={form.mineName}
                   onChange={(e) => setField("mineName", e.target.value)}
                   disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Length (cm)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Length (cm)
+                </label>
                 <input
                   data-testid="admin-listing-length-cm"
                   value={form.lengthCm}
                   onChange={(e) => setField("lengthCm", e.target.value)}
                   disabled={archived}
                   inputMode="decimal"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Width (cm)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Width (cm)
+                </label>
                 <input
                   data-testid="admin-listing-width-cm"
                   value={form.widthCm}
                   onChange={(e) => setField("widthCm", e.target.value)}
                   disabled={archived}
                   inputMode="decimal"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Height (cm)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Height (cm)
+                </label>
                 <input
                   data-testid="admin-listing-height-cm"
                   value={form.heightCm}
                   onChange={(e) => setField("heightCm", e.target.value)}
                   disabled={archived}
                   inputMode="decimal"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Weight (g)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Weight (g)
+                </label>
                 <input
                   data-testid="admin-listing-weight-grams"
                   value={form.weightGrams}
                   onChange={(e) => setField("weightGrams", e.target.value)}
                   disabled={archived}
                   inputMode="numeric"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Fluorescence notes</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Fluorescence notes
+                </label>
                 <input
                   data-testid="admin-listing-fluorescence-notes"
                   value={form.fluorescenceNotes}
                   onChange={(e) => setField("fluorescenceNotes", e.target.value)}
                   disabled={archived}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Condition notes</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Condition notes
+                </label>
                 <textarea
                   data-testid="admin-listing-condition-notes"
                   value={form.conditionNotes}
                   onChange={(e) => setField("conditionNotes", e.target.value)}
                   disabled={archived}
                   rows={3}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminTextareaClass}
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Shipping by region</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Set shipping by region for this listing. Use 0 for US if shipping is included. Leave a region
-              blank to show “Shipping quote available on request.”
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Shipping by region
+            </h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Set shipping by region for this listing. Use 0 for US if shipping is included. Leave
+              a region blank to show “Shipping quote available on request.”
             </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               {SHIPPING_REGIONS.map((region) => (
                 <div key={region.regionCode}>
                   <label
-                    className="mb-1 block text-sm font-medium"
+                    className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
                     htmlFor={`admin-listing-shipping-${region.regionCode}`}
                   >
                     {region.label} ($)
@@ -829,23 +903,29 @@ export function AdminListingEditorPage({ id }: Props) {
                     id={`admin-listing-shipping-${region.regionCode}`}
                     data-testid={`admin-listing-shipping-${region.regionCode}`}
                     value={
-                      form.shippingRates.find((row) => row.regionCode === region.regionCode)?.amount ?? ""
+                      form.shippingRates.find((row) => row.regionCode === region.regionCode)
+                        ?.amount ?? ""
                     }
                     onChange={(e) => setShippingAmount(region.regionCode, e.target.value)}
                     disabled={archived}
                     inputMode="decimal"
                     placeholder="Blank = quote on request"
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                    className={adminInputClass}
                   />
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Inventory</h3>
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="flex items-center gap-2 pt-7 text-sm">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">Inventory</h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Inventory values describe how many units exist for this catalog record. Commerce
+              availability still comes from store offers, auctions, and confirmed orders.
+            </p>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <label className="flex items-center gap-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm font-semibold text-[color:var(--mk-ink)]">
                 <input
                   data-testid="admin-listing-is-lot"
                   type="checkbox"
@@ -857,26 +937,30 @@ export function AdminListingEditorPage({ id }: Props) {
               </label>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Quantity total</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Quantity total
+                </label>
                 <input
                   data-testid="admin-listing-quantity-total"
                   value={form.quantityTotal}
                   onChange={(e) => setField("quantityTotal", e.target.value)}
                   disabled={archived}
                   inputMode="numeric"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Quantity available</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Quantity available
+                </label>
                 <input
                   data-testid="admin-listing-quantity-available"
                   value={form.quantityAvailable}
                   onChange={(e) => setField("quantityAvailable", e.target.value)}
                   disabled={archived}
                   inputMode="numeric"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
             </div>
@@ -892,11 +976,16 @@ export function AdminListingEditorPage({ id }: Props) {
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Lifecycle</h3>
-            <div className="space-y-3 text-sm">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">Lifecycle</h3>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Publish when required catalog and media fields are complete. Archive only when the
+              listing should be retired from normal workflows.
+            </p>
+
+            <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Status</span>
+                <span className="mk-muted-text">Status</span>
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
                     detail.status,
@@ -906,16 +995,16 @@ export function AdminListingEditorPage({ id }: Props) {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Updated</span>
-                <span>{formatDate(detail.updatedAt)}</span>
+                <span className="mk-muted-text">Updated</span>
+                <span className="text-[color:var(--mk-ink)]">{formatDate(detail.updatedAt)}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Published</span>
-                <span>{formatDate(detail.publishedAt)}</span>
+                <span className="mk-muted-text">Published</span>
+                <span className="text-[color:var(--mk-ink)]">{formatDate(detail.publishedAt)}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Archived</span>
-                <span>{formatDate(detail.archivedAt)}</span>
+                <span className="mk-muted-text">Archived</span>
+                <span className="text-[color:var(--mk-ink)]">{formatDate(detail.archivedAt)}</span>
               </div>
             </div>
 
@@ -925,7 +1014,7 @@ export function AdminListingEditorPage({ id }: Props) {
                 data-testid="admin-listing-publish"
                 disabled={archived || isPublishing || !detail.publishChecklist.canPublish}
                 onClick={() => void handlePublish()}
-                className="w-full rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                className="mk-cta w-full rounded-2xl px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isPublishing ? "Publishing…" : "Publish listing"}
               </button>
@@ -935,14 +1024,14 @@ export function AdminListingEditorPage({ id }: Props) {
                 data-testid="admin-listing-archive"
                 disabled={archived || isArchiving}
                 onClick={() => void handleArchive()}
-                className="w-full rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                className={`${adminDangerButtonClass} w-full`}
               >
                 {isArchiving ? "Archiving…" : "Archive listing"}
               </button>
             </div>
 
             {!detail.publishChecklist.canPublish ? (
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs mk-muted-text">
                 Fix required items before publishing.
               </p>
             ) : null}
@@ -950,38 +1039,51 @@ export function AdminListingEditorPage({ id }: Props) {
 
           <section
             data-testid="admin-listing-publish-checklist"
-            className="rounded-xl border bg-card p-5"
+            className="mk-glass-strong rounded-[2rem] p-5"
           >
-            <h3 className="mb-4 text-lg font-semibold">Publish checklist</h3>
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Publish checklist
+            </h3>
 
-            <div className="mb-4 rounded-lg border bg-muted/30 p-3 text-sm">
-              <div className="font-medium">
+            <div className="mt-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm">
+              <div className="font-semibold text-[color:var(--mk-ink)]">
                 {liveChecklist?.canPublish ? "Ready to publish once saved" : "Live draft checklist"}
               </div>
-              <div className="mt-1 text-muted-foreground">
+              <div className="mt-1 leading-6 mk-muted-text">
                 Checklist updates as you edit. Final publish readiness is still validated from the
                 saved listing state, so save changes to refresh the publish button and backend
                 checklist.
               </div>
             </div>
 
-            <ChecklistList checklist={liveChecklist ?? detail.publishChecklist} />
+            <div className="mt-4">
+              <ChecklistList checklist={liveChecklist ?? detail.publishChecklist} />
+            </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5 text-sm">
-            <h3 className="mb-3 text-lg font-semibold">Media summary</h3>
-            <div className="space-y-2">
+          <section className="mk-glass-strong rounded-[2rem] p-5 text-sm">
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Media summary
+            </h3>
+
+            <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Ready images</span>
-                <span>{detail.mediaSummary.readyImageCount}</span>
+                <span className="mk-muted-text">Ready images</span>
+                <span className="font-semibold text-[color:var(--mk-ink)]">
+                  {detail.mediaSummary.readyImageCount}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Primary ready images</span>
-                <span>{detail.mediaSummary.primaryReadyImageCount}</span>
+                <span className="mk-muted-text">Primary ready images</span>
+                <span className="font-semibold text-[color:var(--mk-ink)]">
+                  {detail.mediaSummary.primaryReadyImageCount}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Primary video violation</span>
-                <span>{detail.mediaSummary.hasPrimaryVideoViolation ? "Yes" : "No"}</span>
+                <span className="mk-muted-text">Primary video violation</span>
+                <span className="font-semibold text-[color:var(--mk-ink)]">
+                  {detail.mediaSummary.hasPrimaryVideoViolation ? "Yes" : "No"}
+                </span>
               </div>
             </div>
           </section>
@@ -1012,18 +1114,20 @@ function ChecklistList({ checklist }: { checklist: AdminListingPublishChecklist 
           <li
             key={code}
             data-testid={`admin-listing-checklist-${code}`}
-            className="flex items-start gap-3 rounded-lg border p-3"
+            className="flex items-start gap-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3"
           >
             <span
               className={
                 incomplete
-                  ? "mt-0.5 inline-block h-2.5 w-2.5 rounded-full bg-amber-500"
-                  : "mt-0.5 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"
+                  ? "mt-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-500"
+                  : "mt-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"
               }
             />
             <div>
-              <div className="font-medium">{checklistLabel(code)}</div>
-              <div className="text-muted-foreground">
+              <div className="font-semibold text-[color:var(--mk-ink)]">
+                {checklistLabel(code)}
+              </div>
+              <div className="mk-muted-text">
                 {incomplete ? "Missing or invalid" : "Complete"}
               </div>
             </div>

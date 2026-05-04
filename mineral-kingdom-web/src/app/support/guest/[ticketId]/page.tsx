@@ -11,8 +11,12 @@ export default async function GuestSupportThreadPage({ params, searchParams }: P
   const { token } = await searchParams
 
   return (
-    <Container className="py-10 max-w-3xl">
-      <SupportTicketThreadClient ticketId={ticketId} token={token} />
-    </Container>
+    <div className="mk-preview-page min-h-screen overflow-x-hidden">
+      <Container className="py-8 sm:py-10">
+        <div className="mx-auto max-w-3xl">
+          <SupportTicketThreadClient ticketId={ticketId} token={token} />
+        </div>
+      </Container>
+    </div>
   )
 }

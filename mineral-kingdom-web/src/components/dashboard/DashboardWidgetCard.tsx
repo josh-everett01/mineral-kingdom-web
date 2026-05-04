@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { DashboardWidgetModel } from "@/lib/dashboard/types"
 
 type Props = {
@@ -9,64 +8,89 @@ type Props = {
 
 export function DashboardWidgetCard({ testId, model }: Props) {
   return (
-    <Card className="h-full" data-testid={testId}>
-      <CardHeader className="space-y-3">
+    <section className="mk-glass-strong h-full rounded-[2rem] p-5" data-testid={testId}>
+      <div className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle>{model.title}</CardTitle>
-            <p className="text-sm text-muted-foreground">{model.description}</p>
+            <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              {model.title}
+            </h3>
+            <p className="text-sm leading-6 mk-muted-text">{model.description}</p>
           </div>
 
-          <div className="rounded-xl bg-stone-100 px-3 py-2 text-right">
-            <div className="text-2xl font-bold tracking-tight text-stone-900">
+          <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-2 text-right">
+            <div className="text-2xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
               {model.countValue}
             </div>
-            <div className="text-xs font-medium uppercase tracking-wide text-stone-500">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
               {model.countLabel}
             </div>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent>
+      <div className="mt-5">
         {model.rows.length === 0 ? (
-          <p className="text-sm text-stone-600">{model.emptyMessage}</p>
+          <p className="text-sm mk-muted-text">{model.emptyMessage}</p>
         ) : (
           <ul className="space-y-3">
             {model.rows.map((row) => (
               <li
                 key={row.id}
-                className="rounded-xl border border-stone-200 bg-stone-50 p-3"
+                className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="font-medium text-stone-900">{row.title}</p>
-                    {row.subtitle ? (
-                      <p className="text-sm text-stone-600">{row.subtitle}</p>
-                    ) : null}
-                    {row.meta ? (
-                      <p className="text-xs uppercase tracking-wide text-stone-500">{row.meta}</p>
-                    ) : null}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-1">
+                    {row.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.imageUrl}
+                        alt={row.imageAlt ?? row.title}
+                        className="max-h-full max-w-full rounded-xl object-contain shadow-sm"
+                      />
+                    ) : (
+                      <span className="px-2 text-center text-[11px] font-semibold text-[color:var(--mk-gold)]">
+                        Mineral
+                      </span>
+                    )}
                   </div>
 
-                  {row.action ? (
-                    <Link
-                      href={row.action.href}
-                      className={
-                        row.action.tone === "primary"
-                          ? "inline-flex items-center justify-center rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
-                          : "inline-flex items-center justify-center rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-50"
-                      }
-                    >
-                      {row.action.label}
-                    </Link>
-                  ) : null}
+                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate font-semibold text-[color:var(--mk-ink)]">
+                        {row.title}
+                      </p>
+
+                      {row.subtitle ? (
+                        <p className="text-sm mk-muted-text">{row.subtitle}</p>
+                      ) : null}
+
+                      {row.meta ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+                          {row.meta}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {row.action ? (
+                      <Link
+                        href={row.action.href}
+                        className={
+                          row.action.tone === "primary"
+                            ? "mk-cta inline-flex shrink-0 items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
+                            : "inline-flex shrink-0 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                        }
+                      >
+                        {row.action.label}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }

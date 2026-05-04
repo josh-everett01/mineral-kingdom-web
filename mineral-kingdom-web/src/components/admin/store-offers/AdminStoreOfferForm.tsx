@@ -94,6 +94,9 @@ function money(value: number | null) {
   return `$${(value / 100).toFixed(2)}`
 }
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
 export function AdminStoreOfferForm({ editing, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(() => toInitialState(editing))
   const [error, setError] = useState<string | null>(null)
@@ -171,9 +174,9 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
     const query = listingQuery.trim().toLowerCase()
     if (!query) return publishedListings.slice(0, 8)
 
-    return publishedListings.filter((item) =>
-      (item.title ?? "").toLowerCase().includes(query),
-    ).slice(0, 8)
+    return publishedListings
+      .filter((item) => (item.title ?? "").toLowerCase().includes(query))
+      .slice(0, 8)
   }, [listingQuery, publishedListings])
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -200,6 +203,7 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
         setError("Select a published listing before saving the offer.")
         return
       }
+
       if (!priceCents) {
         setError("Base price must be greater than 0.")
         return
@@ -224,7 +228,7 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
           : null
 
       if (previewCents == null) {
-        setError("Enter a valid pricing combination to compute the final price.")
+        setError("Enter a valid pricing combination to compute the buyer-facing final price.")
         return
       }
 
@@ -264,21 +268,21 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
   }
 
   return (
-    <section data-testid="admin-store-offer-form" className="rounded-xl border bg-card p-5">
+    <section data-testid="admin-store-offer-form" className="mk-glass-strong rounded-[2rem] p-5">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold">
+        <h3 className="text-lg font-semibold text-[color:var(--mk-ink)]">
           {editing ? "Edit store offer" : "Create store offer"}
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Fixed price maps to no discount. Discounted offers use flat or percentage discounts from
-          the base price.
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
+          Create the direct-buy price shown on the storefront. Use a fixed price for normal
+          listings, or add a flat/percentage discount to show sale pricing and savings to buyers.
         </p>
       </div>
 
       {error ? (
         <div
           data-testid="admin-store-offer-form-error"
-          className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="mb-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]"
         >
           {error}
         </div>
@@ -287,7 +291,7 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
       {success ? (
         <div
           data-testid="admin-store-offer-form-success"
-          className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200"
+          className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300"
         >
           {success}
         </div>
@@ -296,7 +300,9 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Listing</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Listing
+            </label>
 
             <input
               data-testid="admin-store-offer-listing-search"
@@ -309,15 +315,21 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
               }}
               disabled={!!editing}
               placeholder={isLoadingListings ? "Loading published listings…" : "Search published listings"}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+              className={adminInputClass}
             />
+
+            <p className="mt-2 text-xs leading-5 mk-muted-text">
+              For now, this picker shows published listings. After the commerce-state backend story lands, it
+              should only show listings that are not sold, auction-backed, or already attached to a current
+              store offer.
+            </p>
 
             <input type="hidden" value={form.listingId} />
 
             {!editing && filteredListings.length > 0 ? (
               <div
                 data-testid="admin-store-offer-listing-results"
-                className="mt-2 max-h-52 overflow-auto rounded-md border bg-background"
+                className="mt-2 max-h-52 overflow-auto rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]"
               >
                 {filteredListings.map((item) => (
                   <button
@@ -325,27 +337,37 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
                     type="button"
                     data-testid={`admin-store-offer-listing-option-${item.id}`}
                     onClick={() => selectListing(item)}
-                    className="block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent last:border-b-0"
+                    className="block w-full border-b border-[color:var(--mk-border)] px-3 py-2 text-left text-sm transition hover:bg-[color:var(--mk-panel-muted)] last:border-b-0"
                   >
-                    <div className="font-medium">{item.title?.trim() || "Untitled listing"}</div>
-                    <div className="text-xs text-muted-foreground">{item.id}</div>
+                    <div className="font-semibold text-[color:var(--mk-ink)]">
+                      {item.title?.trim() || "Untitled listing"}
+                    </div>
+                    <div className="text-xs mk-muted-text">{item.id}</div>
                   </button>
                 ))}
               </div>
             ) : null}
 
-            <div className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-xs leading-5 mk-muted-text">
+              For now, this picker shows published listings. After the commerce-state backend story lands, it
+              should only show listings that are not sold, auction-backed, or already attached to a current
+              store offer.
+            </p>
+
+            <div className="mt-2 text-xs mk-muted-text">
               Selected listing id: {form.listingId || "—"}
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Pricing type</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Pricing type
+            </label>
             <select
               data-testid="admin-store-offer-pricing-mode"
               value={form.pricingMode}
               onChange={(e) => setField("pricingMode", e.target.value as FormState["pricingMode"])}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             >
               <option value="FIXED">Fixed</option>
               <option value="ABSOLUTE_DISCOUNT">Absolute discount</option>
@@ -353,18 +375,19 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
             </select>
           </div>
 
-          <label className="flex items-center gap-2 pt-7 text-sm">
+          <label className="flex items-center gap-2 pt-7 text-sm font-medium text-[color:var(--mk-ink)]">
             <input
               data-testid="admin-store-offer-is-active"
               type="checkbox"
               checked={form.isActive}
               onChange={(e) => setField("isActive", e.target.checked)}
+              className="h-4 w-4 accent-[color:var(--mk-amethyst)]"
             />
             Active
           </label>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
               {form.pricingMode === "FIXED" ? "Fixed price ($)" : "Base price ($)"}
             </label>
             <input
@@ -373,34 +396,38 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
               onChange={(e) => setField("price", e.target.value)}
               inputMode="decimal"
               placeholder="99.00"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             />
           </div>
 
           {form.pricingMode === "ABSOLUTE_DISCOUNT" ? (
             <div>
-              <label className="mb-1 block text-sm font-medium">Discount amount ($)</label>
+              <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                Discount amount ($)
+              </label>
               <input
                 data-testid="admin-store-offer-discount-amount"
                 value={form.discountAmount}
                 onChange={(e) => setField("discountAmount", e.target.value)}
                 inputMode="decimal"
                 placeholder="10.00"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+                className={adminInputClass}
               />
             </div>
           ) : null}
 
           {form.pricingMode === "PERCENTAGE_DISCOUNT" ? (
             <div>
-              <label className="mb-1 block text-sm font-medium">Discount percent (%)</label>
+              <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                Discount percent (%)
+              </label>
               <input
                 data-testid="admin-store-offer-discount-percent"
                 value={form.discountPercent}
                 onChange={(e) => setField("discountPercent", e.target.value)}
                 inputMode="decimal"
                 placeholder="10"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+                className={adminInputClass}
               />
             </div>
           ) : null}
@@ -411,7 +438,7 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
               data-testid="admin-store-offer-save"
               onClick={() => void handleSubmit()}
               disabled={isSaving}
-              className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving…" : editing ? "Update offer" : "Save offer"}
             </button>
@@ -420,17 +447,20 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
 
         <aside
           data-testid="admin-store-offer-preview"
-          className="rounded-xl border bg-muted/20 p-4 text-sm"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm"
         >
-          <div className="font-semibold">Final price preview</div>
+          <div className="font-semibold text-[color:var(--mk-ink)]">Buyer price preview</div>
           <div className="mt-3 space-y-2">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Base price</span>
-              <span>{money(basePriceCents)}</span>
+              <span className="mk-muted-text">Base price</span>
+              <span className="font-medium text-[color:var(--mk-ink)]">
+                {money(basePriceCents)}
+              </span>
             </div>
+
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Pricing mode</span>
-              <span>
+              <span className="mk-muted-text">Pricing mode</span>
+              <span className="text-[color:var(--mk-ink)]">
                 {form.pricingMode === "FIXED"
                   ? "Fixed"
                   : form.pricingMode === "ABSOLUTE_DISCOUNT"
@@ -442,28 +472,34 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
             {previewCents != null && basePriceCents != null && previewCents < basePriceCents ? (
               <>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Original price</span>
-                  <span className="line-through text-muted-foreground">{money(basePriceCents)}</span>
+                  <span className="mk-muted-text">Original price</span>
+                  <span className="line-through mk-muted-text">{money(basePriceCents)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Computed final</span>
-                  <span className="font-semibold">{money(previewCents)}</span>
+                  <span className="mk-muted-text">Computed final</span>
+                  <span className="font-semibold text-[color:var(--mk-ink)]">
+                    {money(previewCents)}
+                  </span>
                 </div>
                 {savingsLabel ? (
-                  <div className="text-xs font-medium text-emerald-700">{savingsLabel}</div>
+                  <div className="text-xs font-semibold text-[color:var(--mk-success)]">
+                    {savingsLabel}
+                  </div>
                 ) : null}
               </>
             ) : (
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Computed final</span>
-                <span className="font-semibold">{money(previewCents)}</span>
+                <span className="mk-muted-text">Computed final</span>
+                <span className="font-semibold text-[color:var(--mk-ink)]">
+                  {money(previewCents)}
+                </span>
               </div>
             )}
           </div>
 
           {previewCents == null ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Final price unavailable until valid pricing is entered.
+            <p className="mt-3 text-xs mk-muted-text">
+              Enter a valid base price and discount to preview what buyers will see.
             </p>
           ) : null}
         </aside>

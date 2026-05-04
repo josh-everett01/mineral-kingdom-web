@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
+import { Clock3, Mail, ShieldCheck } from "lucide-react"
 
 type CheckoutStartResponse = {
   cartId: string
@@ -95,12 +96,12 @@ export function CheckoutStartClient({
     }).format(date)
   })()
 
-  const countdownLabel = checkout && !isExpired
-    ? formatCountdown(checkout.expiresAt, nowMs)
-    : null
+  const countdownLabel = checkout && !isExpired ? formatCountdown(checkout.expiresAt, nowMs) : null
+
+  const checkoutHoldId = checkout?.holdId ?? null
 
   useEffect(() => {
-    if (checkout && !associatedEmail) {
+    if (checkoutHoldId) {
       void (async () => {
         try {
           const res = await fetch("/api/bff/checkout/active", {
@@ -112,6 +113,20 @@ export function CheckoutStartClient({
           const body = (await res.json()) as ActiveCheckoutResponse
 
           if (!body.active) return
+
+          if (body.holdId === checkoutHoldId && body.expiresAt) {
+            setCheckout((current) =>
+              current
+                ? {
+                  ...current,
+                  expiresAt: body.expiresAt!,
+                }
+                : current,
+            )
+            setIsExpired(false)
+            setHeartbeatError(null)
+            setNowMs(Date.now())
+          }
 
           if (body.guestEmail) {
             setAssociatedEmail(body.guestEmail)
@@ -128,8 +143,6 @@ export function CheckoutStartClient({
 
       return
     }
-
-    if (checkout) return
 
     void (async () => {
       try {
@@ -161,7 +174,7 @@ export function CheckoutStartClient({
         // best effort only
       }
     })()
-  }, [associatedEmail, checkout])
+  }, [checkoutHoldId])
 
   useEffect(() => {
     if (!checkout || isExpired) {
@@ -217,12 +230,18 @@ export function CheckoutStartClient({
         })
 
         if (!res.ok) {
-          setIsExpired(true)
-          setHeartbeatError("Your checkout hold expired. Items are no longer reserved.")
+          if (res.status === 404 || res.status === 409 || res.status === 410) {
+            setIsExpired(true)
+            setHeartbeatError("Your checkout hold expired. Items are no longer reserved.")
+            return
+          }
+
+          setHeartbeatError("We couldn’t verify your checkout reservation. Retrying automatically.")
           return
         }
 
         const data = (await res.json()) as CheckoutHeartbeatResponse
+        setHeartbeatError(null)
 
         if (typeof data.expiresAt === "string" && data.expiresAt.length > 0) {
           setCheckout((current) =>
@@ -239,8 +258,7 @@ export function CheckoutStartClient({
         setExtensionCount(data.extensionCount ?? 0)
         setMaxExtensions(data.maxExtensions ?? 0)
       } catch {
-        setIsExpired(true)
-        setHeartbeatError("Your checkout hold expired. Items are no longer reserved.")
+        setHeartbeatError("We couldn’t verify your checkout reservation. Retrying automatically.")
       }
     }
 
@@ -286,6 +304,8 @@ export function CheckoutStartClient({
       setMaxExtensions(0)
       setRecoveryMessage("Checkout session reset. Enter a different email to continue.")
       setIsResetting(false)
+
+      window.location.assign("/checkout")
     } catch {
       setRecoveryMessage("We couldn't reset the current checkout session right now.")
       setIsResetting(false)
@@ -348,27 +368,30 @@ export function CheckoutStartClient({
 
   return (
     <div className="space-y-6" data-testid="checkout-page">
-      <section className="space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Checkout
         </p>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-          Secure your checkout hold
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+          Reserve your items for checkout
         </h1>
-        <p className="max-w-2xl text-sm text-stone-600 sm:text-base">
-          We&apos;ll create a temporary checkout hold before payment so availability can be
-          confirmed safely.
+        <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
+          Start checkout to place a temporary hold on your cart before payment. Your items stay reserved
+          while you complete shipping and payment.
         </p>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <CheckoutPill icon={<ShieldCheck className="h-4 w-4" />} label="Verified hold" />
+          <CheckoutPill icon={<Clock3 className="h-4 w-4" />} label="Timed reservation" />
+          <CheckoutPill icon={<Mail className="h-4 w-4" />} label="Order updates" />
+        </div>
       </section>
 
       {!checkout ? (
-        <section
-          className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-          data-testid="checkout-start-card"
-        >
+        <section className="mk-glass-strong space-y-4 rounded-[2rem] p-5 sm:p-6" data-testid="checkout-start-card">
           {!isAuthenticated ? (
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-stone-800" htmlFor="guest-email">
+              <label className="block text-sm font-semibold text-[color:var(--mk-ink)]" htmlFor="guest-email">
                 Email for guest checkout
               </label>
               <input
@@ -377,68 +400,76 @@ export function CheckoutStartClient({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                className="w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
                 placeholder="you@example.com"
                 data-testid="checkout-guest-email"
               />
-              <p className="text-xs text-stone-500">
+              <p className="text-xs mk-muted-text">
                 We&apos;ll use this to identify your checkout session and send updates later.
               </p>
             </div>
           ) : (
-            <p className="text-sm text-stone-600" data-testid="checkout-authenticated-copy">
+            <p className="text-sm mk-muted-text" data-testid="checkout-authenticated-copy">
               You&apos;re signed in, so we can start checkout using your account information.
             </p>
           )}
 
           {initialError ? (
-            <div
-              className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-              data-testid="checkout-start-error"
-            >
-              {initialError}
+            <div className="space-y-3">
+              <Alert tone="danger" testId="checkout-start-error">
+                {initialError}
+              </Alert>
+
+              {!isAuthenticated && initialError.toLowerCase().includes("another email") ? (
+                <button
+                  type="button"
+                  onClick={() => void handleResetCheckout()}
+                  disabled={isResetting}
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[color:var(--mk-gold)]/45 bg-[color:var(--mk-gold)]/10 px-4 py-2 text-sm font-semibold text-[color:var(--mk-gold)] shadow-sm transition hover:border-[color:var(--mk-gold)]/60 hover:bg-[color:var(--mk-gold)]/15 hover:text-[color:var(--mk-ink)] disabled:cursor-not-allowed disabled:opacity-60"
+                  data-testid="checkout-reset-email"
+                >
+                  {isResetting ? "Resetting..." : "Not my email? Start over"}
+                </button>
+              ) : null}
             </div>
           ) : null}
 
           {recoveryMessage ? (
-            <div
-              className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-              data-testid="checkout-reset-success"
-            >
+            <Alert tone="success" testId="checkout-reset-success">
               {recoveryMessage}
-            </div>
+            </Alert>
           ) : null}
 
           <button
             type="submit"
             form="checkout-start-form"
-            className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white"
+            className="mk-cta rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
             data-testid="checkout-start-button"
           >
-            Start checkout
+            Reserve items
           </button>
         </section>
       ) : isExpired ? (
         <section
-          className="space-y-4 rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+          className="space-y-4 rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 shadow-sm sm:p-6"
           data-testid="checkout-expired-state"
         >
           <div className="space-y-1">
-            <p className="text-sm font-semibold uppercase tracking-wide text-red-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-danger)]">
               Hold expired
             </p>
-            <h2 className="text-xl font-semibold text-red-950">
+            <h2 className="text-xl font-semibold text-[color:var(--mk-ink)]">
               Your checkout hold expired
             </h2>
           </div>
 
-          <p className="text-sm text-red-900" data-testid="checkout-expired-message">
+          <p className="text-sm mk-muted-text" data-testid="checkout-expired-message">
             {heartbeatError ?? "Your checkout hold expired. Items are no longer reserved."}
           </p>
 
           <Link
             href="/cart"
-            className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
+            className="mk-cta inline-flex rounded-2xl px-5 py-2.5 text-sm font-semibold"
             data-testid="checkout-return-to-cart"
           >
             Return to cart
@@ -446,52 +477,48 @@ export function CheckoutStartClient({
         </section>
       ) : (
         <section
-          className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm"
+          className="space-y-4 rounded-[2rem] border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] p-5 shadow-sm sm:p-6"
           data-testid="checkout-active-hold"
         >
           <div className="space-y-1">
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-success)]">
               Hold active
             </p>
-            <h2 className="text-xl font-semibold text-emerald-950">
+            <h2 className="text-xl font-semibold text-[color:var(--mk-ink)]">
               Your items are temporarily reserved for checkout
             </h2>
           </div>
 
-          <dl className="grid gap-3 text-sm text-emerald-950 sm:grid-cols-2">
-            <div>
-              <dt className="font-medium">Cart ID</dt>
-              <dd data-testid="checkout-cart-id">{checkout.cartId}</dd>
-            </div>
-            <div>
-              <dt className="font-medium">Hold ID</dt>
-              <dd data-testid="checkout-hold-id">{checkout.holdId}</dd>
-            </div>
-            <div>
-              <dt className="font-medium">Expires at</dt>
-              <dd data-testid="checkout-expires-at">{formattedExpiry ?? checkout.expiresAt}</dd>
-            </div>
-            <div>
-              <dt className="font-medium">Reservation expires in</dt>
-              <dd data-testid="checkout-countdown">{countdownLabel ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="font-medium">Extensions used</dt>
-              <dd data-testid="checkout-extension-count">
-                {extensionCount} / {maxExtensions}
-              </dd>
-            </div>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <DetailItem label="Cart ID" value={checkout.cartId} testId="checkout-cart-id" />
+            <DetailItem label="Hold ID" value={checkout.holdId} testId="checkout-hold-id" />
+            <DetailItem
+              label="Expires at"
+              value={formattedExpiry ?? checkout.expiresAt}
+              testId="checkout-expires-at"
+            />
+            <DetailItem
+              label="Reservation expires in"
+              value={countdownLabel ?? "—"}
+              testId="checkout-countdown"
+            />
+            <DetailItem
+              label="Extensions used"
+              value={`${extensionCount} / ${maxExtensions}`}
+              testId="checkout-extension-count"
+            />
             {associatedEmail ? (
-              <div>
-                <dt className="font-medium">Checkout reserved for</dt>
-                <dd data-testid="checkout-associated-email">{associatedEmail}</dd>
-              </div>
+              <DetailItem
+                label="Checkout reserved for"
+                value={associatedEmail}
+                testId="checkout-associated-email"
+              />
             ) : null}
           </dl>
 
-          <p className="text-sm text-emerald-900" data-testid="checkout-hold-message">
-            Your reservation remains active until the countdown ends. You can extend it near expiry,
-            subject to limits.
+          <p className="text-sm leading-6 mk-muted-text" data-testid="checkout-hold-message">
+            Your items are reserved while the countdown is active. Continue to payment before the hold
+            expires, or return to cart if you need to make changes.
           </p>
 
           {canExtend ? (
@@ -499,7 +526,7 @@ export function CheckoutStartClient({
               type="button"
               onClick={() => void handleExtendReservation()}
               disabled={isExtending}
-              className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="checkout-extend-reservation"
             >
               {isExtending ? "Extending..." : "Extend reservation"}
@@ -507,12 +534,9 @@ export function CheckoutStartClient({
           ) : null}
 
           {extensionMessage ? (
-            <div
-              className="rounded-xl border border-emerald-200 bg-white p-3 text-sm text-emerald-900"
-              data-testid="checkout-extension-message"
-            >
+            <Alert tone="success" testId="checkout-extension-message">
               {extensionMessage}
-            </div>
+            </Alert>
           ) : null}
 
           {!isAuthenticated && associatedEmail ? (
@@ -521,27 +545,24 @@ export function CheckoutStartClient({
                 type="button"
                 onClick={() => void handleResetCheckout()}
                 disabled={isResetting}
-                className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-transparent px-4 py-2 text-sm font-semibold mk-muted-text transition hover:bg-[color:var(--mk-panel-muted)] hover:text-[color:var(--mk-ink)] disabled:cursor-not-allowed disabled:opacity-60"
                 data-testid="checkout-reset-email"
               >
                 {isResetting ? "Resetting..." : "Not my email? Start over"}
               </button>
 
               {recoveryMessage ? (
-                <div
-                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-                  data-testid="checkout-reset-message"
-                >
+                <Alert tone="warning" testId="checkout-reset-message">
                   {recoveryMessage}
-                </div>
+                </Alert>
               ) : null}
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Link
               href={`/checkout/pay?holdId=${encodeURIComponent(checkout.holdId)}`}
-              className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
+              className="mk-cta inline-flex min-h-12 items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] sm:min-w-48"
               data-testid="checkout-continue-to-payment"
             >
               Continue to payment
@@ -549,7 +570,7 @@ export function CheckoutStartClient({
 
             <Link
               href="/cart"
-              className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-100"
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-3 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:bg-[color:var(--mk-panel-muted)] sm:min-w-36"
               data-testid="checkout-back-to-cart"
             >
               Back to cart
@@ -557,6 +578,72 @@ export function CheckoutStartClient({
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+function CheckoutPill({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <div className="mk-glass flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium">
+      <span className="text-[color:var(--mk-gold)]">{icon}</span>
+      <span>{label}</span>
+    </div>
+  )
+}
+
+function DetailItem({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string
+  testId: string
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd
+        className="mt-1 break-all text-sm mk-muted-text"
+        data-testid={testId}
+        suppressHydrationWarning
+      >
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function Alert({
+  tone,
+  testId,
+  children,
+}: {
+  tone: "success" | "warning" | "danger"
+  testId: string
+  children: React.ReactNode
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-[color:var(--mk-success)]/40 text-[color:var(--mk-success)]"
+      : tone === "warning"
+        ? "border-[color:var(--mk-border-strong)] text-[color:var(--mk-gold)]"
+        : "border-[color:var(--mk-danger)]/50 text-[color:var(--mk-danger)]"
+
+  return (
+    <div
+      className={`rounded-2xl border ${toneClass} bg-[color:var(--mk-panel-muted)] p-3 text-sm`}
+      data-testid={testId}
+    >
+      {children}
     </div>
   )
 }

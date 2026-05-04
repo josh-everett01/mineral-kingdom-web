@@ -8,6 +8,7 @@ import { CartNoticesToastClient } from "@/components/cart/CartNoticesToastClient
 import { CartRealtimeClient } from "@/components/cart/CartRealtimeClient"
 import { formatCurrency } from "@/lib/format/currency"
 import type { CartDto } from "@/lib/cart/cartTypes"
+import { ShoppingBag, ShieldCheck } from "lucide-react"
 
 type LoadableError = {
   status?: number
@@ -75,9 +76,9 @@ export function CartPageClient() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-10 sm:px-6 lg:px-8">
         <div
-          className="rounded-2xl border border-stone-200 bg-white p-6 text-stone-700 shadow-sm"
+          className="mk-glass-strong mx-auto max-w-6xl rounded-[2rem] p-6 mk-muted-text"
           data-testid="cart-loading-state"
         >
           Loading your cart…
@@ -88,9 +89,9 @@ export function CartPageClient() {
 
   if (error || !cart) {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-10 sm:px-6 lg:px-8">
         <div
-          className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800"
+          className="mx-auto max-w-6xl rounded-[2rem] border border-[color:var(--mk-danger)] bg-[color:var(--mk-panel-muted)] p-6 text-[color:var(--mk-danger)] shadow-sm"
           data-testid="cart-error-state"
         >
           {error ?? "We couldn’t load your cart right now."}
@@ -101,125 +102,150 @@ export function CartPageClient() {
 
   return (
     <main
-      className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8"
+      className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
       data-testid="cart-page"
     >
-      <CartRealtimeClient
-        cartId={cart.cartId}
-        onSnapshot={handleRealtimeSnapshot}
-      />
-      <CartNoticesToastClient notices={cart.notices} />
+      <div className="mx-auto max-w-6xl space-y-8">
+        <CartRealtimeClient cartId={cart.cartId} onSnapshot={handleRealtimeSnapshot} />
+        <CartNoticesToastClient notices={cart.notices} />
 
-      <section className="space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Cart</p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900">Your cart</h1>
-            <p className="max-w-2xl text-sm text-stone-600 sm:text-base">
-              Review the items you plan to purchase before continuing to checkout.
-            </p>
-          </div>
-
-          {isRefreshing ? (
-            <p className="text-xs font-medium text-stone-500" data-testid="cart-refreshing-indicator">
-              Refreshing…
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      {cart.warnings.length > 0 ? (
-        <section
-          className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 shadow-sm"
-          data-testid="cart-warning-banner"
-        >
-          <ul className="space-y-1 text-sm">
-            {cart.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {cart.notices.length > 0 ? (
-        <section
-          className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950 shadow-sm"
-          data-testid="cart-notices"
-        >
-          {cart.notices.map((notice) => (
-            <div
-              key={notice.id}
-              className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-4 sm:flex-row sm:items-start sm:justify-between"
-              data-testid="cart-notice"
-            >
-              <div className="space-y-1">
-                <p className="text-sm font-semibold uppercase tracking-wide text-amber-700">
-                  Cart update
-                </p>
-                <p className="text-sm text-amber-950" data-testid="cart-notice-message">
-                  {notice.message}
-                </p>
-              </div>
-
-              <CartNoticeDismissButton noticeId={notice.id} />
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      {lineCount === 0 ? (
-        <section
-          className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm"
-          data-testid="cart-empty-state"
-        >
-          <h2 className="text-lg font-semibold text-stone-900">Your cart is empty</h2>
-          <p className="mt-2 text-sm text-stone-600">
-            Browse available specimens and add something to get started.
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Cart
           </p>
-          <Link
-            href="/shop"
-            className="mt-4 inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
-          >
-            Continue shopping
-          </Link>
-        </section>
-      ) : (
-        <section className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-4" data-testid="cart-lines">
-            {cart.lines.map((line) => (
-              <CartLineItem key={line.offerId} line={line} />
-            ))}
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+                Your cart
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
+                Review the items you plan to purchase before continuing to checkout.
+              </p>
+            </div>
+
+            {isRefreshing ? (
+              <p
+                className="text-xs font-semibold text-[color:var(--mk-gold)]"
+                data-testid="cart-refreshing-indicator"
+              >
+                Refreshing…
+              </p>
+            ) : null}
           </div>
+        </section>
 
-          <aside
-            className="h-fit rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
-            data-testid="cart-summary"
+        {cart.warnings.length > 0 ? (
+          <section
+            className="rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-4 text-[color:var(--mk-gold)] shadow-sm"
+            data-testid="cart-warning-banner"
           >
-            <h2 className="text-lg font-semibold text-stone-900">Summary</h2>
+            <ul className="space-y-1 text-sm">
+              {cart.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
-            <dl className="mt-4 space-y-3 text-sm text-stone-700">
-              <div className="flex items-center justify-between gap-3">
-                <dt>Items</dt>
-                <dd>{lineCount}</dd>
+        {cart.notices.length > 0 ? (
+          <section
+            className="space-y-3 rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-4 text-[color:var(--mk-ink)] shadow-sm"
+            data-testid="cart-notices"
+          >
+            {cart.notices.map((notice) => (
+              <div
+                key={notice.id}
+                className="flex flex-col gap-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 sm:flex-row sm:items-start sm:justify-between"
+                data-testid="cart-notice"
+              >
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--mk-gold)]">
+                    Cart update
+                  </p>
+                  <p className="text-sm mk-muted-text" data-testid="cart-notice-message">
+                    {notice.message}
+                  </p>
+                </div>
+
+                <CartNoticeDismissButton noticeId={notice.id} />
               </div>
-              <div className="flex items-center justify-between gap-3 border-t border-stone-100 pt-3 text-base font-semibold text-stone-900">
-                <dt>Subtotal</dt>
-                <dd data-testid="cart-subtotal">
-                  {formatCurrency(cart.subtotalCents) ?? "—"}
-                </dd>
-              </div>
-            </dl>
+            ))}
+          </section>
+        ) : null}
+
+        {lineCount === 0 ? (
+          <section
+            className="mk-glass-strong rounded-[2rem] p-8 text-center"
+            data-testid="cart-empty-state"
+          >
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-gold)] shadow-sm">
+              <ShoppingBag className="h-5 w-5" />
+            </div>
+
+            <h2 className="mt-4 text-lg font-semibold text-[color:var(--mk-ink)]">
+              Your cart is empty
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 mk-muted-text">
+              Browse available direct-buy specimens and add something to get started.
+            </p>
 
             <Link
-              href="/checkout"
-              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700"
-              data-testid="cart-checkout-link"
+              href="/shop"
+              className="mk-cta mt-5 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
             >
-              Proceed to checkout
+              <ShoppingBag className="h-4 w-4" />
+              Continue shopping
             </Link>
-          </aside>
-        </section>
-      )}
+          </section>
+        ) : (
+          <section className="grid gap-8 lg:grid-cols-[1fr_320px]">
+            <div className="space-y-4" data-testid="cart-lines">
+              {cart.lines.map((line) => (
+                <CartLineItem key={line.offerId} line={line} />
+              ))}
+            </div>
+
+            <aside
+              className="mk-glass-strong h-fit rounded-[2rem] p-5"
+              data-testid="cart-summary"
+            >
+              <div className="flex items-center gap-2">
+                <span className="grid h-9 w-9 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-gold)] shadow-sm">
+                  <ShieldCheck className="h-4 w-4" />
+                </span>
+                <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Summary</h2>
+              </div>
+
+              <dl className="mt-4 space-y-3 text-sm mk-muted-text">
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Items</dt>
+                  <dd>{lineCount}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-[color:var(--mk-border)] pt-3 text-base font-semibold text-[color:var(--mk-ink)]">
+                  <dt>Subtotal</dt>
+                  <dd data-testid="cart-subtotal">
+                    {formatCurrency(cart.subtotalCents) ?? "—"}
+                  </dd>
+                </div>
+              </dl>
+
+              <Link
+                href="/checkout"
+                className="mk-cta mt-6 inline-flex w-full items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
+                data-testid="cart-checkout-link"
+              >
+                Proceed to checkout
+              </Link>
+
+              <p className="mt-3 text-xs leading-5 mk-muted-text">
+                Items are not reserved until checkout begins. Shipping and payment options are reviewed during checkout.
+              </p>
+            </aside>
+          </section>
+        )}
+      </div>
     </main>
   )
 }

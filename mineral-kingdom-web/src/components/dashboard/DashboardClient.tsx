@@ -1,7 +1,6 @@
 "use client"
-
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import { bffFetch, type ApiError } from "@/lib/api/bffFetch"
 import type {
@@ -40,6 +39,13 @@ function normalizeWonAuction(raw: unknown): DashboardWonAuctionDto | null {
   const currentPriceCents = asNumber(raw.currentPriceCents ?? raw.CurrentPriceCents)
   const closeTime = asString(raw.closeTime ?? raw.CloseTime)
   const status = asString(raw.status ?? raw.Status)
+  const previewTitle = asString(raw.previewTitle ?? raw.PreviewTitle ?? raw.title ?? raw.Title)
+  const previewImageUrl = asString(
+    raw.previewImageUrl ??
+    raw.PreviewImageUrl ??
+    raw.primaryImageUrl ??
+    raw.PrimaryImageUrl,
+  )
 
   if (!auctionId || !listingId || currentPriceCents == null || !closeTime || !status) {
     return null
@@ -51,6 +57,8 @@ function normalizeWonAuction(raw: unknown): DashboardWonAuctionDto | null {
     currentPriceCents,
     closeTime,
     status,
+    previewTitle,
+    previewImageUrl,
   }
 }
 
@@ -362,14 +370,16 @@ function Thumbnail({
 }) {
   return (
     <div
-      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100"
+      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]"
       data-testid={testId}
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={alt} className="h-full w-full object-cover" />
       ) : (
-        <span className="px-2 text-center text-[11px] font-medium text-stone-500">{fallback}</span>
+        <span className="px-2 text-center text-[11px] font-semibold text-[color:var(--mk-gold)]">
+          {fallback}
+        </span>
       )}
     </div>
   )
@@ -398,7 +408,7 @@ function ActionRow({
 }) {
   return (
     <div
-      className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      className="flex flex-col gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start"
       data-testid={testId}
     >
       <Thumbnail
@@ -409,16 +419,16 @@ function ActionRow({
       />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-stone-900">{title}</p>
-        <p className="mt-1 text-sm text-stone-600">{context}</p>
-        <p className="mt-1 text-sm text-stone-700">{helper}</p>
+        <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">{title}</p>
+        <p className="mt-1 text-sm mk-muted-text">{context}</p>
+        <p className="mt-1 text-sm mk-muted-text">{helper}</p>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-3">
-        <p className="text-sm font-semibold text-stone-900">{amount}</p>
+      <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
+        <p className="text-sm font-semibold text-[color:var(--mk-ink)]">{amount}</p>
         <Link
           href={href}
-          className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+          className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
         >
           {ctaLabel}
         </Link>
@@ -435,16 +445,13 @@ function ActionSection({
 }: {
   title: string
   description: string
-  children: React.ReactNode
+  children: ReactNode
   testId: string
 }) {
   return (
-    <section
-      className="rounded-2xl border border-stone-200 bg-stone-50 p-5 shadow-sm"
-      data-testid={testId}
-    >
-      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-      <p className="mt-1 text-sm text-stone-600">{description}</p>
+    <section className="mk-glass-strong rounded-[2rem] p-5" data-testid={testId}>
+      <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+      <p className="mt-1 text-sm leading-6 mk-muted-text">{description}</p>
       <div className="mt-4 space-y-3">{children}</div>
     </section>
   )
@@ -453,7 +460,7 @@ function ActionSection({
 function OpenBoxOrderRow({ order }: { order: DashboardOrderSummaryDto }) {
   return (
     <li
-      className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-white p-4"
+      className="flex flex-col gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 sm:flex-row sm:items-start"
       data-testid="dashboard-open-box-order-row"
     >
       <Thumbnail
@@ -464,15 +471,15 @@ function OpenBoxOrderRow({ order }: { order: DashboardOrderSummaryDto }) {
       />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-stone-900">
+        <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
           {buildTitle(order.previewTitle, order.itemCount)}
         </p>
-        <p className="mt-1 text-sm text-stone-600">{openBoxOrderContext(order)}</p>
+        <p className="mt-1 text-sm mk-muted-text">{openBoxOrderContext(order)}</p>
       </div>
 
       <Link
         href={`/orders/${order.orderId}`}
-        className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+        className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel)]"
         data-testid={`dashboard-open-box-order-${order.orderId}-view`}
       >
         View
@@ -494,29 +501,31 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
 
   return (
     <section
-      className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      className="mk-glass-strong rounded-[2rem] p-5 shadow-sm"
       data-testid="dashboard-in-progress"
     >
-      <h2 className="text-lg font-semibold text-stone-900">In progress</h2>
-      <p className="mt-1 text-sm text-stone-600">
+      <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">In progress</h2>
+      <p className="mt-1 text-sm mk-muted-text">
         Items you already paid for that are still moving through Open Box or fulfillment.
       </p>
 
       <div className="mt-4 grid gap-6 lg:grid-cols-2">
         {openBox ? (
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Open Box</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+              Open Box
+            </h3>
             <div
-              className="mt-3 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+              className="mt-3 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
               data-testid="dashboard-open-box-card"
             >
               <p
-                className="text-sm font-semibold text-stone-900"
+                className="text-sm font-semibold text-[color:var(--mk-ink)]"
                 data-testid="dashboard-open-box-count"
               >
                 {openBox.orders.length} item{openBox.orders.length === 1 ? "" : "s"} currently in your Open Box
               </p>
-              <p className="mt-1 text-sm text-stone-600">
+              <p className="mt-1 text-sm mk-muted-text">
                 Status: {openBox.status} • Updated {formatDate(openBox.updatedAt) ?? "recently"}
               </p>
 
@@ -527,7 +536,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-4 text-sm text-stone-600" data-testid="dashboard-open-box-empty">
+                <p className="mt-4 text-sm mk-muted-text" data-testid="dashboard-open-box-empty">
                   Your Open Box exists, but orders are not visible yet.
                 </p>
               )}
@@ -535,7 +544,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
               <div className="mt-4">
                 <Link
                   href="/open-box"
-                  className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                  className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                   data-testid="dashboard-open-box-view-link"
                 >
                   View Open Box
@@ -547,12 +556,14 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
 
         {paidOrders.length > 0 ? (
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Orders in fulfillment</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+              Orders in fulfillment
+            </h3>
             <div className="mt-3 space-y-3">
               {paidOrders.map((order) => (
                 <div
                   key={order.orderId}
-                  className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                  className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
                 >
                   <Thumbnail
                     src={order.previewImageUrl}
@@ -560,17 +571,17 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                     fallback="Order"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-stone-900">
+                    <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
                       {buildTitle(order.previewTitle, order.itemCount)}
                     </p>
-                    <p className="mt-1 text-sm text-stone-600">
+                    <p className="mt-1 text-sm mk-muted-text">
                       Order {order.orderNumber} • {formatDashboardOrderStatus(order.status)}
                       {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
                     </p>
                   </div>
                   <Link
                     href={`/orders/${order.orderId}`}
-                    className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                    className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                   >
                     View
                   </Link>
@@ -582,12 +593,14 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
 
         {pendingInvoices.length > 0 ? (
           <div className="lg:col-span-2">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Shipping awaiting confirmation</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+              Shipping awaiting confirmation
+            </h3>
             <div className="mt-3 space-y-3">
               {pendingInvoices.map((invoice) => (
                 <div
                   key={invoice.shippingInvoiceId}
-                  className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+                  className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
                 >
                   <Thumbnail
                     src={invoice.previewImageUrl}
@@ -595,14 +608,14 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                     fallback="Ship"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-stone-900">
+                    <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
                       {buildTitle(invoice.previewTitle, invoice.itemCount)}
                     </p>
-                    <p className="mt-1 text-sm text-stone-600">{shippingInvoiceContext(invoice)}</p>
+                    <p className="mt-1 text-sm mk-muted-text">{shippingInvoiceContext(invoice)}</p>
                   </div>
                   <Link
                     href={`/shipping-invoices/${invoice.shippingInvoiceId}`}
-                    className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+                    className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                   >
                     View
                   </Link>
@@ -625,11 +638,11 @@ function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
 
   return (
     <section
-      className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      className="mk-glass-strong rounded-[2rem] p-5 shadow-sm"
       data-testid="dashboard-completed-orders"
     >
-      <h2 className="text-lg font-semibold text-stone-900">Completed orders</h2>
-      <p className="mt-1 text-sm text-stone-600">
+      <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Completed orders</h2>
+      <p className="mt-1 text-sm mk-muted-text">
         Orders that have been delivered or fully completed.
       </p>
 
@@ -637,7 +650,7 @@ function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
         {completedOrders.map((order) => (
           <div
             key={order.orderId}
-            className="flex items-start gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4"
+            className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
             data-testid={`dashboard-completed-order-${order.orderId}`}
           >
             <Thumbnail
@@ -647,21 +660,21 @@ function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
             />
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-stone-900">
+              <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
                 {buildTitle(order.previewTitle, order.itemCount)}
               </p>
-              <p className="mt-1 text-sm text-stone-600">
+              <p className="mt-1 text-sm mk-muted-text">
                 Order {order.orderNumber} • {formatDashboardOrderStatus(order.status)}
                 {order.shippingMode ? ` • ${formatShippingMode(order.shippingMode)}` : ""}
               </p>
-              <p className="mt-1 text-sm text-stone-700">
+              <p className="mt-1 text-sm font-semibold text-[color:var(--mk-ink)]">
                 {formatMoney(order.totalCents, order.currencyCode)}
               </p>
             </div>
 
             <Link
               href={`/orders/${order.orderId}`}
-              className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+              className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             >
               View
             </Link>
@@ -680,10 +693,15 @@ function buildAuctionsWidget(data: MemberDashboardDto): DashboardWidgetModel {
     description: "Past auction wins and recently closed results.",
     rows: data.wonAuctions.slice(0, 4).map((auction) => ({
       id: auction.auctionId,
-      title: "Won auction",
+      title: auction.previewTitle?.trim() || "Won auction",
       subtitle: `${auction.status} • ${formatMoney(auction.currentPriceCents, "USD")}`,
       meta: auction.closeTime ? `Closed ${formatDate(auction.closeTime)}` : null,
-      action: null,
+      imageUrl: auction.previewImageUrl,
+      imageAlt: auction.previewTitle ?? "Won auction",
+      action: {
+        label: "View auction",
+        href: `/auctions/${auction.auctionId}`,
+      },
     })),
     emptyMessage: "You do not have any past auction wins to show yet.",
   }
@@ -701,9 +719,11 @@ function buildOrdersWidget(data: MemberDashboardDto): DashboardWidgetModel {
     description: "Recent paid orders that are not yet in the completed bucket.",
     rows: recentNonCompletedOrders.map((order) => ({
       id: order.orderId,
-      title: order.orderNumber,
+      title: buildTitle(order.previewTitle, order.itemCount),
       subtitle: `${formatDashboardOrderStatus(order.status)} • ${formatMoney(order.totalCents, order.currencyCode)}`,
       meta: `Created ${formatDate(order.createdAt)}`,
+      imageUrl: order.previewImageUrl,
+      imageAlt: order.previewTitle ?? order.orderNumber,
       action: {
         label: "View order",
         href: `/orders/${order.orderId}`,
@@ -724,6 +744,8 @@ function buildShippingInvoicesWidget(data: MemberDashboardDto): DashboardWidgetM
       title: buildTitle(invoice.previewTitle, invoice.itemCount),
       subtitle: `${invoice.status} • ${formatMoney(invoice.amountCents, invoice.currencyCode)}`,
       meta: shippingInvoiceContext(invoice),
+      imageUrl: invoice.previewImageUrl,
+      imageAlt: invoice.previewTitle ?? "Shipping invoice",
       action: {
         label: "View invoice",
         href: `/shipping-invoices/${invoice.shippingInvoiceId}`,
@@ -789,15 +811,6 @@ export function DashboardClient() {
     [data],
   )
 
-  console.log(
-    "dashboard paidOrders",
-    data?.paidOrders?.map((order) => ({
-      orderNumber: order.orderNumber,
-      status: order.status,
-      shippingMode: order.shippingMode,
-    })),
-  )
-
   const isCompletelyEmpty =
     data != null &&
     data.wonAuctions.length === 0 &&
@@ -809,16 +822,16 @@ export function DashboardClient() {
   if (isLoading) {
     return (
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="mk-glass-strong rounded-[2rem] p-6"
         data-testid="dashboard-loading"
       >
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
           Member dashboard
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-900">
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
           Loading your dashboard
         </h1>
-        <p className="mt-2 text-sm text-stone-600 sm:text-base">
+        <p className="mt-2 text-sm leading-6 mk-muted-text sm:text-base">
           We’re gathering your latest orders, auctions, shipping invoices, and fulfillment updates.
         </p>
       </section>
@@ -828,14 +841,16 @@ export function DashboardClient() {
   if (error) {
     return (
       <section
-        className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-6 shadow-sm"
         data-testid="dashboard-error"
       >
-        <p className="text-sm font-semibold uppercase tracking-wide text-red-700">Dashboard</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-red-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-danger)]">
+          Dashboard
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
           We couldn’t load your dashboard
         </h1>
-        <p className="mt-2 text-sm text-red-800 sm:text-base">{error}</p>
+        <p className="mt-2 text-sm leading-6 mk-muted-text sm:text-base">{error}</p>
       </section>
     )
   }
@@ -849,38 +864,39 @@ export function DashboardClient() {
 
       {showWelcomeBanner ? (
         <div
-          className={`rounded-2xl border p-4 shadow-sm ${hasActionItems
-              ? "border-amber-200 bg-amber-50"
-              : "border-green-200 bg-green-50"
-            }`}
+          className={[
+            "rounded-[2rem] border bg-[color:var(--mk-panel-muted)] p-4 shadow-sm",
+            hasActionItems
+              ? "border-[color:var(--mk-border-strong)]"
+              : "border-[color:var(--mk-success)]/40",
+          ].join(" ")}
           data-testid="dashboard-welcome-banner"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
               {hasActionItems ? (
                 <>
-                  <p className="text-sm font-semibold text-amber-900">
+                  <p className="text-sm font-semibold text-[color:var(--mk-ink)]">
                     Welcome back! You have items that need your attention.
                   </p>
-                  <ul className="mt-2 space-y-1 text-sm text-amber-800">
+                  <ul className="mt-2 space-y-1 text-sm mk-muted-text">
                     {payableOrders.length > 0 ? (
                       <li>
-                        &bull;{" "}
-                        {payableOrders.length} unpaid auction order
-                        {payableOrders.length === 1 ? "" : "s"} &mdash; see &ldquo;Action needed&rdquo; below
+                        &bull; {payableOrders.length} unpaid auction order
+                        {payableOrders.length === 1 ? "" : "s"} — see “Action needed” below
                       </li>
                     ) : null}
                     {payableInvoices.length > 0 ? (
                       <li>
-                        &bull;{" "}
-                        {payableInvoices.length} shipping invoice
-                        {payableInvoices.length === 1 ? "" : "s"} ready for payment &mdash; see &ldquo;Action needed&rdquo; below
+                        &bull; {payableInvoices.length} shipping invoice
+                        {payableInvoices.length === 1 ? "" : "s"} ready for payment — see “Action
+                        needed” below
                       </li>
                     ) : null}
                   </ul>
                 </>
               ) : (
-                <p className="text-sm font-semibold text-green-900">
+                <p className="text-sm font-semibold text-[color:var(--mk-success)]">
                   Welcome back! Your account is all caught up.
                 </p>
               )}
@@ -888,10 +904,7 @@ export function DashboardClient() {
             <button
               type="button"
               onClick={() => setWelcomeDismissed(true)}
-              className={`shrink-0 rounded-lg p-1 ${hasActionItems
-                  ? "text-amber-700 hover:bg-amber-100"
-                  : "text-green-700 hover:bg-green-100"
-                }`}
+              className="shrink-0 rounded-xl p-1 mk-muted-text transition hover:bg-[color:var(--mk-panel)] hover:text-[color:var(--mk-ink)]"
               aria-label="Dismiss"
             >
               <svg
@@ -915,8 +928,8 @@ export function DashboardClient() {
       {(payableOrders.length > 0 || payableInvoices.length > 0) ? (
         <section className="space-y-4" data-testid="dashboard-action-needed">
           <div>
-            <h2 className="text-lg font-semibold text-stone-900">Action needed</h2>
-            <p className="mt-1 text-sm text-stone-600">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Action needed</h2>
+            <p className="mt-1 text-sm mk-muted-text">
               Review item payments and Open Box shipping payments that still need attention.
             </p>
           </div>
@@ -981,24 +994,24 @@ export function DashboardClient() {
       {isCompletelyEmpty ? <DashboardEmptyState /> : null}
 
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+        className="mk-glass-strong rounded-[2rem] p-5"
         data-testid="dashboard-support-section"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Support</h2>
-        <p className="mt-1 text-sm text-stone-600">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Support</h2>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
           Questions about an order, auction, or shipment? We&apos;re here to help.
         </p>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/support"
-            className="inline-flex rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50"
+            className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             data-testid="dashboard-support-view-tickets"
           >
             View my tickets
           </Link>
           <Link
             href="/support/new"
-            className="inline-flex rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
+            className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
             data-testid="dashboard-support-new-ticket"
           >
             Open a ticket
@@ -1008,8 +1021,8 @@ export function DashboardClient() {
 
       <section className="space-y-4" data-testid="dashboard-history">
         <div>
-          <h2 className="text-lg font-semibold text-stone-900">History</h2>
-          <p className="mt-1 text-sm text-stone-600">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">History</h2>
+          <p className="mt-1 text-sm leading-6 mk-muted-text">
             Recent wins, paid orders, and shipping records in your account.
           </p>
         </div>

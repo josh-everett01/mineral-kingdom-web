@@ -1,11 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Menu, X } from "lucide-react"
+import { Menu, ShieldCheck, X } from "lucide-react"
 import { AdminNav } from "@/components/admin/AdminNav"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 
 type AdminTopbarProps = {
   environmentLabel: string
@@ -17,32 +15,39 @@ export function AdminTopbar({ environmentLabel, roleLabel, email }: AdminTopbarP
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <header data-testid="admin-topbar" className="border-b bg-background/95 backdrop-blur">
+    <header
+      data-testid="admin-topbar"
+      className="sticky top-0 z-30 border-b border-[color:var(--mk-border)] bg-[rgb(var(--mk-page-rgb)/0.88)] backdrop-blur-xl"
+    >
       <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
             Admin Console
           </p>
-          <h1 className="truncate text-xl font-semibold" data-testid="admin-page-title">
+          <h1
+            className="truncate text-xl font-semibold tracking-tight text-[color:var(--mk-ink)]"
+            data-testid="admin-page-title"
+          >
             Operations dashboard
           </h1>
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Badge variant="outline" data-testid="admin-environment-badge">
-            Environment: {environmentLabel}
-          </Badge>
-          <Badge variant="secondary" data-testid="admin-role-badge">
-            Role: {roleLabel}
-          </Badge>
-          {email ? <span className="text-sm text-muted-foreground">{email}</span> : null}
+        <div className="hidden min-w-0 items-center gap-2 md:flex">
+          <AdminMetaPill label="Environment" value={environmentLabel} testId="admin-environment-badge" />
+          <AdminMetaPill label="Role" value={roleLabel} testId="admin-role-badge" />
+
+          {email ? (
+            <span className="max-w-64 truncate text-sm mk-muted-text" title={email}>
+              {email}
+            </span>
+          ) : null}
         </div>
 
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="md:hidden"
+          className="rounded-2xl border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-[color:var(--mk-ink)] md:hidden"
           data-testid="admin-mobile-nav-toggle"
           aria-expanded={mobileOpen}
           aria-controls="admin-mobile-nav"
@@ -53,25 +58,52 @@ export function AdminTopbar({ environmentLabel, roleLabel, email }: AdminTopbarP
         </Button>
       </div>
 
-      <div className="border-t px-4 pb-4 md:hidden sm:px-6" data-testid="admin-mobile-meta">
-        <div className="flex flex-wrap items-center gap-2 pt-3">
-          <Badge variant="outline" data-testid="admin-environment-badge-mobile">
-            Environment: {environmentLabel}
-          </Badge>
-          <Badge variant="secondary" data-testid="admin-role-badge-mobile">
-            Role: {roleLabel}
-          </Badge>
+      <div className="border-t border-[color:var(--mk-border)] px-4 pb-4 md:hidden sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 pt-3" data-testid="admin-mobile-meta">
+          <AdminMetaPill
+            label="Environment"
+            value={environmentLabel}
+            testId="admin-environment-badge-mobile"
+          />
+          <AdminMetaPill label="Role" value={roleLabel} testId="admin-role-badge-mobile" />
         </div>
-        {email ? <p className="pt-2 text-sm text-muted-foreground">{email}</p> : null}
+
+        {email ? (
+          <p className="pt-2 text-sm mk-muted-text">
+            Signed in as <span className="font-medium text-[color:var(--mk-ink)]">{email}</span>
+          </p>
+        ) : null}
       </div>
 
       {mobileOpen ? (
-        <div id="admin-mobile-nav" className="border-t px-4 py-4 md:hidden sm:px-6">
+        <div
+          id="admin-mobile-nav"
+          className="border-t border-[color:var(--mk-border)] px-4 py-4 md:hidden sm:px-6"
+        >
           <AdminNav orientation="horizontal" onNavigate={() => setMobileOpen(false)} />
         </div>
       ) : null}
-
-      <Separator className="hidden md:block" />
     </header>
+  )
+}
+
+function AdminMetaPill({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string
+  testId: string
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-1.5 text-xs font-semibold text-[color:var(--mk-ink)]"
+      data-testid={testId}
+    >
+      <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--mk-gold)]" />
+      <span className="mk-muted-text">{label}:</span>
+      <span>{value}</span>
+    </span>
   )
 }

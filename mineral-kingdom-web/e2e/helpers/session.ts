@@ -38,10 +38,24 @@ async function waitForAuthMe(page: Page, email?: string) {
 
 export async function waitForAuthenticatedSession(page: Page, email?: string) {
   await expect(page).toHaveURL(/\/account|\/admin|\/dashboard/, { timeout: 15_000 })
-  await page.goto("/account", { waitUntil: "domcontentloaded" })
+  await waitForAuthMe(page, email)
 
   const sessionCard = page.getByTestId("account-session-card")
-  await expect(sessionCard).toBeVisible({ timeout: 15_000 })
+  let sawSessionCard = false
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.goto("/account", { waitUntil: "domcontentloaded" })
+    await waitForAuthMe(page, email)
+
+    sawSessionCard = await sessionCard
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false)
+
+    if (sawSessionCard) break
+  }
+
+  expect(sawSessionCard).toBe(true)
   await expect(page.getByTestId("account-authenticated-value")).toHaveText("Yes", {
     timeout: 15_000,
   })

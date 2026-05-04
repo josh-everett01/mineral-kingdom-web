@@ -3,10 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
+import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react"
 
-import { Container } from "@/components/site/Container"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import type { ProxyError } from "@/lib/api/proxyError"
 import type {
   PasswordResetConfirmRequest,
@@ -30,6 +28,9 @@ function getErrorMessage(body: unknown, fallback: string) {
   return fallback
 }
 
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
 export default function PasswordResetConfirmClient() {
   const search = useSearchParams()
   const token = search.get("token")?.trim() ?? ""
@@ -45,7 +46,7 @@ export default function PasswordResetConfirmClient() {
         status: "error",
         message: tokenErrorMessage,
       }
-      : { status: "idle" }
+      : { status: "idle" },
   )
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -124,130 +125,164 @@ export default function PasswordResetConfirmClient() {
       }
 
       window.location.assign("/login")
-      return
     } catch (err) {
       setState({
         status: "error",
-        message:
-          err instanceof Error ? err.message : "We couldn’t reset your password right now.",
+        message: err instanceof Error ? err.message : "We couldn’t reset your password right now.",
       })
     }
   }
 
-  const isTokenErrorState =
-    state.status === "error" && state.message === tokenErrorMessage
-
+  const isTokenErrorState = state.status === "error" && state.message === tokenErrorMessage
   const isTokenError = !token || isTokenErrorState
 
   return (
-    <Container className="py-10">
-      <div className="mx-auto w-full max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle>Reset password</CardTitle>
-          </CardHeader>
+    <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Password reset
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+            Create a new password
+          </h1>
+          <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
+            Finish resetting your Mineral Kingdom account with a new secure password.
+          </p>
 
-          <CardContent>
-            {isTokenError ? (
-              <div data-testid="password-reset-confirm-error" className="space-y-3 text-sm">
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
-                  <div className="font-medium">Password reset failed</div>
-                  <div className="mt-1">{tokenErrorMessage}</div>
-                </div>
+          <div className="mt-5 grid gap-3">
+            <RecoveryPill icon={<KeyRound className="h-4 w-4" />} label="Use your reset link" />
+            <RecoveryPill icon={<LockKeyhole className="h-4 w-4" />} label="Choose 8+ characters" />
+            <RecoveryPill icon={<ShieldCheck className="h-4 w-4" />} label="Return to secure login" />
+          </div>
+        </section>
 
-                <div className="flex gap-2 pt-2">
-                  <Button asChild className="flex-1">
-                    <Link href="/password-reset/request">Request reset</Link>
-                  </Button>
-                  <Button asChild variant="outline" className="flex-1">
-                    <Link href="/login">Go to login</Link>
-                  </Button>
-                </div>
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold text-[color:var(--mk-ink)]">
+              Reset password
+            </h2>
+            <p className="mt-1 text-sm mk-muted-text">
+              Enter your new password below to finish resetting your account password.
+            </p>
+          </div>
+
+          {isTokenError ? (
+            <div data-testid="password-reset-confirm-error" className="space-y-4 text-sm">
+              <div className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-4 py-4 text-[color:var(--mk-danger)]">
+                <div className="font-semibold">Password reset failed</div>
+                <div className="mt-1">{tokenErrorMessage}</div>
               </div>
-            ) : (
-              <form onSubmit={onSubmit} className="space-y-4" noValidate>
-                <div className="text-sm text-muted-foreground">
-                  Enter your new password below to finish resetting your account password.
-                </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="newPassword" className="text-sm font-medium">
-                    New password
-                  </label>
-                  <input
-                    id="newPassword"
-                    data-testid="password-reset-confirm-new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    className="w-full rounded-md border px-3 py-2 text-sm outline-none ring-0"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    aria-invalid={newPasswordError ? "true" : "false"}
-                    aria-describedby={
-                      newPasswordError ? "password-reset-confirm-new-password-error" : undefined
-                    }
-                  />
-                  {newPasswordError ? (
-                    <div
-                      id="password-reset-confirm-new-password-error"
-                      className="text-sm text-destructive"
-                    >
-                      {newPasswordError}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium">
-                    Confirm new password
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    data-testid="password-reset-confirm-confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    className="w-full rounded-md border px-3 py-2 text-sm outline-none ring-0"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    aria-invalid={confirmPasswordError ? "true" : "false"}
-                    aria-describedby={
-                      confirmPasswordError
-                        ? "password-reset-confirm-confirm-password-error"
-                        : undefined
-                    }
-                  />
-                  {confirmPasswordError ? (
-                    <div
-                      id="password-reset-confirm-confirm-password-error"
-                      className="text-sm text-destructive"
-                    >
-                      {confirmPasswordError}
-                    </div>
-                  ) : null}
-                </div>
-
-                {state.status === "error" ? (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/password-reset/request"
+                  className="mk-cta inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold"
+                >
+                  Request reset
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                >
+                  Go to login
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="space-y-4" noValidate>
+              <div className="space-y-2">
+                <label htmlFor="newPassword" className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  New password
+                </label>
+                <input
+                  id="newPassword"
+                  data-testid="password-reset-confirm-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  className={inputClass}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  aria-invalid={newPasswordError ? "true" : "false"}
+                  aria-describedby={
+                    newPasswordError ? "password-reset-confirm-new-password-error" : undefined
+                  }
+                />
+                {newPasswordError ? (
                   <div
-                    data-testid="password-reset-confirm-submit-error"
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    id="password-reset-confirm-new-password-error"
+                    className="text-sm text-[color:var(--mk-danger)]"
                   >
-                    {state.message}
+                    {newPasswordError}
                   </div>
                 ) : null}
+              </div>
 
-                <Button
-                  type="submit"
-                  data-testid="password-reset-confirm-submit"
-                  className="w-full"
-                  disabled={state.status === "submitting"}
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Confirm new password
+                </label>
+                <input
+                  id="confirmPassword"
+                  data-testid="password-reset-confirm-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  className={inputClass}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={confirmPasswordError ? "true" : "false"}
+                  aria-describedby={
+                    confirmPasswordError
+                      ? "password-reset-confirm-confirm-password-error"
+                      : undefined
+                  }
+                />
+                {confirmPasswordError ? (
+                  <div
+                    id="password-reset-confirm-confirm-password-error"
+                    className="text-sm text-[color:var(--mk-danger)]"
+                  >
+                    {confirmPasswordError}
+                  </div>
+                ) : null}
+              </div>
+
+              {state.status === "error" ? (
+                <div
+                  data-testid="password-reset-confirm-submit-error"
+                  className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm text-[color:var(--mk-danger)]"
                 >
-                  {state.status === "submitting" ? "Resetting..." : "Reset password"}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                  {state.message}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                data-testid="password-reset-confirm-submit"
+                className="mk-cta inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={state.status === "submitting"}
+              >
+                {state.status === "submitting" ? "Resetting..." : "Reset password"}
+              </button>
+            </form>
+          )}
+        </section>
       </div>
-    </Container>
+    </main>
+  )
+}
+
+function RecoveryPill({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <div className="mk-glass flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium">
+      <span className="text-[color:var(--mk-gold)]">{icon}</span>
+      <span>{label}</span>
+    </div>
   )
 }

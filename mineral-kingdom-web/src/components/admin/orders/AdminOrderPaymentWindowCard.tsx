@@ -11,6 +11,12 @@ type Props = {
   onUpdated?: (paymentDueAt: string) => void
 }
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatDateTime(value: string | null) {
   if (!value) return "—"
 
@@ -98,36 +104,36 @@ export function AdminOrderPaymentWindowCard({
 
   return (
     <div
-      className="rounded-lg border p-4 space-y-3"
+      className="space-y-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
       data-testid="admin-order-detail-payment-window"
     >
       <div>
-        <h3 className="text-base font-semibold">Payment window</h3>
-        <p className="text-sm text-muted-foreground">
+        <h3 className="text-base font-semibold text-[color:var(--mk-ink)]">Payment window</h3>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
           Review and extend the auction payment due date when needed.
         </p>
       </div>
 
-      <div className="space-y-1 text-sm">
-        <div>
-          <span className="font-medium">Source type:</span>{" "}
-          <span data-testid="admin-order-detail-payment-window-source">
+      <div className="space-y-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="font-semibold text-[color:var(--mk-ink)]">Source type</span>
+          <span className="mk-muted-text" data-testid="admin-order-detail-payment-window-source">
             {sourceType ?? "—"}
           </span>
         </div>
 
-        <div>
-          <span className="font-medium">Current due:</span>{" "}
-          <span data-testid="admin-order-detail-payment-window-current">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="font-semibold text-[color:var(--mk-ink)]">Current due</span>
+          <span className="mk-muted-text" data-testid="admin-order-detail-payment-window-current">
             {formatDateTime(paymentDueAt)}
           </span>
         </div>
 
         <div>
           <span
-            className={`inline-flex rounded-full px-2 py-1 text-xs ${isExpired
-                ? "bg-red-100 text-red-800 border border-red-200"
-                : "bg-muted text-foreground border border-border"
+            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${isExpired
+                ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
               }`}
             data-testid="admin-order-detail-payment-window-status"
           >
@@ -137,12 +143,15 @@ export function AdminOrderPaymentWindowCard({
       </div>
 
       {!isAuction ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs mk-muted-text">
           Payment window extension is only relevant for auction orders.
         </p>
       ) : canEdit ? (
         <div className="space-y-3">
-          <label className="block text-sm font-medium" htmlFor="payment-due-at">
+          <label
+            className="block text-sm font-semibold text-[color:var(--mk-ink)]"
+            htmlFor="payment-due-at"
+          >
             New payment due
           </label>
 
@@ -151,7 +160,7 @@ export function AdminOrderPaymentWindowCard({
             type="datetime-local"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={adminInputClass}
             data-testid="admin-order-detail-payment-window-input"
           />
 
@@ -159,17 +168,26 @@ export function AdminOrderPaymentWindowCard({
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="inline-flex rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-60"
+            className={adminSecondaryButtonClass}
             data-testid="admin-order-detail-payment-window-submit"
           >
             {submitting ? "Updating…" : "Extend payment due"}
           </button>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
+          {error ? (
+            <p className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel)] p-3 text-sm text-[color:var(--mk-danger)]">
+              {error}
+            </p>
+          ) : null}
+
+          {success ? (
+            <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">
+              {success}
+            </p>
+          ) : null}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs mk-muted-text">
           Your role does not allow payment window updates.
         </p>
       )}

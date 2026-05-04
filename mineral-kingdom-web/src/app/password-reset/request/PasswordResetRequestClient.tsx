@@ -2,10 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { KeyRound, Mail, ShieldCheck } from "lucide-react"
 
-import { Container } from "@/components/site/Container"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import type { ProxyError } from "@/lib/api/proxyError"
 import type {
   PasswordResetRequestRequest,
@@ -35,6 +33,9 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+const inputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
 export default function PasswordResetRequestClient() {
   const [email, setEmail] = React.useState("")
   const [emailError, setEmailError] = React.useState<string | null>(null)
@@ -45,12 +46,7 @@ export default function PasswordResetRequestClient() {
 
     const normalizedEmail = email.trim()
 
-    if (!normalizedEmail) {
-      setEmailError("Enter a valid email address.")
-      return
-    }
-
-    if (!isValidEmail(normalizedEmail)) {
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       setEmailError("Enter a valid email address.")
       return
     }
@@ -103,91 +99,133 @@ export default function PasswordResetRequestClient() {
   }
 
   return (
-    <Container className="py-10">
-      <div className="mx-auto w-full max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle>Password reset</CardTitle>
-          </CardHeader>
+    <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Password reset
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+            Reset your account password
+          </h1>
+          <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
+            Enter your account email and we’ll send reset instructions if an account exists.
+          </p>
 
-          <CardContent>
-            {state.status === "success" ? (
-              <div data-testid="password-reset-request-success" className="space-y-3 text-sm">
-                <div className="rounded-md border bg-muted px-3 py-2">
-                  <div className="font-medium">Check your email</div>
-                  <div className="text-muted-foreground">
-                    If an account exists, we sent password reset instructions.
-                  </div>
+          <div className="mt-5 grid gap-3">
+            <RecoveryPill icon={<Mail className="h-4 w-4" />} label="Email reset instructions" />
+            <RecoveryPill icon={<KeyRound className="h-4 w-4" />} label="Create a new password" />
+            <RecoveryPill icon={<ShieldCheck className="h-4 w-4" />} label="Protect account access" />
+          </div>
+        </section>
+
+        <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+          <div className="mb-5">
+            <h2 className="text-xl font-semibold text-[color:var(--mk-ink)]">
+              Request password reset
+            </h2>
+            <p className="mt-1 text-sm mk-muted-text">
+              Use the email address attached to your Mineral Kingdom account.
+            </p>
+          </div>
+
+          {state.status === "success" ? (
+            <div data-testid="password-reset-request-success" className="space-y-4 text-sm">
+              <div className="rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] px-4 py-4">
+                <div className="font-semibold text-[color:var(--mk-success)]">
+                  Check your email
                 </div>
-
-                <div className="pt-2">
-                  <Button asChild className="w-full">
-                    <Link href="/login">Go to login</Link>
-                  </Button>
+                <div className="mt-1 mk-muted-text">
+                  If an account exists, we sent password reset instructions.
                 </div>
               </div>
-            ) : (
-              <form onSubmit={onSubmit} className="space-y-4" noValidate>
-                <div className="text-sm text-muted-foreground">
-                  Enter your email address and we’ll send password reset instructions if an
-                  account exists.
-                </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    data-testid="password-reset-request-email"
-                    type="email"
-                    autoComplete="email"
-                    className="w-full rounded-md border px-3 py-2 text-sm outline-none ring-0"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    aria-invalid={emailError ? "true" : "false"}
-                    aria-describedby={emailError ? "password-reset-request-email-error" : undefined}
-                  />
-                  {emailError ? (
-                    <div
-                      id="password-reset-request-email-error"
-                      className="text-sm text-destructive"
-                    >
-                      {emailError}
-                    </div>
-                  ) : null}
-                </div>
+              <Link
+                href="/login"
+                className="mk-cta inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99]"
+              >
+                Go to login
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="space-y-4" noValidate>
+              <div className="text-sm leading-6 mk-muted-text">
+                Enter your email address and we’ll send password reset instructions if an account
+                exists.
+              </div>
 
-                {state.status === "error" ? (
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  data-testid="password-reset-request-email"
+                  type="email"
+                  autoComplete="email"
+                  className={inputClass}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  aria-invalid={emailError ? "true" : "false"}
+                  aria-describedby={emailError ? "password-reset-request-email-error" : undefined}
+                />
+                {emailError ? (
                   <div
-                    data-testid="password-reset-request-error"
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    id="password-reset-request-email-error"
+                    className="text-sm text-[color:var(--mk-danger)]"
                   >
-                    {state.message}
+                    {emailError}
                   </div>
                 ) : null}
+              </div>
 
-                <div className="text-center text-sm">
-                  <Link href="/login" data-testid="password-reset-back-to-login" className="text-muted-foreground hover:text-foreground">
-                    Back to login
-                  </Link>
-                </div>
-
-                <Button
-                  type="submit"
-                  data-testid="password-reset-request-submit"
-                  className="w-full"
-                  disabled={state.status === "submitting"}
+              {state.status === "error" ? (
+                <div
+                  data-testid="password-reset-request-error"
+                  className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-3 text-sm text-[color:var(--mk-danger)]"
                 >
-                  {state.status === "submitting"
-                    ? "Sending..."
-                    : "Send password reset email"}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                  {state.message}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                data-testid="password-reset-request-submit"
+                className="mk-cta inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={state.status === "submitting"}
+              >
+                {state.status === "submitting" ? "Sending..." : "Send password reset email"}
+              </button>
+
+              <p className="text-center text-sm mk-muted-text">
+                Remember your password?{" "}
+                <Link
+                  href="/login"
+                  data-testid="password-reset-back-to-login"
+                  className="font-semibold text-[color:var(--mk-ink)] underline underline-offset-4 hover:text-[color:var(--mk-gold)]"
+                >
+                  Back to login
+                </Link>
+              </p>
+            </form>
+          )}
+        </section>
       </div>
-    </Container>
+    </main>
+  )
+}
+
+function RecoveryPill({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <div className="mk-glass flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium">
+      <span className="text-[color:var(--mk-gold)]">{icon}</span>
+      <span>{label}</span>
+    </div>
   )
 }

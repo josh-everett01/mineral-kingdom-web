@@ -119,78 +119,6 @@ async function setStoredCheckoutPaymentId(page: Page, paymentId: string) {
   }, paymentId)
 }
 
-async function waitForCheckoutPostStartState(page: Page) {
-  await expect
-    .poll(
-      async () => {
-        const startErrorText = await page
-          .getByTestId("checkout-start-error")
-          .textContent()
-          .catch(() => null)
-
-        if (startErrorText?.trim()) return `error:${startErrorText.trim()}`
-
-        const url = new URL(page.url())
-        const hasHoldParams =
-          Boolean(url.searchParams.get("holdId")) &&
-          Boolean(url.searchParams.get("cartId")) &&
-          Boolean(url.searchParams.get("expiresAt"))
-
-        const hasContinueLink = await page
-          .getByTestId("checkout-continue-to-payment")
-          .isVisible()
-          .catch(() => false)
-
-        const hasActiveHold = await page
-          .getByTestId("checkout-active-hold")
-          .isVisible()
-          .catch(() => false)
-
-        const hasPayPage = await page
-          .getByTestId("checkout-pay-page")
-          .isVisible()
-          .catch(() => false)
-
-        if (hasPayPage) return "pay"
-        if (hasContinueLink || hasActiveHold || hasHoldParams) return "hold"
-        return "pending"
-      },
-      { timeout: 15_000 },
-    )
-    .toMatch(/hold|pay|error:/)
-
-  const startErrorText = await page
-    .getByTestId("checkout-start-error")
-    .textContent()
-    .catch(() => null)
-  if (startErrorText?.trim()) return `error:${startErrorText.trim()}` as const
-
-  const url = new URL(page.url())
-  const hasHoldParams =
-    Boolean(url.searchParams.get("holdId")) &&
-    Boolean(url.searchParams.get("cartId")) &&
-    Boolean(url.searchParams.get("expiresAt"))
-
-  const hasContinueLink = await page
-    .getByTestId("checkout-continue-to-payment")
-    .isVisible()
-    .catch(() => false)
-
-  const hasActiveHold = await page
-    .getByTestId("checkout-active-hold")
-    .isVisible()
-    .catch(() => false)
-
-  const hasPayPage = await page
-    .getByTestId("checkout-pay-page")
-    .isVisible()
-    .catch(() => false)
-
-  if (hasPayPage) return "pay" as const
-  if (hasContinueLink || hasActiveHold || hasHoldParams) return "hold" as const
-  return "pending" as const
-}
-
 test.describe("checkout flows (backend required)", () => {
   test.describe.configure({ mode: "serial" })
   test.skip(!hasBackend, "Requires backend running (set E2E_BACKEND=1).")
@@ -450,7 +378,7 @@ test.describe("checkout return page", () => {
     ).toBeVisible()
 
     await expect(page.getByTestId("checkout-return-status-message")).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-status-message")).toContainText(
@@ -467,7 +395,7 @@ test.describe("checkout return page", () => {
     await expect(
       page.getByRole("heading", { name: /we recorded your return from the payment provider/i }),
     ).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-status-message")).toBeVisible()
@@ -478,7 +406,7 @@ test.describe("checkout return page", () => {
 
     await expect(page.getByTestId("checkout-return-page")).toBeVisible()
     await expect(page.getByTestId("checkout-return-cancelled")).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-cancelled")).toContainText(
@@ -630,9 +558,7 @@ test.describe("checkout return page", () => {
 
     await expect(page.getByTestId("order-confirmation-page")).toBeVisible()
     await expect(page.getByTestId("order-confirmation-card")).toBeVisible()
-    await expect(
-      page.getByRole("heading", { name: /your order status is backend-confirmed/i }),
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: /confirming your order/i })).toBeVisible()
     await expect(page.getByTestId("order-confirmation-payment-status")).toContainText("Paid")
     await expect(page.getByTestId("order-confirmation-provider")).toContainText(/stripe/i)
     await expect(page.getByTestId("order-confirmation-total")).toContainText("$219.00")

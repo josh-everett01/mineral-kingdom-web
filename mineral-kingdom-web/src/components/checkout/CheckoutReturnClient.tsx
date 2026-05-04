@@ -1,6 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSse } from "@/lib/sse/useSse"
 
@@ -27,6 +34,14 @@ type CapturePaymentResponse = {
 const EARLY_FALLBACK_POLL_WINDOW_MS = 10_000
 const EARLY_FALLBACK_POLL_INTERVAL_MS = 1_500
 const DISCONNECTED_FALLBACK_POLL_INTERVAL_MS = 3_000
+
+const statusCardClass = "mk-glass-strong rounded-[2rem] p-5 sm:p-6"
+
+const progressTrackClass =
+  "h-2 overflow-hidden rounded-full bg-[color:var(--mk-panel-muted)]"
+
+const progressBarClass =
+  "h-full rounded-full bg-gradient-to-r from-[color:var(--mk-amethyst)] via-[color:var(--mk-gold)] to-[color:var(--mk-sky)] transition-all duration-500"
 
 function readStoredPaymentId(): string | null {
   if (typeof window === "undefined") return null
@@ -150,6 +165,63 @@ function getSupportMessage(args: {
   }
 
   return "Please keep this page open while we finalize your order. If this page is interrupted, your payment may still complete in the background — come back here and we’ll continue checking automatically."
+}
+
+function ReturnHeader({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+}) {
+  return (
+    <section className={statusCardClass}>
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+        {eyebrow}
+      </p>
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+        {title}
+      </h1>
+      <p className="mt-3 text-sm leading-6 mk-muted-text sm:text-base">
+        {description}
+      </p>
+    </section>
+  )
+}
+
+function StatusMessageCard({
+  children,
+  testId,
+}: {
+  children: ReactNode
+  testId: string
+}) {
+  return (
+    <section
+      className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-ink)] shadow-sm"
+      data-testid={testId}
+    >
+      {children}
+    </section>
+  )
+}
+
+function WarningNote({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--mk-gold)]/40 bg-[color:var(--mk-panel)] px-3 py-2 text-xs text-[color:var(--mk-gold)]">
+      {children}
+    </div>
+  )
+}
+
+function ErrorCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
+      {children}
+    </div>
+  )
 }
 
 export function CheckoutReturnClient() {
@@ -307,7 +379,9 @@ export function CheckoutReturnClient() {
             return
           }
 
-          const captureBody = (await captureRes.json().catch(() => null)) as CapturePaymentResponse | null
+          const captureBody = (await captureRes.json().catch(() => null)) as
+            | CapturePaymentResponse
+            | null
 
           setError(null)
           setPaymentStatus(captureBody?.paymentStatus ?? body.paymentStatus ?? null)
@@ -327,20 +401,15 @@ export function CheckoutReturnClient() {
     }
   }, [paymentId, router])
 
-  // Initial confirmation fetch on page load.
   useEffect(() => {
     void loadConfirmation()
   }, [loadConfirmation])
 
-  // Use SSE as the primary driver for refresh.
   useEffect(() => {
     if (!lastEventAt || redirectedRef.current) return
     void loadConfirmation()
   }, [lastEventAt, loadConfirmation])
 
-  // Fallback polling:
-  // 1) always allow a short safety-net poll window at the start
-  // 2) after that, only poll when SSE is not connected
   useEffect(() => {
     if (!paymentId || redirectedRef.current || isConfirmed || isCancelled) return
     if (isTerminalFailureStatus(paymentStatus)) return
@@ -374,38 +443,29 @@ export function CheckoutReturnClient() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-          We recorded your return from the payment provider
-        </h1>
-
-        <p className="text-sm text-stone-600" data-testid="checkout-return-copy">
-          Returning from the payment provider is never treated as proof of payment. Your order will
-          update only after backend confirmation is received.
-        </p>
-      </div>
+      <ReturnHeader
+        eyebrow="Checkout return"
+        title="We recorded your return from the payment provider"
+        description="Returning from the payment provider is never treated as proof of payment. Your order will update only after backend confirmation is received."
+      />
 
       {displayMessage ? (
-        <div
-          className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-800 shadow-sm"
-          data-testid={isCancelled ? "checkout-return-cancelled" : "checkout-return-status-message"}
+        <StatusMessageCard
+          testId={isCancelled ? "checkout-return-cancelled" : "checkout-return-status-message"}
         >
           <div className="space-y-3">
             <p>{displayMessage}</p>
 
             {!isCancelled && !isConfirmed && !isTerminalFailureStatus(paymentStatus) ? (
               <div className="space-y-2" data-testid="checkout-return-progress">
-                <div className="flex items-center justify-between text-xs font-medium text-stone-500">
+                <div className="flex items-center justify-between text-xs font-semibold mk-muted-text">
                   <span>Progress</span>
                   <span>{progressPercent}%</span>
                 </div>
 
-                <div
-                  aria-hidden="true"
-                  className="h-2 overflow-hidden rounded-full bg-stone-200"
-                >
+                <div aria-hidden="true" className={progressTrackClass}>
                   <div
-                    className="h-full rounded-full bg-stone-900 transition-all duration-500"
+                    className={progressBarClass}
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -413,17 +473,14 @@ export function CheckoutReturnClient() {
             ) : null}
 
             {supportMessage ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                <p className="font-medium">Please keep this page open</p>
-                <p className="mt-1">{supportMessage}</p>
-              </div>
+              <WarningNote>
+                <p className="font-semibold">Please keep this page open</p>
+                <p className="mt-1 leading-5">{supportMessage}</p>
+              </WarningNote>
             ) : null}
 
             {!isCancelled && paymentStatus ? (
-              <div
-                className="text-xs text-stone-500"
-                data-testid="checkout-return-live-status"
-              >
+              <div className="text-xs mk-muted-text" data-testid="checkout-return-live-status">
                 {connected
                   ? `Live payment updates connected. Current payment status: ${paymentStatus}.`
                   : connecting
@@ -432,18 +489,16 @@ export function CheckoutReturnClient() {
               </div>
             ) : null}
           </div>
-        </div>
+        </StatusMessageCard>
       ) : null}
 
       {isLoading ? (
-        <div className="text-sm text-stone-500">Loading payment status…</div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {error}
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm mk-muted-text">
+          Loading payment status…
         </div>
       ) : null}
+
+      {error ? <ErrorCard>{error}</ErrorCard> : null}
     </div>
   )
 }

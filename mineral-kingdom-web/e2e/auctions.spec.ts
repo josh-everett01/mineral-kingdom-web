@@ -6,7 +6,7 @@ test("auctions browse page loads successfully", async ({ page }) => {
   await page.goto("/auctions", { waitUntil: "domcontentloaded" })
 
   await expect(page.getByTestId("auctions-page")).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Browse auctions" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Live & Upcoming Auctions" })).toBeVisible()
   await expect(page.getByTestId("auctions-results-summary")).toBeVisible()
 
   const liveSectionCount = await page.getByTestId("auctions-results-grid").count()

@@ -4,6 +4,8 @@ export type DashboardWonAuctionDto = {
   currentPriceCents: number
   closeTime: string
   status: string
+  previewTitle?: string | null
+  previewImageUrl?: string | null
 }
 
 export type DashboardOrderSummaryDto = {
@@ -72,6 +74,8 @@ export type DashboardWidgetRow = {
   title: string
   subtitle: string
   meta?: string | null
+  imageUrl?: string | null
+  imageAlt?: string | null
   action?: {
     label: string
     href: string

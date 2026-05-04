@@ -15,6 +15,12 @@ type CreateState = {
   success: string | null
 }
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 export function AdminMineralsPage() {
   const [search, setSearch] = useState("")
   const [items, setItems] = useState<AdminMineralItem[]>([])
@@ -116,106 +122,158 @@ export function AdminMineralsPage() {
 
   return (
     <div className="space-y-6" data-testid="admin-minerals-page">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold" data-testid="admin-minerals-title">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Admin minerals
+        </p>
+
+        <h1
+          className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]"
+          data-testid="admin-minerals-title"
+        >
           Minerals
         </h1>
-        <p className="text-sm text-muted-foreground" data-testid="admin-minerals-description">
+
+        <p
+          className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text"
+          data-testid="admin-minerals-description"
+        >
           Minerals are catalog reference records used by listings. Listings are inventory records,
           and store offers or auctions are selling modes attached later.
         </p>
-      </div>
+      </section>
 
-      <div
-        className="rounded-xl border bg-card p-4 text-sm"
+      <section
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm"
         data-testid="admin-minerals-definition-notice"
       >
-        <p>
-          <span className="font-medium">Mineral</span> = catalog term attached to a listing.
-        </p>
-        <p>
-          <span className="font-medium">Listing</span> = inventory record.
-        </p>
-        <p>
-          <span className="font-medium">Store Offer / Auction</span> = downstream selling mode.
-        </p>
-      </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <p>
+            <span className="font-semibold text-[color:var(--mk-ink)]">Mineral</span>
+            <span className="mk-muted-text"> = catalog term attached to a listing.</span>
+          </p>
+          <p>
+            <span className="font-semibold text-[color:var(--mk-ink)]">Listing</span>
+            <span className="mk-muted-text"> = inventory record.</span>
+          </p>
+          <p>
+            <span className="font-semibold text-[color:var(--mk-ink)]">
+              Store Offer / Auction
+            </span>
+            <span className="mk-muted-text"> = downstream selling mode.</span>
+          </p>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <section className="space-y-4 rounded-xl border bg-card p-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="admin-minerals-search">
+        <section className="mk-glass-strong rounded-[2rem] p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Mineral library
+            </h2>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Search existing minerals before creating a new reference record.
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label
+              className="text-sm font-semibold text-[color:var(--mk-ink)]"
+              htmlFor="admin-minerals-search"
+            >
               Search minerals
             </label>
             <input
               id="admin-minerals-search"
               data-testid="admin-minerals-search"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              className={adminInputClass}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by mineral name"
             />
           </div>
 
-          {loading ? (
-            <div className="text-sm text-muted-foreground">Loading minerals…</div>
-          ) : loadError ? (
-            <div
-              className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-              data-testid="admin-minerals-load-error"
-            >
-              {loadError}
-            </div>
-          ) : items.length === 0 ? (
-            <div
-              className="rounded-md border border-dashed p-4 text-sm text-muted-foreground"
-              data-testid="admin-minerals-search-empty"
-            >
-              No minerals found. Create a mineral to use it in listing assignment.
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border" data-testid="admin-minerals-list">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Name</th>
-                    <th className="px-3 py-2 font-medium">Listings</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} data-testid="admin-mineral-row" className="border-t">
-                      <td className="px-3 py-2" data-testid="admin-mineral-name-value">
-                        {item.name}
-                      </td>
-                      <td className="px-3 py-2" data-testid="admin-mineral-listing-count">
-                        {item.listingCount}
-                      </td>
+          <div className="mt-5">
+            {loading ? (
+              <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text">
+                Loading minerals…
+              </div>
+            ) : loadError ? (
+              <div
+                className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]"
+                data-testid="admin-minerals-load-error"
+              >
+                {loadError}
+              </div>
+            ) : items.length === 0 ? (
+              <div
+                className="rounded-2xl border border-dashed border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text"
+                data-testid="admin-minerals-search-empty"
+              >
+                No minerals found. Create a mineral to use it in listing assignment.
+              </div>
+            ) : (
+              <div
+                className="overflow-hidden rounded-2xl border border-[color:var(--mk-border)]"
+                data-testid="admin-minerals-list"
+              >
+                <table className="w-full text-sm">
+                  <thead className="bg-[color:var(--mk-panel-muted)] text-left">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                        Listings
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-[color:var(--mk-border)] bg-[color:var(--mk-panel)]">
+                    {items.map((item) => (
+                      <tr key={item.id} data-testid="admin-mineral-row">
+                        <td
+                          className="px-4 py-3 font-medium text-[color:var(--mk-ink)]"
+                          data-testid="admin-mineral-name-value"
+                        >
+                          {item.name}
+                        </td>
+                        <td
+                          className="px-4 py-3 mk-muted-text"
+                          data-testid="admin-mineral-listing-count"
+                        >
+                          {item.listingCount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border bg-card p-4">
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold">Create mineral</h2>
-            <p className="text-sm text-muted-foreground">
+        <section className="mk-glass-strong rounded-[2rem] p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Create mineral
+            </h2>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
               Add a missing mineral so it can be selected in listing edit.
             </p>
           </div>
 
-          <form className="space-y-3" onSubmit={onCreateSubmit}>
+          <form className="mt-4 space-y-4" onSubmit={onCreateSubmit}>
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="admin-mineral-name">
+              <label
+                className="text-sm font-semibold text-[color:var(--mk-ink)]"
+                htmlFor="admin-mineral-name"
+              >
                 Mineral name
               </label>
               <input
                 id="admin-mineral-name"
                 data-testid="admin-mineral-name"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className={adminInputClass}
                 value={create.name}
                 onChange={(e) =>
                   setCreate((s) => ({
@@ -231,7 +289,7 @@ export function AdminMineralsPage() {
 
             {create.error ? (
               <div
-                className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]"
                 data-testid="admin-mineral-create-error"
               >
                 {create.error}
@@ -240,7 +298,7 @@ export function AdminMineralsPage() {
 
             {create.success ? (
               <div
-                className="rounded-md border border-emerald-300/40 bg-emerald-500/5 p-3 text-sm text-emerald-700"
+                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300"
                 data-testid="admin-mineral-create-success"
               >
                 {create.success}
@@ -251,7 +309,7 @@ export function AdminMineralsPage() {
               type="submit"
               data-testid="admin-create-mineral"
               disabled={create.loading}
-              className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              className={adminSecondaryButtonClass}
             >
               {create.loading ? "Creating…" : "Create mineral"}
             </button>

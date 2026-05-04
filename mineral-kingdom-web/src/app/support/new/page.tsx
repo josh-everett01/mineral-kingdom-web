@@ -1,4 +1,5 @@
 import { SupportRequestForm } from "@/components/support/SupportRequestForm"
+import { Container } from "@/components/site/Container"
 import type { SupportLinkedContext, SupportTicketCategory } from "@/lib/support/types"
 import { SUPPORT_TICKET_CATEGORIES } from "@/lib/support/types"
 
@@ -24,7 +25,6 @@ function resolveContext(params: {
     (params.auctionId ? 1 : 0) +
     (params.listingId ? 1 : 0)
 
-  // If multiple linked ids are provided (malformed URL), ignore all links
   if (linkedCount > 1) return { type: "none" }
 
   if (params.orderId) return { type: "order", id: params.orderId }
@@ -93,22 +93,38 @@ export default async function SupportNewPage({ searchParams }: Props) {
   const contextLabel = resolveContextLabel(context)
 
   return (
-    <main
-      className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8"
-      data-testid="support-new-page"
-    >
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">Contact support</h1>
-        <p className="mt-2 text-sm text-stone-600">
-          Fill out the form below and our team will get back to you by email.
-        </p>
-      </div>
+    <div className="mk-preview-page min-h-screen overflow-x-hidden">
+      <Container className="py-8 sm:py-10" data-testid="support-new-page">
+        <div className="mx-auto max-w-3xl space-y-6">
+          <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+              Contact Support
+            </p>
 
-      <SupportRequestForm
-        defaultCategory={defaultCategory}
-        linkedContext={context}
-        contextLabel={contextLabel}
-      />
-    </main>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+              How can we help?
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 mk-muted-text sm:text-base">
+              Send us a message about an order, auction, shipping invoice, listing, or account question.
+              We’ll keep the conversation organized in your support tickets.
+            </p>
+
+            {contextLabel ? (
+              <div className="mt-5 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 text-sm mk-muted-text">
+                This request is linked to{" "}
+                <span className="font-semibold text-[color:var(--mk-ink)]">{contextLabel}</span>.
+              </div>
+            ) : null}
+          </section>
+
+          <SupportRequestForm
+            defaultCategory={defaultCategory}
+            linkedContext={context}
+            contextLabel={contextLabel}
+          />
+        </div>
+      </Container>
+    </div>
   )
 }

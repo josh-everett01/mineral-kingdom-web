@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Response } from "@playwright/test"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -31,7 +32,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
+  await waitForAuthenticatedSession(page, email)
 }
 
 async function loginAsAdmin(page: Page) {
@@ -114,9 +115,9 @@ test("admin listings page loads and explains listing vs store offer vs auction",
   await expect(page.getByTestId("admin-listing-definition-notice")).toBeVisible()
 
   const notice = page.getByTestId("admin-listing-definition-notice")
-  await expect(notice.getByText(/listing is your core inventory record/i)).toBeVisible()
-  await expect(notice.getByText("Store Offer", { exact: true })).toBeVisible()
-  await expect(notice.getByText("Auction", { exact: true })).toBeVisible()
+  await expect(notice).toContainText(/core\s+inventory\/specimen record/i)
+  await expect(notice).toContainText(/store offer/i)
+  await expect(notice).toContainText(/auction/i)
 
   await expect(page.getByTestId("admin-create-draft-listing")).toBeVisible()
 })

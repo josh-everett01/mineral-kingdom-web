@@ -5,6 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { getAdminUsers } from "@/lib/admin/users/api"
 import type { AdminUserListItem } from "@/lib/admin/users/types"
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
@@ -18,7 +24,7 @@ function roleBadgeClass(role: string) {
     case "STAFF":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     default:
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
   }
 }
 
@@ -78,30 +84,43 @@ export function AdminUsersPage() {
 
   return (
     <div data-testid="admin-users-page" className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Users</h1>
-        <p className="text-sm text-muted-foreground">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Admin users
+        </p>
+
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+          Users
+        </h1>
+
+        <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
           Search users, review current roles, and govern privileged access deliberately.
         </p>
-      </div>
+      </section>
 
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-xl border bg-card p-5">
+      <section className="mk-glass-strong rounded-[2rem] p-5">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 md:flex-row">
           <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-sm font-medium">Search by email</label>
+            <label
+              className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
+              htmlFor="admin-users-search"
+            >
+              Search by email
+            </label>
             <input
+              id="admin-users-search"
               data-testid="admin-users-search"
               name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             />
           </div>
 
@@ -109,7 +128,7 @@ export function AdminUsersPage() {
             <button
               type="submit"
               data-testid="admin-users-search-submit"
-              className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              className={adminSecondaryButtonClass}
             >
               Search
             </button>
@@ -118,37 +137,41 @@ export function AdminUsersPage() {
       </section>
 
       <section className="space-y-3">
-        <p className="text-sm text-muted-foreground">{summaryText}</p>
+        <p className="text-sm mk-muted-text">{summaryText}</p>
 
         {isLoading ? (
-          <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+          <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
             Loading users…
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+          <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
             No users found.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="border-b bg-muted/40 text-left">
+                <thead className="border-b border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-left">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium">Role</th>
-                    <th className="px-4 py-3 font-medium">Verified</th>
-                    <th className="px-4 py-3 font-medium">Updated</th>
-                    <th className="px-4 py-3 font-medium whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">Email</th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">Role</th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Verified
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Updated
+                    </th>
+                    <th className="whitespace-nowrap px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[color:var(--mk-border)]">
                   {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      data-testid="admin-users-row"
-                      className="border-b last:border-b-0"
-                    >
-                      <td className="px-4 py-3 align-top">{item.email}</td>
+                    <tr key={item.id} data-testid="admin-users-row">
+                      <td className="px-4 py-3 align-top font-medium text-[color:var(--mk-ink)]">
+                        {item.email}
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <span
                           className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${roleBadgeClass(item.role)}`}
@@ -156,15 +179,17 @@ export function AdminUsersPage() {
                           {item.role}
                         </span>
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-top mk-muted-text">
                         {item.emailVerified ? "Yes" : "No"}
                       </td>
-                      <td className="px-4 py-3 align-top">{formatDate(item.updatedAt)}</td>
-                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                      <td className="px-4 py-3 align-top mk-muted-text">
+                        {formatDate(item.updatedAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 align-top">
                         <Link
                           data-testid="admin-users-open-link"
                           href={`/admin/users/${item.id}`}
-                          className="inline-flex min-w-25 justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+                          className="inline-flex min-w-25 justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                         >
                           Open
                         </Link>

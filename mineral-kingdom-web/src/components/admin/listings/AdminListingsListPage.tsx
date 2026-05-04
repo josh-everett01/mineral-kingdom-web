@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Box, PlusCircle } from "lucide-react"
+
 import { AdminListingDefinitionNotice } from "@/components/admin/listings/AdminListingDefinitionNotice"
 import { AdminListingsTable } from "@/components/admin/listings/AdminListingsTable"
 import { createAdminDraftListing, getAdminListings } from "@/lib/admin/listings/api"
 import { AdminListingListItem } from "@/lib/admin/listings/types"
+
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
 
 export function AdminListingsListPage() {
   const router = useRouter()
@@ -60,6 +65,20 @@ export function AdminListingsListPage() {
     })
   }, [items, search, statusFilter])
 
+  const statusCounts = useMemo(() => {
+    return items.reduce(
+      (acc, item) => {
+        const status = item.status.toUpperCase()
+        if (status === "DRAFT") acc.draft += 1
+        else if (status === "PUBLISHED") acc.published += 1
+        else if (status === "ARCHIVED") acc.archived += 1
+        else acc.other += 1
+        return acc
+      },
+      { draft: 0, published: 0, archived: 0, other: 0 },
+    )
+  }, [items])
+
   async function handleCreateDraft() {
     try {
       setIsCreating(true)
@@ -81,72 +100,119 @@ export function AdminListingsListPage() {
 
   return (
     <div data-testid="admin-listings-page" className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold">Listings</h2>
-          <p className="text-sm text-muted-foreground">
-            Create and manage listing drafts, publish ready inventory records, and archive retired
-            listings.
-          </p>
-        </div>
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-gold)]">
+              <Box className="h-5 w-5" />
+            </span>
 
-        <button
-          type="button"
-          data-testid="admin-create-draft-listing"
-          onClick={() => void handleCreateDraft()}
-          disabled={isCreating}
-          className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isCreating ? "Creating…" : "Create draft listing"}
-        </button>
-      </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+                Admin inventory
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+                Listings
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+                Create and manage specimen catalog records. A listing becomes sellable only after it
+                is connected to a fixed-price store offer or auction workflow.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            data-testid="admin-create-draft-listing"
+            onClick={() => void handleCreateDraft()}
+            disabled={isCreating}
+            className="mk-cta inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <PlusCircle className="h-4 w-4" />
+            {isCreating ? "Creating…" : "Create draft listing"}
+          </button>
+        </div>
+      </section>
 
       <AdminListingDefinitionNotice />
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatusSummaryCard label="Draft" value={statusCounts.draft} />
+        <StatusSummaryCard label="Published" value={statusCounts.published} />
+        <StatusSummaryCard label="Archived" value={statusCounts.archived} />
+      </section>
 
       {error ? (
         <div
           data-testid="admin-listings-error"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]"
         >
           {error}
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center">
-        <div className="flex-1">
-          <label htmlFor="admin-listings-search" className="mb-1 block text-xs font-medium">
-            Search
-          </label>
-          <input
-            id="admin-listings-search"
-            data-testid="admin-listings-search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title, mineral, or locality"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
-          />
-        </div>
+      <section className="mk-glass-strong rounded-[2rem] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <label
+              htmlFor="admin-listings-search"
+              className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]"
+            >
+              Search
+            </label>
+            <input
+              id="admin-listings-search"
+              data-testid="admin-listings-search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search title, mineral, or locality"
+              className={adminInputClass}
+            />
+          </div>
 
-        <div className="sm:w-56">
-          <label htmlFor="admin-listings-status-filter" className="mb-1 block text-xs font-medium">
-            Status
-          </label>
-          <select
-            id="admin-listings-status-filter"
-            data-testid="admin-listings-status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
-          >
-            <option value="ALL">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="PUBLISHED">Published</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
+          <div className="sm:w-56">
+            <label
+              htmlFor="admin-listings-status-filter"
+              className="mb-1 block text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]"
+            >
+              Status
+            </label>
+            <select
+              id="admin-listings-status-filter"
+              data-testid="admin-listings-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={adminInputClass}
+            >
+              <option value="ALL">All statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
         </div>
-      </div>
+      </section>
 
       <AdminListingsTable items={filteredItems} isLoading={isLoading} />
+    </div>
+  )
+}
+
+function StatusSummaryCard({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div className="mk-glass rounded-[2rem] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+        {value}
+      </p>
     </div>
   )
 }

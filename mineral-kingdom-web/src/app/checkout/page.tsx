@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
-import { CheckoutStartClient } from "@/components/checkout/CheckoutStartClient"
+
 import { startCheckoutAction } from "@/app/checkout/actions"
+import { CheckoutStartClient } from "@/components/checkout/CheckoutStartClient"
 
 type Props = {
   searchParams: Promise<{
@@ -29,15 +30,17 @@ export default async function CheckoutPage({ searchParams }: Props) {
       : null
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <form id="checkout-start-form" action={startCheckoutAction}>
-        <CheckoutStartClient
-          isAuthenticated={hasAuthCookie}
-          initialEmail={null}
-          initialCheckout={initialCheckout}
-          initialError={error ?? null}
-        />
-      </form>
+    <main className="mk-preview-page min-h-screen overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto max-w-5xl">
+        <form id="checkout-start-form" action={startCheckoutAction}>
+          <CheckoutStartClient
+            isAuthenticated={hasAuthCookie}
+            initialEmail={null}
+            initialCheckout={initialCheckout}
+            initialError={error ?? null}
+          />
+        </form>
+      </div>
     </main>
   )
 }

@@ -17,17 +17,17 @@ function formatDate(value: string | null) {
 function statusClasses(isActive: boolean) {
   return isActive
     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-    : "border-muted bg-muted text-muted-foreground"
+    : "border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] mk-muted-text"
 }
 
 function pricingModeLabel(discountType: string) {
   switch (discountType.toUpperCase()) {
     case "FLAT":
-      return "Absolute discount"
+      return "Flat discount"
     case "PERCENT":
-      return "Percentage discount"
+      return "Percent discount"
     default:
-      return "Fixed"
+      return "Fixed price"
   }
 }
 
@@ -60,7 +60,7 @@ export function AdminStoreOffersTable({
     return (
       <div
         data-testid="admin-store-offers-loading"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
         Loading store offers…
       </div>
@@ -71,64 +71,97 @@ export function AdminStoreOffersTable({
     return (
       <div
         data-testid="admin-store-offers-empty"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
-        No store offers yet. Create one to get started.
+        No store offers yet. Create one to make a published listing available for fixed-price
+        purchase.
       </div>
     )
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <section className="mk-glass-strong overflow-hidden rounded-[2rem]">
+      <div className="border-b border-[color:var(--mk-border)] p-5">
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Fixed-price offers</h2>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
+          Active offers are buyer-facing fixed-price sale paths. Inactive offers are preserved for
+          admin review but should not appear as available direct-buy items.
+        </p>
+      </div>
+
       <div className="overflow-x-auto">
         <table data-testid="admin-store-offers-table" className="min-w-full text-sm">
-          <thead className="bg-muted/40 text-left">
-            <tr className="border-b">
-              <th className="px-4 py-3 font-medium">Listing</th>
-              <th className="px-4 py-3 font-medium">Pricing type</th>
-              <th className="px-4 py-3 font-medium">Base price</th>
-              <th className="px-4 py-3 font-medium">Final price</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Updated</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+          <thead className="border-b border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-left text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+            <tr>
+              <th className="px-5 py-3">Listing</th>
+              <th className="px-5 py-3">Pricing type</th>
+              <th className="px-5 py-3">Base price</th>
+              <th className="px-5 py-3">Buyer price</th>
+              <th className="px-5 py-3">Offer status</th>
+              <th className="px-5 py-3">Updated</th>
+              <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody>
+
+          <tbody className="divide-y divide-[color:var(--mk-border)]">
             {items.map((item) => (
-              <tr key={item.id} data-testid="admin-store-offers-row" className="border-b last:border-b-0">
-                <td className="px-4 py-3">
-                  <div className="font-medium">{item.listingTitle || item.listingId}</div>
-                  <div className="text-xs text-muted-foreground">{item.listingStatus}</div>
+              <tr
+                key={item.id}
+                data-testid="admin-store-offers-row"
+                className="transition hover:bg-[color:var(--mk-panel-muted)]"
+              >
+                <td className="px-5 py-4 align-top">
+                  <div className="font-semibold text-[color:var(--mk-ink)]">
+                    {item.listingTitle || item.listingId}
+                  </div>
+                  <div className="mt-1 text-xs mk-muted-text">
+                    Listing status: {item.listingStatus || "—"}
+                  </div>
                 </td>
-                <td className="px-4 py-3">{pricingModeLabel(item.discountType)}</td>
-                <td className="px-4 py-3">{money(item.priceCents)}</td>
-                <td className="px-4 py-3 font-medium">{money(item.effectivePriceCents)}</td>
-                <td className="px-4 py-3">
+
+                <td className="px-5 py-4 align-top mk-muted-text">
+                  {pricingModeLabel(item.discountType)}
+                </td>
+
+                <td className="px-5 py-4 align-top mk-muted-text">
+                  {money(item.priceCents)}
+                </td>
+
+                <td className="px-5 py-4 align-top font-semibold text-[color:var(--mk-ink)]">
+                  {money(item.effectivePriceCents)}
+                </td>
+
+                <td className="px-5 py-4 align-top">
                   <span
                     data-testid={`admin-store-offer-status-${item.id}`}
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                    className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses(
                       item.isActive,
                     )}`}
                   >
                     {item.isActive ? "ACTIVE" : "INACTIVE"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDate(item.updatedAt)}</td>
-                <td className="px-4 py-3 text-right">
+
+                <td className="px-5 py-4 align-top mk-muted-text">
+                  {formatDate(item.updatedAt)}
+                </td>
+
+                <td className="px-5 py-4 align-top text-right">
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
                       data-testid={`admin-store-offer-edit-${item.id}`}
                       onClick={() => onEdit(item)}
-                      className="inline-flex rounded-md border px-3 py-1.5 font-medium hover:bg-accent"
+                      className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                     >
                       Edit
                     </button>
+
                     <button
                       type="button"
                       data-testid={`admin-store-offer-toggle-${item.id}`}
                       onClick={() => void toggleActive(item)}
-                      className="inline-flex rounded-md border px-3 py-1.5 font-medium hover:bg-accent"
+                      className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                     >
                       {item.isActive ? "Deactivate" : "Activate"}
                     </button>
@@ -139,6 +172,6 @@ export function AdminStoreOffersTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   )
 }

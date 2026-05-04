@@ -1,5 +1,6 @@
 "use client"
 
+import { ShoppingCart, Zap } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -74,35 +75,37 @@ export function ListingPurchaseActions({ offerId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => void addItemToCart("cart")}
-          disabled={isSubmitting !== null}
-          className="inline-flex rounded-full bg-stone-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
-          data-testid="listing-add-to-cart"
-        >
-          {isSubmitting === "cart" ? "Adding…" : "Add to Cart"}
-        </button>
-
+      <div className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => void addItemToCart("buy-now")}
           disabled={isSubmitting !== null}
-          className="inline-flex rounded-full border border-emerald-300 bg-white px-5 py-2.5 text-sm font-medium text-emerald-950 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mk-cta inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           data-testid="listing-buy-now"
         >
+          <Zap className="h-4 w-4" />
           {isSubmitting === "buy-now" ? "Starting checkout…" : "Buy Now"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void addItemToCart("cart")}
+          disabled={isSubmitting !== null}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel)] px-5 py-2.5 text-sm font-semibold text-[color:var(--mk-ink)] shadow-sm transition hover:scale-[1.01] hover:bg-[color:var(--mk-panel-muted)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          data-testid="listing-add-to-cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {isSubmitting === "cart" ? "Adding…" : "Add to Cart"}
         </button>
       </div>
 
-      <p className="text-xs text-stone-500" data-testid="listing-purchase-note">
-        Items are not reserved until checkout begins.
+      <p className="text-xs leading-5 mk-muted-text" data-testid="listing-purchase-note">
+        Direct-buy items are added to your cart immediately, but inventory is not reserved until checkout begins.
       </p>
 
       {successMessage ? (
         <div
-          className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          className="rounded-2xl border border-[color:var(--mk-success)]/40 bg-[color:var(--mk-panel-muted)] p-3 text-sm text-[color:var(--mk-success)]"
           data-testid="listing-add-to-cart-success"
         >
           {successMessage}
@@ -111,7 +114,7 @@ export function ListingPurchaseActions({ offerId }: Props) {
 
       {errorMessage ? (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-3 text-sm text-[color:var(--mk-danger)]"
           data-testid="listing-add-to-cart-error"
         >
           {errorMessage}

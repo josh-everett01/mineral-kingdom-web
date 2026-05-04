@@ -21,6 +21,11 @@ function money(cents: number | null | undefined) {
   return `$${(cents / 100).toFixed(2)}`
 }
 
+function canEditPreLaunchAuction(status: string | null | undefined) {
+  const normalized = status?.toUpperCase()
+  return normalized === "DRAFT" || normalized === "SCHEDULED"
+}
+
 function centsFromDollars(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -46,10 +51,12 @@ function statusClasses(status: string) {
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     case "CLOSING":
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+    case "SCHEDULED":
+      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
     case "DRAFT":
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
     default:
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
   }
 }
 
@@ -70,6 +77,12 @@ function toForm(detail: AdminAuctionDetail): FormState {
       detail.quotedShippingCents != null ? (detail.quotedShippingCents / 100).toFixed(2) : "",
   }
 }
+
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
 
 export function AdminAuctionDetailPage({ id }: Props) {
   const [detail, setDetail] = useState<AdminAuctionDetail | null>(null)
@@ -101,8 +114,8 @@ export function AdminAuctionDetailPage({ id }: Props) {
     void load()
   }, [load])
 
-  const canLaunchNow =
-    detail?.status?.toUpperCase() === "DRAFT" || detail?.status?.toUpperCase() === "SCHEDULED"
+  const canEditPreLaunch = canEditPreLaunchAuction(detail?.status)
+  const canLaunchNow = canEditPreLaunch
 
   const reserveSummary = useMemo(() => {
     if (!detail) return "—"
@@ -180,7 +193,7 @@ export function AdminAuctionDetailPage({ id }: Props) {
     return (
       <div
         data-testid="admin-auction-detail-page"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
         Loading auction…
       </div>
@@ -189,7 +202,7 @@ export function AdminAuctionDetailPage({ id }: Props) {
 
   if (error && !detail) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
         {error}
       </div>
     )
@@ -197,7 +210,7 @@ export function AdminAuctionDetailPage({ id }: Props) {
 
   if (!detail || !form) {
     return (
-      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+      <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
         Auction not found.
       </div>
     )
@@ -205,56 +218,93 @@ export function AdminAuctionDetailPage({ id }: Props) {
 
   return (
     <div data-testid="admin-auction-detail-page" className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-semibold">{detail.listingTitle ?? "Untitled auction"}</h2>
-            <span
-              data-testid="admin-auction-detail-status"
-              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
-                detail.status,
-              )}`}
-            >
-              {detail.status}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Monitor auction state, bid activity, reserve status, and timing.
-          </p>
-        </div>
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+                {detail.listingTitle ?? "Untitled auction"}
+              </h1>
 
-        {canLaunchNow ? (
-          <div data-testid="admin-auction-owner-actions" className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              data-testid="admin-auction-start"
-              onClick={() => void handleStart()}
-              disabled={isStarting}
-              className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isStarting ? "Launching…" : "Launch auction now"}
-            </button>
+              <span
+                data-testid="admin-auction-detail-status"
+                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                  detail.status,
+                )}`}
+              >
+                {detail.status}
+              </span>
+            </div>
+
+            <p className="max-w-3xl text-sm leading-6 mk-muted-text">
+              Monitor auction state, bid activity, reserve progress, shipping quote, and launch timing.
+              Auction settings can only be edited before launch while the auction is Draft or Scheduled.
+              Once an auction is live, bidding integrity is protected by locking schedule, pricing, reserve,
+              and shipping quote changes.
+            </p>
           </div>
-        ) : null}
-      </div>
+
+          {canLaunchNow ? (
+            <div data-testid="admin-auction-owner-actions" className="shrink-0">
+              <button
+                type="button"
+                data-testid="admin-auction-start"
+                onClick={() => void handleStart()}
+                disabled={isStarting}
+                className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isStarting ? "Launching…" : "Launch now"}
+              </button>
+
+              <p className="mt-2 max-w-xs text-xs mk-muted-text">
+                Launching makes the auction active according to the current schedule and bidding
+                rules.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {!canEditPreLaunch ? (
+        <section
+          className="rounded-[2rem] border border-[color:var(--mk-gold)]/40 bg-[color:var(--mk-panel-muted)] p-5 text-sm shadow-sm"
+          data-testid="admin-auction-live-edit-lock-notice"
+        >
+          <p className="font-semibold text-[color:var(--mk-ink)]">
+            Live and completed auctions are locked for editing.
+          </p>
+          <p className="mt-2 leading-6 mk-muted-text">
+            To protect bidding fairness and auditability, auction settings can only be changed before
+            launch. Please confirm start time, close time, starting price, reserve, and quoted shipping
+            before launching a Draft or Scheduled auction.
+          </p>
+        </section>
+      ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
           {error}
         </div>
       ) : null}
 
       {success ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200">
+        <div className="rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm text-emerald-700 dark:text-emerald-300">
           {success}
         </div>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Operational context</h3>
-            <div className="grid gap-4 md:grid-cols-2">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Operational context
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              Use this snapshot to confirm bidding activity, reserve progress, and shipping setup.
+            </p>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <DetailItem label="Current bid" value={money(detail.currentPriceCents)} testId="admin-auction-detail-current-bid" />
               <DetailItem label="Bid count" value={String(detail.bidCount)} testId="admin-auction-detail-bid-count" />
               <DetailItem label="Reserve" value={reserveSummary} testId="admin-auction-detail-reserve-met" />
@@ -273,71 +323,92 @@ export function AdminAuctionDetailPage({ id }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Schedule and pricing</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Draft and scheduled auctions can be adjusted before launch.
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              Schedule and pricing
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
+              These values control what bidders see when the auction opens. They are editable only while the
+              auction is Draft or Scheduled. Review carefully before launch because live auctions are locked.
             </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Start time</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Start time
+                </label>
                 <input
                   data-testid="admin-auction-start-time"
                   type="datetime-local"
                   value={form.startTime}
                   onChange={(e) => setField("startTime", e.target.value)}
                   disabled={!canLaunchNow}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Close time</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Close time
+                </label>
                 <input
                   data-testid="admin-auction-close-time"
                   type="datetime-local"
                   value={form.closeTime}
                   onChange={(e) => setField("closeTime", e.target.value)}
                   disabled={!canLaunchNow}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Starting price ($)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Starting price ($)
+                </label>
                 <input
                   data-testid="admin-auction-starting-price"
                   value={form.startingPrice}
                   onChange={(e) => setField("startingPrice", e.target.value)}
                   inputMode="decimal"
                   disabled={!canLaunchNow}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Reserve ($)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Reserve ($)
+                </label>
                 <input
                   data-testid="admin-auction-reserve-price"
                   value={form.reservePrice}
                   onChange={(e) => setField("reservePrice", e.target.value)}
                   inputMode="decimal"
                   disabled={!canLaunchNow}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
+                <p className="mt-1 text-xs mk-muted-text">
+                  Optional minimum sale amount. Leave blank for no reserve.
+                </p>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Quoted shipping ($)</label>
+                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Quoted shipping ($)
+                </label>
                 <input
                   data-testid="admin-auction-quoted-shipping"
                   value={form.quotedShipping}
                   onChange={(e) => setField("quotedShipping", e.target.value)}
                   inputMode="decimal"
                   disabled={!canLaunchNow}
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  className={adminInputClass}
                 />
+                <p className="mt-1 text-xs mk-muted-text">
+                  Optional shipping amount shown for auction checkout when the buyer chooses direct
+                  shipment.
+                </p>
               </div>
 
               <div className="md:col-span-2">
@@ -345,7 +416,7 @@ export function AdminAuctionDetailPage({ id }: Props) {
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={!canLaunchNow || isSaving}
-                  className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                  className={adminSecondaryButtonClass}
                 >
                   {isSaving ? "Saving…" : "Save pre-launch changes"}
                 </button>
@@ -355,9 +426,9 @@ export function AdminAuctionDetailPage({ id }: Props) {
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-xl border bg-card p-5">
-            <h3 className="mb-4 text-lg font-semibold">Summary</h3>
-            <div className="space-y-3 text-sm">
+          <section className="mk-glass-strong rounded-[2rem] p-5">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Summary</h2>
+            <div className="mt-4 space-y-3 text-sm">
               <SummaryRow label="Auction id" value={detail.auctionId} />
               <SummaryRow label="Listing id" value={detail.listingId} />
               <SummaryRow label="Status" value={detail.status} />
@@ -383,9 +454,11 @@ function DetailItem({
   testId?: string
 }) {
   return (
-    <div>
-      <dt className="font-medium text-foreground">{label}</dt>
-      <dd data-testid={testId} className="mt-1 text-muted-foreground">
+    <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4">
+      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </dt>
+      <dd data-testid={testId} className="mt-1 break-all text-sm text-[color:var(--mk-ink)]">
         {value?.trim() || "—"}
       </dd>
     </div>
@@ -394,9 +467,9 @@ function DetailItem({
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value}</span>
+    <div className="flex items-start justify-between gap-4">
+      <span className="mk-muted-text">{label}</span>
+      <span className="break-all text-right font-medium text-[color:var(--mk-ink)]">{value}</span>
     </div>
   )
 }
