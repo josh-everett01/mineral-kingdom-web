@@ -95,10 +95,20 @@ async function searchAndSelectListing(page: Page, listingId: string, listingTitl
 
   await search.fill(listingTitle)
 
-  const results = page.getByTestId("admin-auction-listing-results")
-  await expect(results).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/not already assigned to an active auction, active store offer, or sold order/i))
+    .toBeVisible()
 
+  const results = page.getByTestId("admin-auction-listing-results")
   const exactOption = page.getByTestId(`admin-auction-listing-option-${listingId}`)
+  const emptyState = page.getByTestId("admin-auction-listing-empty")
+
+  await expect(exactOption.or(emptyState)).toBeVisible({ timeout: 15_000 })
+
+  if (await emptyState.isVisible().catch(() => false)) {
+    throw new Error(`Listing ${listingTitle} (${listingId}) is not eligible for auction creation.`)
+  }
+
+  await expect(results).toBeVisible({ timeout: 15_000 })
   await expect(exactOption).toBeVisible({ timeout: 15_000 })
   await exactOption.click()
 
@@ -117,6 +127,11 @@ test("admin can create an auction draft", async ({ page }) => {
   await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
+
+  await expect(page.getByTestId("admin-auction-definition-notice")).toContainText(
+    /one\s+current commerce path/i,
+  )
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByRole("button", { name: /save as draft/i }).click()

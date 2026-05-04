@@ -27,11 +27,30 @@ export function AdminListingDefinitionNotice() {
         />
         <DefinitionPill
           title="Published"
-          body="Catalog-ready. Can be connected to a store offer or auction workflow."
+          body="Catalog-ready. Commerce state determines whether it can be assigned to an offer or auction."
         />
         <DefinitionPill
           title="Archived"
           body="Retired or hidden from normal listing workflows."
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <DefinitionPill
+          title="Available"
+          body="Published and not currently sold through a commerce path."
+        />
+        <DefinitionPill
+          title="Store Offer"
+          body="Currently available as a fixed-price item."
+        />
+        <DefinitionPill
+          title="Auction"
+          body="Assigned to an auction workflow."
+        />
+        <DefinitionPill
+          title="Sold"
+          body="Already purchased and locked from reuse."
         />
       </div>
 

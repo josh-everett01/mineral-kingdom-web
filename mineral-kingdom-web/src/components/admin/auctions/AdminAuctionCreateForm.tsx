@@ -144,7 +144,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
   const [isSaving, setIsSaving] = useState(false)
 
   const [listingQuery, setListingQuery] = useState("")
-  const [publishedListings, setPublishedListings] = useState<AdminListingListItem[]>([])
+  const [eligibleListings, setEligibleListings] = useState<AdminListingListItem[]>([])
   const [isLoadingListings, setIsLoadingListings] = useState(true)
   const [isLoadingListingDetail, setIsLoadingListingDetail] = useState(false)
 
@@ -156,10 +156,10 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
         setIsLoadingListings(true)
         const data = await getAdminListings()
         if (!active) return
-        setPublishedListings(data.filter((item) => item.status?.toUpperCase() === "PUBLISHED"))
+        setEligibleListings(data.filter(isEligibleForAuctionSelection))
       } catch {
         if (!active) return
-        setPublishedListings([])
+        setEligibleListings([])
       } finally {
         if (active) {
           setIsLoadingListings(false)
@@ -176,12 +176,12 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
 
   const filteredListings = useMemo(() => {
     const query = listingQuery.trim().toLowerCase()
-    if (!query) return publishedListings.slice(0, 8)
+    if (!query) return eligibleListings.slice(0, 8)
 
-    return publishedListings
+    return eligibleListings
       .filter((item) => (item.title ?? "").toLowerCase().includes(query))
       .slice(0, 8)
-  }, [listingQuery, publishedListings])
+  }, [listingQuery, eligibleListings])
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -375,9 +375,8 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
           />
 
           <p className="mt-2 text-xs leading-5 mk-muted-text">
-            For now, this picker shows published listings. After the commerce-state backend story
-            lands, it should only show listings that are not sold, not already attached to a store
-            offer, and not already assigned to another auction.
+            Only published listings that are not already assigned to an active auction, active
+            store offer, or sold order can be selected.
           </p>
 
           {filteredListings.length > 0 ? (
@@ -397,16 +396,23 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
                     {item.title?.trim() || "Untitled listing"}
                   </div>
                   <div className="text-xs mk-muted-text">{item.id}</div>
+                  {item.commerceState ? (
+                    <div className="mt-1 text-xs mk-muted-text">
+                      Commerce state: {formatCommerceState(item.commerceState)}
+                    </div>
+                  ) : null}
                 </button>
               ))}
             </div>
           ) : null}
 
           {!isLoadingListings && filteredListings.length === 0 ? (
-            <div className="mt-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3 text-xs leading-5 mk-muted-text">
-              No published listings match this search. A listing must be published before it can be
-              selected for an auction. Future backend commerce-state validation will also exclude
-              sold, store-offer-backed, and already-auctioned listings.
+            <div
+              data-testid="admin-auction-listing-empty"
+              className="mt-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3 text-xs leading-5 mk-muted-text"
+            >
+              No eligible listings found. A listing must be published and not already used by an
+              auction, active store offer, or sold order.
             </div>
           ) : null}
 
@@ -635,4 +641,29 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
       </div>
     </section>
   )
+}
+
+function isEligibleForAuctionSelection(item: AdminListingListItem) {
+  if (typeof item.isEligibleForAuction === "boolean") {
+    return item.isEligibleForAuction
+  }
+
+  return item.status?.toUpperCase() === "PUBLISHED"
+}
+
+function formatCommerceState(value: string) {
+  switch (value.toUpperCase()) {
+    case "AVAILABLE":
+      return "Available"
+    case "STORE_OFFER":
+      return "Store Offer"
+    case "AUCTION":
+      return "Auction"
+    case "SOLD":
+      return "Sold"
+    case "UNAVAILABLE":
+      return "Unavailable"
+    default:
+      return value
+  }
 }

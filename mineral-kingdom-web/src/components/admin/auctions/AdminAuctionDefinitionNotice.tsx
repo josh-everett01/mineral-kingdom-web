@@ -13,6 +13,12 @@ export function AdminAuctionDefinitionNotice() {
       </p>
 
       <p className="mt-2 leading-6 mk-muted-text">
+        Auctions are a commerce path for published listings. Each listing should only have one
+        current commerce path; listings already assigned to an active auction, active store offer,
+        or sold order cannot be auctioned again.
+      </p>
+
+      <p className="mt-2 leading-6 mk-muted-text">
         Once bidding starts, auction settings are intentionally locked to protect bidder trust,
         fairness, and auditability. Live and closing auctions should be monitored, not edited.
       </p>
