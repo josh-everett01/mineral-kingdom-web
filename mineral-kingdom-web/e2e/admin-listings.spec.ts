@@ -165,6 +165,29 @@ test("admin can create a draft listing, edit fields, and save", async ({ page })
   await expect(page.getByTestId("admin-listing-country-code")).toHaveValue("CN")
 })
 
+test("admin listing editor restores unsaved tab edits after reload", async ({ page }) => {
+  test.setTimeout(60_000)
+
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  const unsavedTitle = `Recovered Draft ${Date.now()}`
+  const unsavedDescription = "Unsaved work should survive a session recovery detour."
+
+  await page.getByTestId("admin-listing-title").fill(unsavedTitle)
+  await page.getByTestId("admin-listing-description").fill(unsavedDescription)
+  await expect(page.getByTestId("admin-listing-unsaved")).toBeVisible()
+
+  page.once("dialog", (dialog) => void dialog.accept())
+  await page.reload()
+
+  await expect(page.getByTestId("admin-listing-title")).toHaveValue(unsavedTitle)
+  await expect(page.getByTestId("admin-listing-description")).toHaveValue(unsavedDescription)
+  await expect(page.getByTestId("admin-listing-action-success")).toContainText(
+    /restored unsaved listing edits/i,
+  )
+})
+
 test("admin can search and select a mineral for a listing when lookup results are available", async ({
   page,
 }) => {
