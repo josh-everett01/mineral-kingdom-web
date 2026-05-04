@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { Activity, ArrowRight, Database, RefreshCcw, ServerCog } from "lucide-react"
+
 import { getAdminSystemSummary } from "@/lib/admin/system/api"
 import type { AdminSystemSummary } from "@/lib/admin/system/types"
 
@@ -12,10 +14,71 @@ function formatDate(value: string | null) {
   return date.toLocaleString()
 }
 
-function statusTone(ok: boolean) {
+function healthBadgeClass(ok: boolean) {
   return ok
     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-    : "border-destructive/30 bg-destructive/10 text-destructive"
+    : "border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-danger)]"
+}
+
+function HealthCard({
+  title,
+  description,
+  ok,
+  statusText,
+  icon,
+  testId,
+}: {
+  title: string
+  description: string
+  ok: boolean
+  statusText: string
+  icon: React.ReactNode
+  testId: string
+}) {
+  return (
+    <section
+      data-testid={testId}
+      className="mk-glass-strong rounded-[2rem] p-5"
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-gold)]">
+          {icon}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+          <p className="mt-1 text-sm leading-6 mk-muted-text">{description}</p>
+
+          <span
+            className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${healthBadgeClass(
+              ok,
+            )}`}
+          >
+            {statusText}
+          </span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function MetricRow({
+  label,
+  value,
+  alert,
+}: {
+  label: string
+  value: React.ReactNode
+  alert?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="mk-muted-text">{label}</dt>
+      <dd className={alert ? "font-semibold text-[color:var(--mk-danger)]" : "font-semibold text-[color:var(--mk-ink)]"}>
+        {value}
+      </dd>
+    </div>
+  )
 }
 
 export function AdminSystemPage() {
@@ -47,7 +110,10 @@ export function AdminSystemPage() {
 
   if (isLoading) {
     return (
-      <div data-testid="admin-system-page" className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+      <div
+        data-testid="admin-system-page"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
+      >
         Loading system status…
       </div>
     )
@@ -55,106 +121,124 @@ export function AdminSystemPage() {
 
   return (
     <div data-testid="admin-system-page" className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">System</h1>
-          <p className="text-sm text-muted-foreground">
-            Operational visibility for health, jobs, and webhook issues.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={isLoading}
-            className="inline-flex rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
-          >
-            Refresh
-          </button>
-          {lastChecked ? (
-            <span className="text-xs text-muted-foreground">
-              Last checked {lastChecked.toLocaleTimeString()}
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-gold)]">
+              <ServerCog className="h-5 w-5" />
             </span>
-          ) : null}
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+                Admin system
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+                System health
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+                Monitor application health, database reachability, background jobs, and webhook
+                processing. Use this page as a quick operational snapshot before drilling into
+                queues and recent errors.
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={isLoading}
+              className="inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Refresh
+            </button>
+
+            {lastChecked ? (
+              <p className="mt-2 text-right text-xs mk-muted-text">
+                Last checked {lastChecked.toLocaleTimeString()}
+              </p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
 
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <section className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
           {error}
-        </div>
+        </section>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <section
-          data-testid="admin-system-health-card"
-          className={`rounded-xl border p-5 ${statusTone(appHealthy)}`}
-        >
-          <h2 className="text-lg font-semibold">Application health</h2>
-          <p className="mt-2 text-sm">
-            Status: {appHealthy ? "healthy" : "unhealthy"}
-          </p>
-        </section>
+        <HealthCard
+          testId="admin-system-health-card"
+          title="Application health"
+          description="Confirms the app can respond to health checks and basic runtime status requests."
+          ok={appHealthy}
+          statusText={appHealthy ? "Healthy" : "Unhealthy"}
+          icon={<Activity className="h-5 w-5" />}
+        />
 
-        <section
-          data-testid="admin-system-db-card"
-          className={`rounded-xl border p-5 ${statusTone(dbHealthy)}`}
-        >
-          <h2 className="text-lg font-semibold">Database health</h2>
-          <p className="mt-2 text-sm">
-            Status: {dbHealthy ? "reachable" : "unreachable"}
-          </p>
-        </section>
+        <HealthCard
+          testId="admin-system-db-card"
+          title="Database health"
+          description="Confirms the app can reach the database used for listings, orders, payments, jobs, and CMS content."
+          ok={dbHealthy}
+          statusText={dbHealthy ? "Reachable" : "Unreachable"}
+          icon={<Database className="h-5 w-5" />}
+        />
 
-        <section data-testid="admin-system-jobs-card" className="rounded-xl border bg-card p-5">
-          <h2 className="text-lg font-semibold">Jobs snapshot</h2>
+        <section data-testid="admin-system-jobs-card" className="mk-glass-strong rounded-[2rem] p-5">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Jobs snapshot</h2>
+          <p className="mt-1 text-sm leading-6 mk-muted-text">
+            Background jobs power async processing such as retries, notifications, and operational
+            maintenance. DLQ means dead-letter queue: jobs that stopped retrying and need review.
+          </p>
+
           <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Pending</dt>
-              <dd>{summary?.pendingJobs ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Running</dt>
-              <dd>{summary?.runningJobs ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">DLQ</dt>
-              <dd className={summary?.deadLetterJobs ? "text-destructive font-medium" : ""}>{summary?.deadLetterJobs ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Failed (last 7 days)</dt>
-              <dd className={summary?.recentFailedJobs ? "text-destructive font-medium" : ""}>{summary?.recentFailedJobs ?? 0}</dd>
-            </div>
+            <MetricRow label="Pending" value={summary?.pendingJobs ?? 0} />
+            <MetricRow label="Running" value={summary?.runningJobs ?? 0} />
+            <MetricRow
+              label="Dead-lettered"
+              value={summary?.deadLetterJobs ?? 0}
+              alert={(summary?.deadLetterJobs ?? 0) > 0}
+            />
+            <MetricRow
+              label="Failed in last 7 days"
+              value={summary?.recentFailedJobs ?? 0}
+              alert={(summary?.recentFailedJobs ?? 0) > 0}
+            />
           </dl>
         </section>
 
-        <section data-testid="admin-system-webhooks-card" className="rounded-xl border bg-card p-5">
-          <h2 className="text-lg font-semibold">Webhook / payment issues</h2>
+        <section data-testid="admin-system-webhooks-card" className="mk-glass-strong rounded-[2rem] p-5">
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+            Webhook / payment issues
+          </h2>
+          <p className="mt-1 text-sm leading-6 mk-muted-text">
+            Webhooks are how payment providers confirm trusted payment state. Unprocessed webhook
+            events may mean order or payment finalization needs attention.
+          </p>
+
           <dl className="mt-4 grid gap-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Unprocessed events</dt>
-              <dd className={summary?.unprocessedWebhookEvents ? "text-destructive font-medium" : ""}>{summary?.unprocessedWebhookEvents ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Last received</dt>
-              <dd>{formatDate(summary?.lastWebhookReceivedAt ?? null)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Last processed</dt>
-              <dd>{formatDate(summary?.lastWebhookProcessedAt ?? null)}</dd>
-            </div>
+            <MetricRow
+              label="Unprocessed events"
+              value={summary?.unprocessedWebhookEvents ?? 0}
+              alert={(summary?.unprocessedWebhookEvents ?? 0) > 0}
+            />
+            <MetricRow label="Last received" value={formatDate(summary?.lastWebhookReceivedAt ?? null)} />
+            <MetricRow label="Last processed" value={formatDate(summary?.lastWebhookProcessedAt ?? null)} />
           </dl>
         </section>
       </div>
 
-      <div>
-        <Link
-          href="/admin/system/queues"
-          className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
-        >
-          View queues and recent errors
-        </Link>
-      </div>
+      <Link
+        href="/admin/system/queues"
+        className="group inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+      >
+        View queues and recent errors
+        <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-0.5" />
+      </Link>
     </div>
   )
 }

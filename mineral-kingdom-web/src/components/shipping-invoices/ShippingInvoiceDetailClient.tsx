@@ -77,6 +77,9 @@ const SHIPPING_RETURN_PAYMENT_ID_KEY = "mk_shipping_invoice_payment_return_payme
 const SHIPPING_RETURN_INVOICE_ID_KEY = "mk_shipping_invoice_payment_return_invoice_id"
 const SHIPPING_RETURN_SESSION_EVENT = "mk:shipping-return-session-changed"
 
+const secondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+
 function getShippingReturnSessionSnapshot() {
   if (typeof window === "undefined") return ""
 
@@ -143,8 +146,16 @@ function formatShippingInvoiceStatus(value?: string | null) {
       return "Unpaid"
     case "PAID":
       return "Paid"
+    case "PENDING":
+      return "Pending"
+    case "PROCESSING":
+      return "Processing"
     case "VOID":
       return "Void"
+    case "VOIDED":
+      return "Voided"
+    case "FAILED":
+      return "Failed"
     default:
       return value ?? "—"
   }
@@ -193,7 +204,8 @@ function buildShippingContext(invoice: ShippingInvoiceDto | null) {
   }
 
   if ((invoice.relatedOrders?.length ?? 0) > 1 && firstOrder?.orderNumber) {
-    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber} + ${invoice.relatedOrders!.length - 1} more`
+    return `Shipping invoice • Open Box • Order ${firstOrder.orderNumber} + ${invoice.relatedOrders!.length - 1
+      } more`
   }
 
   return "Shipping invoice • Open Box"
@@ -257,7 +269,13 @@ function isPaid(invoice: ShippingInvoiceDto | null) {
 }
 
 function isVoid(invoice: ShippingInvoiceDto | null) {
-  return normalizeStatus(invoice?.status) === "VOID"
+  const status = normalizeStatus(invoice?.status)
+  return status === "VOID" || status === "VOIDED"
+}
+
+function isPendingConfirmation(invoice: ShippingInvoiceDto | null) {
+  const status = normalizeStatus(invoice?.status)
+  return status === "PENDING" || status === "PROCESSING"
 }
 
 export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
@@ -335,7 +353,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
           cache: "no-store",
         })
 
-        const body = (await res.json().catch(() => null)) as ShippingInvoiceDto | LoadableError | null
+        const body = (await res.json().catch(() => null)) as
+          | ShippingInvoiceDto
+          | LoadableError
+          | null
 
         if (!isMounted) return
 
@@ -376,7 +397,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         setInvoice(body)
         setIsLoading(false)
 
-        if (normalizeStatus(body.status) === "VOID") {
+        if (isVoid(body)) {
           void loadCurrentOpenBoxInvoice()
         }
       } catch {
@@ -417,10 +438,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
   }, [invoice, sse.snapshot])
 
   const hasReturnContext =
-    shippingReturnSession.invoiceId === invoiceId &&
-    Boolean(shippingReturnSession.paymentId)
+    shippingReturnSession.invoiceId === invoiceId && Boolean(shippingReturnSession.paymentId)
 
-  const isAwaitingBackendConfirmation = hasReturnContext && !isPaid(liveInvoice)
+  const isAwaitingSecureConfirmation =
+    (hasReturnContext && !isPaid(liveInvoice)) || isPendingConfirmation(liveInvoice)
 
   async function handleStartPayment() {
     if (!liveInvoice || isSubmittingPayment || isPaid(liveInvoice) || isVoid(liveInvoice)) return
@@ -440,7 +461,9 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         },
         body: JSON.stringify({
           provider: selectedProvider,
-          successUrl: `${origin}/shipping-invoices/return?invoiceId=${encodeURIComponent(invoiceId)}`,
+          successUrl: `${origin}/shipping-invoices/return?invoiceId=${encodeURIComponent(
+            invoiceId,
+          )}`,
           cancelUrl: `${origin}/shipping-invoices/${encodeURIComponent(invoiceId)}`,
         }),
       })
@@ -503,10 +526,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
   if (isLoading) {
     return (
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="mk-glass-strong rounded-[2rem] p-6"
         data-testid="shipping-invoice-detail-loading"
       >
-        <p className="text-sm text-stone-600">Loading shipping invoice…</p>
+        <p className="text-sm mk-muted-text">Loading shipping invoice…</p>
       </section>
     )
   }
@@ -514,25 +537,29 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
   if (error && !liveInvoice) {
     return (
       <section
-        className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm"
+        className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-6 shadow-sm"
         data-testid="shipping-invoice-detail-error"
       >
-        <h1 className="text-xl font-semibold text-red-900">
-          {errorStatus === 404 ? "Shipping invoice not found" : "We couldn’t load this shipping invoice"}
+        <h1 className="text-xl font-semibold text-[color:var(--mk-ink)]">
+          {errorStatus === 404
+            ? "Shipping invoice not found"
+            : "We couldn’t load this shipping invoice"}
         </h1>
-        <p className="mt-2 text-sm text-red-800">{error}</p>
+        <p className="mt-2 text-sm text-[color:var(--mk-danger)]">{error}</p>
 
         {currentOpenBoxInvoice?.shippingInvoiceId &&
           currentOpenBoxInvoice.shippingInvoiceId !== invoiceId ? (
           <div
-            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+            className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"
             data-testid="shipping-invoice-detail-current-invoice-hint"
           >
             This invoice may no longer be the current Open Box shipping invoice.
             <div className="mt-3">
               <Link
-                href={`/shipping-invoices/${encodeURIComponent(currentOpenBoxInvoice.shippingInvoiceId)}`}
-                className="inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+                href={`/shipping-invoices/${encodeURIComponent(
+                  currentOpenBoxInvoice.shippingInvoiceId,
+                )}`}
+                className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
                 data-testid="shipping-invoice-detail-go-current-invoice"
               >
                 Go to current shipping invoice
@@ -545,7 +572,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
           {sessionExpired || errorStatus === 401 ? (
             <Link
               href={`/login?returnTo=${encodeURIComponent(`/shipping-invoices/${invoiceId}`)}`}
-              className="inline-flex rounded-full bg-red-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800"
+              className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
               data-testid="shipping-invoice-detail-sign-in-again"
             >
               Sign in again
@@ -554,7 +581,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
 
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-900 transition hover:bg-red-100"
+            className={secondaryButtonClass}
             data-testid="shipping-invoice-detail-back-dashboard"
           >
             Back to dashboard
@@ -567,13 +594,17 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
   if (isVoid(liveInvoice)) {
     return (
       <section
-        className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+        className="mk-glass-strong space-y-6 rounded-[2rem] p-5 sm:p-7"
         data-testid="shipping-invoice-detail-void-state"
       >
-        <div className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Shipping invoice</p>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900">This shipping invoice is no longer active</h1>
-          <p className="text-sm text-stone-600 sm:text-base">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+            Open Box shipping invoice
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
+            This shipping invoice is no longer active
+          </h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 mk-muted-text sm:text-base">
             This invoice has been voided or replaced and can no longer be used for payment.
           </p>
         </div>
@@ -603,7 +634,9 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
               ? [
                 {
                   label: "Go to current shipping invoice",
-                  href: `/shipping-invoices/${encodeURIComponent(currentOpenBoxInvoice.shippingInvoiceId)}`,
+                  href: `/shipping-invoices/${encodeURIComponent(
+                    currentOpenBoxInvoice.shippingInvoiceId,
+                  )}`,
                   variant: "primary" as const,
                 },
                 { label: "Back to dashboard", href: "/dashboard", variant: "secondary" as const },
@@ -617,26 +650,28 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
 
   return (
     <section
-      className="space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
+      className="mk-glass-strong space-y-6 rounded-[2rem] p-5 sm:p-7"
       data-testid="shipping-invoice-detail-card"
     >
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">Shipping invoice</p>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Open Box shipping invoice
+        </p>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+            <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] sm:text-5xl">
               {isPaid(liveInvoice) ? "Shipping payment confirmed" : "Your shipping invoice is ready"}
             </h1>
-            <p className="mt-2 text-sm text-stone-600 sm:text-base">
+            <p className="mt-3 max-w-3xl text-sm leading-6 mk-muted-text sm:text-base">
               {isPaid(liveInvoice)
                 ? "This shipping payment has been confirmed. Your Open Box shipment can continue through packing and fulfillment."
-                : "Pay shipping to allow your Open Box shipment to continue through packing and fulfillment."}
+                : "This is a separate shipping payment for your Open Box shipment. Pay shipping so your package can move forward into packing and fulfillment."}
             </p>
           </div>
 
           <div
-            className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-700"
+            className="rounded-full border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-3 py-1 text-xs font-semibold mk-muted-text"
             data-testid="shipping-invoice-detail-live-status"
           >
             {sse.connected
@@ -650,7 +685,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         </div>
 
         {sse.error ? (
-          <p className="text-xs text-amber-700" data-testid="shipping-invoice-detail-live-status-message">
+          <p
+            className="mt-2 text-xs text-amber-700 dark:text-amber-300"
+            data-testid="shipping-invoice-detail-live-status-message"
+          >
             Showing the last known invoice state. You can refresh the page if needed.
           </p>
         ) : null}
@@ -669,81 +707,77 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
       />
 
       <section
-        className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-2 lg:grid-cols-3"
+        className={[
+          "rounded-[2rem] border p-5 text-sm shadow-sm",
+          isPaid(liveInvoice)
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+            : "border-[color:var(--mk-gold)]/40 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-ink)]",
+        ].join(" ")}
+        data-testid="shipping-invoice-detail-guidance"
+      >
+        <p className="font-semibold">
+          {isPaid(liveInvoice)
+            ? "Shipping is paid and fulfillment can continue."
+            : "Pay this shipping invoice to continue your Open Box shipment."}
+        </p>
+        <p className="mt-2 leading-6">
+          {isPaid(liveInvoice)
+            ? "Your shipping payment has been confirmed. The Mineral Kingdom team can now continue packing, shipping, and updating delivery progress."
+            : "This invoice only covers shipping for the items in this Open Box shipment. Your item or auction payment is separate from this shipping payment."}
+        </p>
+      </section>
+
+      <section
+        className="grid gap-4 rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:grid-cols-2 lg:grid-cols-3"
         data-testid="shipping-invoice-detail-summary"
       >
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Invoice id</p>
-          <p className="mt-1 break-all text-sm text-stone-900" data-testid="shipping-invoice-detail-id">
-            {liveInvoice?.shippingInvoiceId ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Invoice id" testId="shipping-invoice-detail-id">
+          {liveInvoice?.shippingInvoiceId ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Status</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-status">
-            {formatShippingInvoiceStatus(liveInvoice?.status)}
-          </p>
-        </div>
+        <SummaryCell label="Status" testId="shipping-invoice-detail-status">
+          {formatShippingInvoiceStatus(liveInvoice?.status)}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Amount due</p>
-          <p className="mt-1 text-sm font-semibold text-stone-900" data-testid="shipping-invoice-detail-amount">
-            {amount ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Amount due" testId="shipping-invoice-detail-amount" strong>
+          {amount ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Paid at</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-paid-at">
-            {paidAt ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Paid at" testId="shipping-invoice-detail-paid-at">
+          {paidAt ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Due at</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-due-at">
-            {dueAt ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Due at" testId="shipping-invoice-detail-due-at">
+          {dueAt ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Provider</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-provider">
-            {formatPaymentProvider(liveInvoice?.provider)}
-          </p>
-        </div>
+        <SummaryCell label="Provider" testId="shipping-invoice-detail-provider">
+          {formatPaymentProvider(liveInvoice?.provider)}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Created</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-created-at">
-            {createdAt ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Created" testId="shipping-invoice-detail-created-at">
+          {createdAt ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Last updated</p>
-          <p className="mt-1 text-sm text-stone-900" data-testid="shipping-invoice-detail-updated-at">
-            {updatedAt ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Last updated" testId="shipping-invoice-detail-updated-at">
+          {updatedAt ?? "—"}
+        </SummaryCell>
 
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Fulfillment group</p>
-          <p className="mt-1 break-all text-sm text-stone-900" data-testid="shipping-invoice-detail-fulfillment-group">
-            {liveInvoice?.fulfillmentGroupId ?? "—"}
-          </p>
-        </div>
+        <SummaryCell label="Fulfillment group" testId="shipping-invoice-detail-fulfillment-group">
+          {liveInvoice?.fulfillmentGroupId ?? "—"}
+        </SummaryCell>
       </section>
 
       {liveInvoice?.items?.length ? (
         <section
-          className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
           data-testid="shipping-invoice-detail-items"
         >
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-stone-900">This invoice covers shipping for</h2>
-            <p className="text-sm text-stone-600">
+          <div>
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+              This invoice covers shipping for
+            </h2>
+            <p className="mt-1 text-sm leading-6 mk-muted-text">
               These are the items currently included in this Open Box shipment.
             </p>
           </div>
@@ -755,10 +789,10 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
               return (
                 <li
                   key={`${item.listingId ?? "item"}-${item.orderId ?? index}`}
-                  className="flex gap-4 rounded-xl border border-stone-200 bg-white p-4"
+                  className="flex gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4"
                   data-testid="shipping-invoice-detail-item-row"
                 >
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
                     {item.primaryImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -767,9 +801,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-stone-500">
-                        No image
-                      </div>
+                      <span className="px-2 text-center text-xs mk-muted-text">No image</span>
                     )}
                   </div>
 
@@ -777,17 +809,17 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                     {href ? (
                       <Link
                         href={href}
-                        className="block truncate text-sm font-semibold text-stone-900 hover:underline"
+                        className="block truncate text-sm font-semibold text-[color:var(--mk-ink)] underline-offset-4 hover:underline"
                       >
                         {item.title ?? "Listing"}
                       </Link>
                     ) : (
-                      <p className="truncate text-sm font-semibold text-stone-900">
+                      <p className="truncate text-sm font-semibold text-[color:var(--mk-ink)]">
                         {item.title ?? "Listing"}
                       </p>
                     )}
 
-                    <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
                       {buildOrderSummary({
                         orderId: item.orderId ?? undefined,
                         orderNumber: item.orderNumber ?? null,
@@ -796,13 +828,13 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                     </p>
 
                     {item.mineralName || item.locality ? (
-                      <p className="mt-1 text-sm text-stone-600">
+                      <p className="mt-1 text-sm mk-muted-text">
                         {[item.mineralName, item.locality].filter(Boolean).join(" • ")}
                       </p>
                     ) : null}
 
                     {item.quantity && item.quantity > 1 ? (
-                      <p className="mt-1 text-sm text-stone-600">Quantity: {item.quantity}</p>
+                      <p className="mt-1 text-sm mk-muted-text">Quantity: {item.quantity}</p>
                     ) : null}
                   </div>
                 </li>
@@ -814,12 +846,12 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
 
       {!isPaid(liveInvoice) ? (
         <>
-          {isAwaitingBackendConfirmation ? (
+          {isAwaitingSecureConfirmation ? (
             <PaymentStatusPanel
               testId="shipping-invoice-detail-awaiting-confirmation"
               tone="info"
-              title="Waiting for backend-confirmed shipping payment"
-              body="If you’ve just returned from Stripe or PayPal, this page will update when the backend confirms the payment."
+              title="Waiting for secure payment confirmation"
+              body="If you’ve just returned from Stripe or PayPal, this page will update when secure payment confirmation is received."
             />
           ) : (
             <PaymentStatusPanel
@@ -831,21 +863,23 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
           )}
 
           <section
-            className="rounded-2xl border border-blue-200 bg-blue-50 p-6"
+            className="rounded-[2rem] border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)] p-5 shadow-sm sm:p-6"
             data-testid="shipping-invoice-detail-payment-panel"
           >
-            <h2 className="text-lg font-semibold text-blue-950">Pay shipping</h2>
-            <p className="mt-2 text-sm leading-6 text-blue-900">
+            <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Pay shipping</h2>
+            <p className="mt-2 text-sm leading-6 mk-muted-text">
               This payment covers shipping only.
-              {isAwaitingBackendConfirmation
-                ? " If you already completed payment with Stripe or PayPal, this page will update when backend confirmation is received."
+              {isAwaitingSecureConfirmation
+                ? " If you already completed payment with Stripe or PayPal, this page will update when secure payment confirmation is received."
                 : " Once payment is confirmed, your shipment can continue through packing and fulfillment."}
             </p>
 
             <fieldset className="mt-4 space-y-2">
-              <legend className="block text-sm font-medium text-blue-950">Payment provider</legend>
+              <legend className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+                Payment provider
+              </legend>
               <div className="flex flex-wrap gap-3">
-                <label className="inline-flex items-center gap-2 text-sm text-blue-950">
+                <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                   <input
                     type="radio"
                     name="shipping-payment-provider"
@@ -857,7 +891,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                   Stripe
                 </label>
 
-                <label className="inline-flex items-center gap-2 text-sm text-blue-950">
+                <label className="inline-flex items-center gap-2 text-sm text-[color:var(--mk-ink)]">
                   <input
                     type="radio"
                     name="shipping-payment-provider"
@@ -876,15 +910,17 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
                 type="button"
                 onClick={handleStartPayment}
                 disabled={isSubmittingPayment}
-                className="inline-flex rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mk-cta inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 data-testid="shipping-invoice-detail-start-payment"
               >
-                {isSubmittingPayment ? "Starting payment..." : "Pay shipping"}
+                {isSubmittingPayment
+                  ? "Starting payment…"
+                  : `Pay shipping ${amount ? `(${amount})` : ""}`}
               </button>
 
               <Link
                 href="/dashboard"
-                className="inline-flex rounded-full border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-950 transition hover:bg-blue-100"
+                className={secondaryButtonClass}
                 data-testid="shipping-invoice-detail-back-dashboard-link"
               >
                 Back to dashboard
@@ -893,7 +929,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
 
             {paymentError ? (
               <div
-                className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                className="mt-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] px-3 py-2 text-sm text-[color:var(--mk-danger)]"
                 data-testid="shipping-invoice-detail-payment-error"
               >
                 {paymentError}
@@ -903,7 +939,7 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
             {sessionExpired ? (
               <Link
                 href={`/login?returnTo=${encodeURIComponent(`/shipping-invoices/${invoiceId}`)}`}
-                className="mt-4 inline-flex rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+                className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
                 data-testid="shipping-invoice-detail-payment-sign-in-again"
               >
                 Sign in again
@@ -917,22 +953,25 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
             testId="shipping-invoice-detail-payment-confirmed"
             tone="success"
             title="Shipping payment confirmed"
-            body="This shipping payment has been confirmed by the backend. Your Open Box shipment can continue through packing and fulfillment."
+            body="This shipping payment has been confirmed. Your Open Box shipment can continue through packing and fulfillment."
           />
 
           <section
-            className="rounded-2xl border border-green-200 bg-green-50 p-6"
+            className="rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-sm sm:p-6"
             data-testid="shipping-invoice-detail-paid-state"
           >
-            <h2 className="text-lg font-semibold text-green-900">Payment complete</h2>
-            <p className="mt-2 text-sm leading-6 text-green-800">
-              Shipping payment has been confirmed. You can return to your dashboard to follow the next fulfillment steps.
+            <h2 className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">
+              Payment complete
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-emerald-700 dark:text-emerald-300">
+              Shipping payment has been confirmed. You can return to your dashboard to follow the
+              next fulfillment steps.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 href="/dashboard"
-                className="inline-flex rounded-full bg-green-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-800"
+                className="mk-cta inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
                 data-testid="shipping-invoice-detail-paid-go-dashboard"
               >
                 Go to dashboard
@@ -943,25 +982,28 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
       )}
 
       <section
-        className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+        className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
         data-testid="shipping-invoice-detail-support"
       >
-        <h2 className="text-lg font-semibold text-stone-900">Need help?</h2>
-        <p className="mt-2 text-sm text-stone-600">
-          If something looks wrong with this shipping invoice or payment state, contact support and include your shipping invoice id.
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Need help?</h2>
+        <p className="mt-2 text-sm leading-6 mk-muted-text">
+          If something looks wrong with this shipping invoice or payment state, contact support and
+          include your shipping invoice id.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-stone-100"
+            className={secondaryButtonClass}
             data-testid="shipping-invoice-detail-support-dashboard"
           >
             Back to dashboard
           </Link>
           <Link
-            href={`/support/new?shippingInvoiceId=${encodeURIComponent(invoiceId)}&category=SHIPPING_HELP`}
-            className="inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+            href={`/support/new?shippingInvoiceId=${encodeURIComponent(
+              invoiceId,
+            )}&category=SHIPPING_HELP`}
+            className={secondaryButtonClass}
             data-testid="shipping-invoice-detail-support-link"
           >
             Contact support
@@ -969,5 +1011,34 @@ export function ShippingInvoiceDetailClient({ invoiceId }: Props) {
         </div>
       </section>
     </section>
+  )
+}
+
+function SummaryCell({
+  label,
+  children,
+  testId,
+  strong = false,
+}: {
+  label: string
+  children: React.ReactNode
+  testId?: string
+  strong?: boolean
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </p>
+      <p
+        className={[
+          "mt-1 break-all text-sm text-[color:var(--mk-ink)]",
+          strong ? "font-semibold" : "",
+        ].join(" ")}
+        data-testid={testId}
+      >
+        {children}
+      </p>
+    </div>
   )
 }

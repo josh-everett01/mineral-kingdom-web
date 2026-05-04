@@ -9,6 +9,9 @@ type Props = {
   onCreated: () => Promise<void> | void
 }
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatMoney(cents: number, currencyCode: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -76,35 +79,42 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
   }
 
   return (
-    <div
-      className="rounded-xl border bg-card p-5 space-y-4"
+    <section
+      className="mk-glass-strong space-y-5 rounded-[2rem] p-5"
       data-testid="admin-fulfillment-pricing-panel"
     >
       <div>
-        <h2 className="text-lg font-semibold">Shipping pricing</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review the calculated shipping amount below. You can use it as-is or manually enter a different amount before creating the invoice.
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">
+          Shipping pricing
+        </h2>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
+          Review the calculated shipping amount before creating an invoice. If you override the
+          amount, add a reason so the adjustment is understandable later.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">Calculated shipping</div>
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4">
+          <div className="text-sm font-semibold text-[color:var(--mk-ink)]">
+            Calculated shipping
+          </div>
           <div
-            className="mt-2 text-xl font-semibold"
+            className="mt-2 text-2xl font-semibold text-[color:var(--mk-ink)]"
             data-testid="admin-fulfillment-calculated-shipping"
           >
             {formatMoney(calculatedShippingCents, currencyCode)}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            System-estimated shipping based on current pricing rules.
+          <p className="mt-2 text-xs leading-5 mk-muted-text">
+            System-estimated shipping based on the current fulfillment and pricing rules.
           </p>
         </div>
 
-        <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">Current invoice amount</div>
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4">
+          <div className="text-sm font-semibold text-[color:var(--mk-ink)]">
+            Current invoice amount
+          </div>
           <div
-            className="mt-2 text-xl font-semibold"
+            className="mt-2 text-2xl font-semibold text-[color:var(--mk-ink)]"
             data-testid="admin-fulfillment-current-shipping"
           >
             {formatMoney(existingInvoice?.amountCents ?? calculatedShippingCents, currencyCode)}
@@ -113,14 +123,14 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
           <div className="mt-2">
             {existingInvoice?.isOverride ? (
               <span
-                className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900"
+                className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
                 data-testid="admin-fulfillment-override-badge"
               >
                 Manual override applied
               </span>
             ) : (
               <span
-                className="inline-flex rounded-full border border-stone-200 bg-stone-50 px-2 py-1 text-xs font-medium text-stone-800"
+                className="inline-flex rounded-full border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-2.5 py-1 text-xs font-medium mk-muted-text"
                 data-testid="admin-fulfillment-override-badge"
               >
                 Using calculated shipping
@@ -129,7 +139,7 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
           </div>
 
           {existingInvoice?.overrideReason ? (
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-xs leading-5 mk-muted-text">
               Reason: {existingInvoice.overrideReason}
             </p>
           ) : null}
@@ -137,12 +147,12 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
       </div>
 
       {!existingInvoice ? (
-        <div className="space-y-4 rounded-lg border p-4">
+        <div className="space-y-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+            <div>
               <label
                 htmlFor="shipping-amount"
-                className="block text-sm font-medium"
+                className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
               >
                 Amount customer will pay
               </label>
@@ -153,30 +163,38 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
                 min="0"
                 step="0.01"
                 value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                onChange={(e) => {
+                  setAmountInput(e.target.value)
+                  setError(null)
+                  setSuccess(null)
+                }}
+                className={adminInputClass}
                 data-testid="admin-fulfillment-shipping-amount-input"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="mt-2 text-xs leading-5 mk-muted-text">
                 This is the amount that will appear on the shipping invoice.
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div>
               <label
                 htmlFor="shipping-reason"
-                className="block text-sm font-medium"
+                className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
               >
                 Manual override reason
               </label>
               <textarea
                 id="shipping-reason"
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(e) => {
+                  setReason(e.target.value)
+                  setError(null)
+                  setSuccess(null)
+                }}
                 rows={3}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className={adminInputClass}
                 data-testid="admin-fulfillment-shipping-reason-input"
-                placeholder="Required if the amount differs from the calculated shipping."
+                placeholder="Required if the amount differs from calculated shipping."
               />
             </div>
           </div>
@@ -184,14 +202,14 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
           <div>
             {isOverride ? (
               <span
-                className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900"
+                className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300"
                 data-testid="admin-fulfillment-create-mode"
               >
                 Manual override will be applied
               </span>
             ) : (
               <span
-                className="inline-flex rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs font-medium text-stone-800"
+                className="inline-flex rounded-full border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-2.5 py-1 text-xs font-medium mk-muted-text"
                 data-testid="admin-fulfillment-create-mode"
               >
                 Using calculated shipping
@@ -199,24 +217,34 @@ export function AdminFulfillmentPricingPanel({ detail, onCreated }: Props) {
             )}
           </div>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
+          {error ? (
+            <div className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
+              {error}
+            </div>
+          ) : null}
+
+          {success ? (
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+              {success}
+            </div>
+          ) : null}
 
           <button
             type="button"
-            onClick={handleCreate}
+            onClick={() => void handleCreate()}
             disabled={submitting || invoiceLocked}
-            className="inline-flex rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-60"
+            className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             data-testid="admin-fulfillment-create-invoice"
           >
             {submitting ? "Creating invoice…" : "Create shipping invoice"}
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-          Shipping invoice already exists. The next step is viewing the invoice detail and, if still unpaid, adjusting it there.
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm leading-6 mk-muted-text">
+          Shipping invoice already exists. View the invoice detail to track payment status or make any
+          allowed adjustments before it is paid.
         </div>
       )}
-    </div>
+    </section>
   )
 }

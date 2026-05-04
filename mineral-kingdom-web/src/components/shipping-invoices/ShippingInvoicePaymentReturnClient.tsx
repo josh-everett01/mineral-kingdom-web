@@ -239,18 +239,18 @@ function getStageMessage(args: {
   }
 
   if (elapsedMs >= 60_000) {
-    return "This is taking longer than usual, but your shipping payment may still be processing safely in the background. Please keep this page open while we continue checking."
+    return "This is taking longer than usual, but your shipping payment may still be processing safely. Please keep this page open while we continue checking for secure payment confirmation."
   }
 
   if (elapsedMs >= 30_000) {
-    return "We’re still waiting for backend confirmation of your shipping payment. Please keep this page open a little longer."
+    return "We’re still waiting for secure payment confirmation. Please keep this page open a little longer."
   }
 
   if (elapsedMs >= 10_000) {
-    return "Almost there — we’re still waiting for backend confirmation of your shipping payment."
+    return "Almost there — we’re still waiting for secure payment confirmation."
   }
 
-  return "We recorded your return from the payment provider. Confirming shipping payment now…"
+  return "We recorded your return from the payment provider. Confirming your shipping payment now…"
 }
 
 function getFallbackMessage(args: {
@@ -264,14 +264,14 @@ function getFallbackMessage(args: {
   if (isPaid(invoice)) return null
 
   if (!connected && !connecting) {
-    return "Live updates are temporarily unavailable. We’ll keep checking your shipping invoice automatically using the latest backend state we can reach."
+    return "Live updates are temporarily unavailable. We’ll keep checking your shipping invoice automatically using the latest confirmed payment state we can reach."
   }
 
   if (elapsedMs >= 30_000) {
-    return "You do not need to pay twice. If this page stays in a pending state, return to your shipping invoice or dashboard and check the current status there."
+    return "You do not need to pay twice. If this page stays pending, return to your shipping invoice or dashboard and check the current status there."
   }
 
-  return "Returning from the payment provider does not itself finalize shipping payment. Your invoice will update only after backend confirmation is received."
+  return "Returning from the payment provider does not itself finalize shipping payment. Your invoice will update after secure payment confirmation is received."
 }
 
 export function ShippingInvoicePaymentReturnClient() {
@@ -634,7 +634,7 @@ export function ShippingInvoicePaymentReturnClient() {
           data-testid="shipping-payment-return-copy"
         >
           Returning from the payment provider does not itself finalize shipping payment. Your
-          shipping invoice updates only after backend confirmation is received.
+          shipping invoice updates only after secure payment confirmation is received.
         </p>
       </section>
 
@@ -761,7 +761,7 @@ export function ShippingInvoicePaymentReturnClient() {
         <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Need help?</h2>
         <p className="mt-2 text-sm leading-6 mk-muted-text">
           If this page does not update as expected, return to your shipping invoice or dashboard to
-          check the latest backend-confirmed state. If something still looks wrong, contact support
+          check the latest confirmed payment state. If something still looks wrong, contact support
           and include your shipping invoice id.
         </p>
 

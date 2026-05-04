@@ -40,13 +40,18 @@ export function AdminNav({ orientation = "vertical", onNavigate }: AdminNavProps
             data-active={active ? "true" : "false"}
             onClick={onNavigate}
             className={cn(
-              "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+              "group rounded-2xl border px-3 py-2.5 text-sm font-semibold transition",
               active
-                ? "border-foreground/20 bg-accent text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground",
+                ? "border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel)] text-[color:var(--mk-ink)] shadow-sm"
+                : "border-transparent text-[color:var(--mk-ink-soft)] hover:border-[color:var(--mk-border)] hover:bg-[color:var(--mk-panel-muted)] hover:text-[color:var(--mk-ink)]",
             )}
           >
-            {item.label}
+            <span className="flex items-center justify-between gap-3">
+              <span>{item.label}</span>
+              {active ? (
+                <span className="h-2 w-2 rounded-full bg-[color:var(--mk-gold)] shadow-[0_0_18px_rgb(247_185_85/0.65)]" />
+              ) : null}
+            </span>
           </Link>
         )
       })}

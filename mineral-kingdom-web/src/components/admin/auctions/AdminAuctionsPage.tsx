@@ -27,8 +27,8 @@ function AuctionSection({
   return (
     <section data-testid={testId} className="space-y-3">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+        <p className="text-sm leading-6 mk-muted-text">{description}</p>
       </div>
 
       <AdminAuctionsTable items={items} isLoading={isLoading} />
@@ -88,19 +88,39 @@ export function AdminAuctionsPage() {
 
   return (
     <div data-testid="admin-auctions-page" className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Auctions</h1>
-        <p className="text-sm text-muted-foreground">
-          Create auctions, schedule future launches, and monitor live operational status.
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Admin auctions
         </p>
-      </div>
+
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+          Auctions
+        </h1>
+
+        <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+          Create auction schedules, review draft and live auctions, monitor bids, and manage pre-launch
+          pricing or reserve settings. Auction settings can only be edited before launch; once an auction
+          is live, schedule, pricing, reserve, and shipping quote fields are locked to protect bidding
+          fairness.
+        </p>
+      </section>
 
       <AdminAuctionDefinitionNotice />
 
+      <section className="rounded-[2rem] border border-[color:var(--mk-gold)]/40 bg-[color:var(--mk-panel-muted)] p-5 text-sm shadow-sm">
+        <p className="font-semibold text-[color:var(--mk-ink)]">
+          Confirm auction settings before launch.
+        </p>
+        <p className="mt-2 leading-6 mk-muted-text">
+          Draft and Scheduled auctions can be edited. Live, Closing, and completed auctions are
+          operationally locked so bidders see a stable, auditable auction state.
+        </p>
+      </section>
+
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <section className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
           {error}
-        </div>
+        </section>
       ) : null}
 
       <AdminAuctionCreateForm
@@ -111,7 +131,7 @@ export function AdminAuctionsPage() {
 
       <AuctionSection
         title="Live auctions"
-        description="Auctions currently running or in the closing window."
+        description="Auctions currently accepting bids or inside their closing window."
         items={liveItems}
         isLoading={isLoading}
         testId="admin-auctions-live-section"
@@ -119,7 +139,7 @@ export function AdminAuctionsPage() {
 
       <AuctionSection
         title="Future auctions"
-        description="Auctions scheduled to start later."
+        description="Scheduled auctions that are visible operationally but have not opened for bidding yet."
         items={futureItems}
         isLoading={isLoading}
         testId="admin-auctions-future-section"
@@ -127,7 +147,7 @@ export function AdminAuctionsPage() {
 
       <AuctionSection
         title="Draft auctions"
-        description="Auctions still being prepared before launch."
+        description="Auctions being prepared before launch. Review pricing, reserve, shipping, and timing before going live."
         items={draftItems}
         isLoading={isLoading}
         testId="admin-auctions-draft-section"

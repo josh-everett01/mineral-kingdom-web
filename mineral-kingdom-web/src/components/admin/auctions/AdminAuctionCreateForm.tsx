@@ -39,6 +39,19 @@ const SHIPPING_REGIONS: Array<{ regionCode: ShippingRegionForm["regionCode"]; la
   { regionCode: "ROW", label: "Rest of World" },
 ]
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
+function choiceButtonClass(isSelected: boolean) {
+  return [
+    adminSecondaryButtonClass,
+    isSelected ? "border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel-muted)]" : "",
+  ].join(" ")
+}
+
 function centsFromDollars(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -88,7 +101,11 @@ function buildShippingRatePayload(rows: ShippingRegionForm[]): AdminShippingRate
       regionCode: row.regionCode,
       amountCents: row.amount.trim() === "" ? null : centsFromDollars(row.amount),
     }))
-    .filter((row) => row.amountCents !== null || rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() === "")
+    .filter(
+      (row) =>
+        row.amountCents !== null ||
+        rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() === "",
+    )
 
   const hasAnyEnteredValue = rows.some((row) => row.amount.trim().length > 0)
   if (!hasAnyEnteredValue) {
@@ -96,7 +113,10 @@ function buildShippingRatePayload(rows: ShippingRegionForm[]): AdminShippingRate
   }
 
   for (const row of mapped) {
-    if (row.amountCents === null && rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() !== "") {
+    if (
+      row.amountCents === null &&
+      rows.find((x) => x.regionCode === row.regionCode)?.amount.trim() !== ""
+    ) {
       return null
     }
   }
@@ -194,9 +214,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
         setForm((current) => ({
           ...current,
           shippingRates: current.shippingRates.map((row) => {
-            const match = detail.shippingRates.find(
-              (r) => r.regionCode === row.regionCode,
-            )
+            const match = detail.shippingRates.find((r) => r.regionCode === row.regionCode)
             return match && match.amountCents != null
               ? { ...row, amount: (match.amountCents / 100).toFixed(2) }
               : row
@@ -318,29 +336,33 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
   }
 
   return (
-    <section data-testid="admin-auction-create-form" className="rounded-xl border bg-card p-5">
+    <section data-testid="admin-auction-create-form" className="mk-glass-strong rounded-[2rem] p-5">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold">Create auction</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Choose whether to save a draft, launch immediately, or schedule the auction for later.
+        <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">Create auction</h2>
+        <p className="mt-1 text-sm leading-6 mk-muted-text">
+          Choose whether to save a draft, schedule for later, or launch immediately. Launching an
+          auction is an operationally sensitive action: once bidding starts, timing, starting price,
+          reserve, and shipping settings are locked to protect bidder trust.
         </p>
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="mb-4 rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
           {error}
         </div>
       ) : null}
 
       {success ? (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200">
+        <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
           {success}
         </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="md:col-span-2">
-          <label className="mb-1 block text-sm font-medium">Listing</label>
+          <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Listing
+          </label>
           <input
             data-testid="admin-auction-listing-search"
             value={listingQuery}
@@ -349,13 +371,19 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
               setField("listingId", "")
             }}
             placeholder={isLoadingListings ? "Loading published listings…" : "Search published listings"}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+            className={adminInputClass}
           />
+
+          <p className="mt-2 text-xs leading-5 mk-muted-text">
+            For now, this picker shows published listings. After the commerce-state backend story
+            lands, it should only show listings that are not sold, not already attached to a store
+            offer, and not already assigned to another auction.
+          </p>
 
           {filteredListings.length > 0 ? (
             <div
               data-testid="admin-auction-listing-results"
-              className="mt-2 max-h-52 overflow-auto rounded-md border bg-background"
+              className="mt-2 max-h-52 overflow-auto rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]"
             >
               {filteredListings.map((item) => (
                 <button
@@ -363,75 +391,98 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
                   type="button"
                   data-testid={`admin-auction-listing-option-${item.id}`}
                   onClick={() => void selectListing(item)}
-                  className="block w-full border-b px-3 py-2 text-left text-sm hover:bg-accent last:border-b-0"
+                  className="block w-full border-b border-[color:var(--mk-border)] px-3 py-2 text-left text-sm transition hover:bg-[color:var(--mk-panel-muted)] last:border-b-0"
                 >
-                  <div className="font-medium">{item.title?.trim() || "Untitled listing"}</div>
-                  <div className="text-xs text-muted-foreground">{item.id}</div>
+                  <div className="font-semibold text-[color:var(--mk-ink)]">
+                    {item.title?.trim() || "Untitled listing"}
+                  </div>
+                  <div className="text-xs mk-muted-text">{item.id}</div>
                 </button>
               ))}
             </div>
           ) : null}
 
-          <div className="mt-2 text-xs text-muted-foreground">
+          {!isLoadingListings && filteredListings.length === 0 ? (
+            <div className="mt-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3 text-xs leading-5 mk-muted-text">
+              No published listings match this search. A listing must be published before it can be
+              selected for an auction. Future backend commerce-state validation will also exclude
+              sold, store-offer-backed, and already-auctioned listings.
+            </div>
+          ) : null}
+
+          <div className="mt-2 text-xs mk-muted-text">
             Selected listing id: {form.listingId || "—"}
             {isLoadingListingDetail ? " — loading shipping rates…" : ""}
           </div>
         </div>
 
         <div className="md:col-span-2">
-          <label className="mb-2 block text-sm font-medium">Auction mode</label>
+          <label className="mb-2 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Auction mode
+          </label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setField("launchMode", "DRAFT")}
-              className={`rounded-md border px-3 py-2 text-sm ${form.launchMode === "DRAFT" ? "bg-accent" : ""}`}
+              className={choiceButtonClass(form.launchMode === "DRAFT")}
             >
               Save as draft
             </button>
             <button
               type="button"
               onClick={() => setField("launchMode", "NOW")}
-              className={`rounded-md border px-3 py-2 text-sm ${form.launchMode === "NOW" ? "bg-accent" : ""}`}
+              className={choiceButtonClass(form.launchMode === "NOW")}
             >
               Launch now
             </button>
             <button
               type="button"
               onClick={() => setField("launchMode", "SCHEDULED")}
-              className={`rounded-md border px-3 py-2 text-sm ${form.launchMode === "SCHEDULED" ? "bg-accent" : ""}`}
+              className={choiceButtonClass(form.launchMode === "SCHEDULED")}
             >
               Schedule for later
             </button>
           </div>
+
+          {form.launchMode === "NOW" ? (
+            <p className="mt-2 text-xs leading-5 text-[color:var(--mk-gold)]">
+              Launch now will immediately start the auction workflow. Confirm listing, timing,
+              reserve, and shipping before saving.
+            </p>
+          ) : null}
         </div>
 
         {form.launchMode === "SCHEDULED" ? (
           <div>
-            <label className="mb-1 block text-sm font-medium">Start time</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Start time
+            </label>
             <input
               data-testid="admin-auction-start-time"
               type="datetime-local"
               value={form.startTime}
               onChange={(e) => setField("startTime", e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             />
           </div>
         ) : null}
 
         <div className={form.launchMode === "SCHEDULED" ? "" : "md:col-span-2"}>
-          <label className="mb-2 block text-sm font-medium">Timing mode</label>
+          <label className="mb-2 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Timing mode
+          </label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setField("timingMode", "PRESET_DURATION")}
-              className={`rounded-md border px-3 py-2 text-sm ${form.timingMode === "PRESET_DURATION" ? "bg-accent" : ""}`}
+              className={choiceButtonClass(form.timingMode === "PRESET_DURATION")}
             >
               Preset duration
             </button>
             <button
               type="button"
               onClick={() => setField("timingMode", "MANUAL")}
-              className={`rounded-md border px-3 py-2 text-sm ${form.timingMode === "MANUAL" ? "bg-accent" : ""}`}
+              className={choiceButtonClass(form.timingMode === "MANUAL")}
             >
               Manual
             </button>
@@ -440,7 +491,9 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
 
         {form.timingMode === "PRESET_DURATION" ? (
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium">Duration preset</label>
+            <label className="mb-2 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Duration preset
+            </label>
             <div className="flex flex-wrap gap-2">
               {[
                 { label: "24 hours", value: "24" },
@@ -452,7 +505,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
                   key={preset.value}
                   type="button"
                   onClick={() => setField("durationHours", preset.value)}
-                  className={`rounded-md border px-3 py-2 text-sm ${form.durationHours === preset.value ? "bg-accent" : ""}`}
+                  className={choiceButtonClass(form.durationHours === preset.value)}
                 >
                   {preset.label}
                 </button>
@@ -461,64 +514,74 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
           </div>
         ) : (
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Close time</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Close time
+            </label>
             <input
               data-testid="admin-auction-close-time"
               type="datetime-local"
               value={form.closeTime}
               onChange={(e) => setField("closeTime", e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             />
           </div>
         )}
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Starting price ($)</label>
+          <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Starting price ($)
+          </label>
           <input
             data-testid="admin-auction-starting-price"
             value={form.startingPrice}
             onChange={(e) => setField("startingPrice", e.target.value)}
             inputMode="decimal"
             placeholder="100.00"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+            className={adminInputClass}
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Reserve ($)</label>
+          <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Reserve ($)
+          </label>
           <input
             data-testid="admin-auction-reserve-price"
             value={form.reservePrice}
             onChange={(e) => setField("reservePrice", e.target.value)}
             inputMode="decimal"
             placeholder="Optional"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+            className={adminInputClass}
           />
+          <p className="mt-1 text-xs mk-muted-text">
+            Optional minimum sale amount. Leave blank for no reserve.
+          </p>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Legacy / fallback US shipping ($)</label>
+          <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Legacy / fallback US shipping ($)
+          </label>
           <input
             data-testid="admin-auction-quoted-shipping"
             value={form.quotedShipping}
             onChange={(e) => setField("quotedShipping", e.target.value)}
             inputMode="decimal"
             placeholder="Used only when no regional shipping is configured"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+            className={adminInputClass}
           />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Regional shipping prices are preferred when configured. If regional shipping is entered below,
-            buyer-facing auction pages will use those region values. This field is kept as a legacy US-only
-            fallback when no regional shipping is configured.
+          <p className="mt-1 text-xs leading-5 mk-muted-text">
+            Regional shipping prices are preferred when configured. This field is kept as a legacy
+            US-only fallback when no regional shipping is configured.
           </p>
         </div>
 
-        <div className="md:col-span-2 rounded-xl border bg-muted/20 p-4">
+        <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 md:col-span-2">
           <div className="space-y-1">
-            <h4 className="text-sm font-semibold">Regional shipping</h4>
-            <p className="text-xs text-muted-foreground">
-              Leave a region blank to show “Shipping quote available on request.” Regional shipping values are
-              preferred over the legacy fallback US shipping field above.
+            <h3 className="text-sm font-semibold text-[color:var(--mk-ink)]">Regional shipping</h3>
+            <p className="text-xs leading-5 mk-muted-text">
+              Leave a region blank to show “Shipping quote available on request.” Regional shipping
+              values are preferred over the legacy fallback US shipping field above.
             </p>
           </div>
 
@@ -526,7 +589,7 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
             {SHIPPING_REGIONS.map((region) => (
               <div key={region.regionCode}>
                 <label
-                  className="mb-1 block text-sm font-medium"
+                  className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]"
                   htmlFor={`admin-auction-shipping-${region.regionCode}`}
                 >
                   {region.label} ($)
@@ -535,12 +598,13 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
                   id={`admin-auction-shipping-${region.regionCode}`}
                   data-testid={`admin-auction-shipping-${region.regionCode}`}
                   value={
-                    form.shippingRates.find((row) => row.regionCode === region.regionCode)?.amount ?? ""
+                    form.shippingRates.find((row) => row.regionCode === region.regionCode)
+                      ?.amount ?? ""
                   }
                   onChange={(e) => setShippingAmount(region.regionCode, e.target.value)}
                   inputMode="decimal"
                   placeholder="Blank = quote on request"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+                  className={adminInputClass}
                 />
               </div>
             ))}
@@ -553,7 +617,11 @@ export function AdminAuctionCreateForm({ onCreated }: Props) {
             data-testid="admin-auction-save"
             onClick={() => void handleSubmit()}
             disabled={isSaving}
-            className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className={
+              form.launchMode === "NOW"
+                ? "mk-cta inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                : adminSecondaryButtonClass
+            }
           >
             {isSaving
               ? "Saving…"

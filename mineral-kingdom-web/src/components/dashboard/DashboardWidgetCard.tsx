@@ -40,13 +40,13 @@ export function DashboardWidgetCard({ testId, model }: Props) {
                 className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-1">
                     {row.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={row.imageUrl}
                         alt={row.imageAlt ?? row.title}
-                        className="h-full w-full object-cover"
+                        className="max-h-full max-w-full rounded-xl object-contain shadow-sm"
                       />
                     ) : (
                       <span className="px-2 text-center text-[11px] font-semibold text-[color:var(--mk-gold)]">

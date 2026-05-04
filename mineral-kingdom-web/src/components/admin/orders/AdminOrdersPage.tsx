@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react"
 import { getAdminOrders } from "@/lib/admin/orders/api"
 import type { AdminOrderListItem } from "@/lib/admin/orders/types"
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatMoney(cents: number, currencyCode: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -34,17 +40,20 @@ function refundLabelClass(item: AdminOrderListItem) {
     return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
   }
 
-  return "border-muted bg-muted text-muted-foreground"
+  return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
 }
 
 function statusClass(status: string) {
   switch (status.toUpperCase()) {
     case "READY_TO_FULFILL":
+    case "PAID":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     case "AWAITING_PAYMENT":
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+    case "REFUNDED":
+      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
     default:
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
   }
 }
 
@@ -107,42 +116,57 @@ export function AdminOrdersPage() {
 
   return (
     <div data-testid="admin-orders-page" className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Orders / Refunds</h1>
-        <p className="text-sm text-muted-foreground">
-          Search and review orders. Refund actions are available to OWNER accounts from each order’s detail page.
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Admin orders
         </p>
-      </div>
+
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+          Orders / Refunds
+        </h1>
+
+        <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+          Search and review orders. Refund actions are available to OWNER accounts from each
+          order’s detail page.
+        </p>
+      </section>
 
       {error ? (
         <div
           data-testid="admin-orders-error"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]"
         >
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-xl border bg-card p-5">
-        <form onSubmit={handleSearchSubmit} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+      <section className="mk-glass-strong rounded-[2rem] p-5">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
+        >
           <div>
-            <label className="mb-1 block text-sm font-medium">Search</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Search
+            </label>
             <input
               data-testid="admin-orders-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Order number or email"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Status</label>
+            <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+              Status
+            </label>
             <select
               data-testid="admin-orders-status-filter"
               value={status}
               onChange={(e) => void handleStatusChange(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+              className={adminInputClass}
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value || "all"} value={option.value}>
@@ -153,10 +177,7 @@ export function AdminOrdersPage() {
           </div>
 
           <div className="flex items-end">
-            <button
-              type="submit"
-              className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
-            >
+            <button type="submit" className={adminSecondaryButtonClass}>
               Search
             </button>
           </div>
@@ -164,55 +185,67 @@ export function AdminOrdersPage() {
       </section>
 
       <section className="space-y-3">
-        <p className="text-sm text-muted-foreground">{summaryText}</p>
+        <p className="text-sm mk-muted-text">{summaryText}</p>
 
         {isLoading ? (
-          <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+          <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
             Loading orders…
           </div>
         ) : items.length === 0 ? (
           <div
             data-testid="admin-orders-empty"
-            className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+            className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
           >
             No orders matched your filters.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)]">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="border-b bg-muted/40 text-left">
+                <thead className="border-b border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-left">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Order</th>
-                    <th className="px-4 py-3 font-medium">Customer</th>
-                    <th className="px-4 py-3 font-medium">Source</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Refund state</th>
-                    <th className="px-4 py-3 font-medium">Total</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 font-medium whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Order
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Customer
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Source
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Refund state
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Total
+                    </th>
+                    <th className="px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Created
+                    </th>
+                    <th className="whitespace-nowrap px-4 py-3 font-semibold text-[color:var(--mk-ink)]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody className="divide-y divide-[color:var(--mk-border)]">
                   {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      data-testid="admin-orders-row"
-                      className="border-b last:border-b-0"
-                    >
+                    <tr key={item.id} data-testid="admin-orders-row">
                       <td className="px-4 py-3 align-top">
-                        <div className="font-medium">{item.orderNumber}</div>
-                        <div className="text-xs text-muted-foreground">{item.id}</div>
+                        <div className="font-semibold text-[color:var(--mk-ink)]">
+                          {item.orderNumber}
+                        </div>
+                        <div className="text-xs mk-muted-text">{item.id}</div>
                       </td>
 
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-top mk-muted-text">
                         {item.customerEmail || "—"}
                       </td>
 
-                      <td className="px-4 py-3 align-top">
-                        {item.sourceType}
-                      </td>
+                      <td className="px-4 py-3 align-top mk-muted-text">{item.sourceType}</td>
 
                       <td className="px-4 py-3 align-top">
                         <span
@@ -234,25 +267,25 @@ export function AdminOrdersPage() {
                             {refundLabel(item)}
                           </span>
                           {item.totalRefundedCents > 0 ? (
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs mk-muted-text">
                               Refunded {formatMoney(item.totalRefundedCents, item.currencyCode)}
                             </div>
                           ) : null}
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-top font-semibold text-[color:var(--mk-ink)]">
                         {formatMoney(item.totalCents, item.currencyCode)}
                       </td>
 
-                      <td className="px-4 py-3 align-top">
+                      <td className="px-4 py-3 align-top mk-muted-text">
                         {formatDate(item.createdAt)}
                       </td>
 
-                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                      <td className="whitespace-nowrap px-4 py-3 align-top">
                         <Link
                           href={`/admin/orders/${item.id}`}
-                          className="inline-flex min-w-[110px] justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+                          className="inline-flex min-w-[110px] justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                         >
                           View details
                         </Link>

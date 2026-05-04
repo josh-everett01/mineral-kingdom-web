@@ -49,7 +49,7 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
         className="space-y-4"
         aria-label={`${title} image gallery`}
       >
-        <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)]">
+        <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
           <div className="flex h-full items-center justify-center text-sm mk-muted-text">
             <Gem className="mr-2 h-5 w-5 text-[color:var(--mk-gold)]" />
             No image available
@@ -78,17 +78,15 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
       className="space-y-4"
       aria-label={`${title} image gallery`}
     >
-      <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] p-2">
-        <div className="relative h-full overflow-hidden rounded-[1.5rem] bg-[color:var(--mk-panel-muted)]">
-          <Image
+      <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-2">
+        <div className="relative flex h-full items-center justify-center overflow-hidden rounded-[1.5rem] bg-[color:var(--mk-panel)] p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             key={selectedImage.id}
             data-testid="listing-gallery-main-image"
             src={selectedImage.url}
             alt={getImageAltText(title, selectedImage, safeSelectedIndex)}
-            fill
-            sizes="(min-width: 1024px) 50vw, 100vw"
-            className="object-cover"
-            priority={safeSelectedIndex === 0}
+            className="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-sm"
           />
 
           {hasMultipleImages ? (

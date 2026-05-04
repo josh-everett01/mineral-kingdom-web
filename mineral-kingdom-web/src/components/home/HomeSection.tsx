@@ -278,17 +278,17 @@ function HomeItemCard({
   return (
     <article className="mk-home-item-card mk-glass mk-scroll-card flex flex-col overflow-hidden rounded-3xl p-3 transition duration-300 hover:-translate-y-0.5">
       <Link href={item.href} className="group block">
-        <div className="relative overflow-hidden rounded-2xl">
+        <div className="mk-specimen-bg relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-3xl border border-[color:var(--mk-border)]">
           {item.primaryImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.primaryImageUrl}
               alt={item.title}
-              className="aspect-4/3 w-full object-cover transition duration-500 group-hover:scale-105"
+              className="h-full w-full rounded-[1.35rem] object-contain p-1 transition duration-500 group-hover:scale-[1.035]"
             />
           ) : (
             <div
-              className="mk-specimen-bg aspect-4/3 w-full"
+              className="h-full w-full"
               style={
                 {
                   "--specimen-a": specimenA,
@@ -298,7 +298,7 @@ function HomeItemCard({
             />
           )}
 
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10 opacity-80" />
+          <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-t from-black/25 via-transparent to-black/5 opacity-70" />
 
           <div className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm backdrop-blur">
             {badgeLabel}

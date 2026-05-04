@@ -7,7 +7,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -27,6 +26,17 @@ import type {
 } from "@/lib/admin/analytics/types"
 import type { AdminSystemSummary } from "@/lib/admin/system/types"
 
+const adminInputClass =
+  "rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
+const chartAxisTick = {
+  fill: "currentColor",
+  fontSize: 11,
+}
+
 function formatCurrency(cents: number | null | undefined) {
   const value = (cents ?? 0) / 100
   return new Intl.NumberFormat("en-US", {
@@ -45,6 +55,26 @@ function formatDateLabel(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function hasSalesActivity(row: SalesDayPoint) {
+  return (
+    row.grossSalesCents > 0 ||
+    row.orderCount > 0 ||
+    row.aovCents > 0 ||
+    row.storeSalesCents > 0 ||
+    row.auctionSalesCents > 0
+  )
+}
+
+function hasAuctionActivity(row: AuctionDayPoint) {
+  return (
+    row.auctionsClosed > 0 ||
+    row.auctionsSold > 0 ||
+    row.auctionsUnsold > 0 ||
+    (row.avgFinalPriceCents ?? 0) > 0 ||
+    (row.avgBidsPerAuction ?? 0) > 0
+  )
 }
 
 function getDefaultRange() {
@@ -81,7 +111,343 @@ function downloadCsv(filename: string, lines: string[]) {
   URL.revokeObjectURL(url)
 }
 
+function usePrintMode() {
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  useEffect(() => {
+    const beforePrint = () => setIsPrinting(true)
+    const afterPrint = () => setIsPrinting(false)
+
+    window.addEventListener("beforeprint", beforePrint)
+    window.addEventListener("afterprint", afterPrint)
+
+    const mediaQuery = window.matchMedia("print")
+
+    function handleMediaChange(event: MediaQueryListEvent) {
+      setIsPrinting(event.matches)
+    }
+
+    mediaQuery.addEventListener("change", handleMediaChange)
+
+    return () => {
+      window.removeEventListener("beforeprint", beforePrint)
+      window.removeEventListener("afterprint", afterPrint)
+      mediaQuery.removeEventListener("change", handleMediaChange)
+    }
+  }, [])
+
+  return isPrinting
+}
+
+function useElementSize() {
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    if (!element) {
+      return
+    }
+
+    const node: HTMLDivElement = element
+    let frame = 0
+
+    function updateSize() {
+      window.cancelAnimationFrame(frame)
+
+      frame = window.requestAnimationFrame(() => {
+        const rect = node.getBoundingClientRect()
+
+        const nextWidth = Math.floor(rect.width)
+        const nextHeight = Math.floor(rect.height)
+
+        setSize((current) => {
+          const width = nextWidth > 0 ? nextWidth : 0
+          const height = nextHeight > 0 ? nextHeight : 0
+
+          if (current.width === width && current.height === height) {
+            return current
+          }
+
+          return { width, height }
+        })
+      })
+    }
+
+    updateSize()
+
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(node)
+
+    window.addEventListener("resize", updateSize)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener("resize", updateSize)
+    }
+  }, [element])
+
+  return {
+    setElement,
+    width: size.width,
+    height: size.height,
+    hasPositiveSize: size.width > 10 && size.height > 10,
+  }
+}
+
+function KpiCard({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string | number
+  testId: string
+}) {
+  return (
+    <section className="mk-glass-strong rounded-[2rem] p-5 print:rounded-xl print:border print:border-black/15 print:bg-white print:p-3 print:text-black print:shadow-none">
+      <div className="text-sm mk-muted-text print:text-[10px] print:leading-tight print:text-black">
+        {label}
+      </div>
+      <div
+        data-testid={testId}
+        className="mt-2 text-2xl font-semibold text-[color:var(--mk-ink)] print:mt-1 print:text-lg print:leading-tight print:text-black"
+      >
+        {value}
+      </div>
+    </section>
+  )
+}
+
+function MetricRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-4 py-3 print:rounded-none print:border-0 print:border-b print:border-black/10 print:bg-white print:px-0 print:py-1.5">
+      <dt className="mk-muted-text print:text-xs print:text-black">{label}</dt>
+      <dd className="font-semibold text-[color:var(--mk-ink)] print:text-xs print:text-black">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function OperationCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 print:rounded-xl print:border print:border-black/15 print:bg-white print:p-3">
+      <div className="text-sm mk-muted-text print:text-[10px] print:leading-tight print:text-black">
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-semibold text-[color:var(--mk-ink)] print:mt-1 print:text-base print:leading-tight print:text-black">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function SalesDetailTable({ sales }: { sales: SalesDayPoint[] }) {
+  return (
+    <div className="mk-analytics-print-table-wrap">
+      <h3 className="mb-2 text-sm font-semibold text-[color:var(--mk-ink)] print:text-black">
+        Sales time series
+      </h3>
+
+      <table className="mk-analytics-print-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Paid sales</th>
+            <th>Orders</th>
+            <th>AOV</th>
+            <th>Store revenue</th>
+            <th>Auction revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sales.length === 0 ? (
+            <tr>
+              <td colSpan={6}>No sales activity found for this range.</td>
+            </tr>
+          ) : (
+            sales.map((row) => (
+              <tr key={row.dateUtc}>
+                <td>{formatDateLabel(row.dateUtc)}</td>
+                <td>{formatCurrency(row.grossSalesCents)}</td>
+                <td>{row.orderCount}</td>
+                <td>{formatCurrency(row.aovCents)}</td>
+                <td>{formatCurrency(row.storeSalesCents)}</td>
+                <td>{formatCurrency(row.auctionSalesCents)}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function AuctionDetailTable({ auctions }: { auctions: AuctionDayPoint[] }) {
+  return (
+    <div className="mk-analytics-print-table-wrap">
+      <h3 className="mb-2 text-sm font-semibold text-[color:var(--mk-ink)] print:text-black">
+        Auction time series
+      </h3>
+
+      <table className="mk-analytics-print-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Closed</th>
+            <th>Sold</th>
+            <th>Unsold</th>
+            <th>Avg final price</th>
+            <th>Avg bids</th>
+            <th>Reserve met</th>
+            <th>Payment completion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {auctions.length === 0 ? (
+            <tr>
+              <td colSpan={8}>No auction activity found for this range.</td>
+            </tr>
+          ) : (
+            auctions.map((row) => (
+              <tr key={row.dateUtc}>
+                <td>{formatDateLabel(row.dateUtc)}</td>
+                <td>{row.auctionsClosed}</td>
+                <td>{row.auctionsSold}</td>
+                <td>{row.auctionsUnsold}</td>
+                <td>{formatCurrency(row.avgFinalPriceCents)}</td>
+                <td>{row.avgBidsPerAuction ?? "—"}</td>
+                <td>{formatPercent(row.reserveMetRate)}</td>
+                <td>{formatPercent(row.paymentCompletionRate)}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SalesChartSection({
+  salesChartData,
+}: {
+  salesChartData: Array<{
+    label: string
+    grossSales: number
+    orders: number
+  }>
+}) {
+  const { setElement, width, height, hasPositiveSize } = useElementSize()
+
+  return (
+    <section className="mk-glass-strong rounded-[2rem] p-5">
+      <h2 className="mb-4 text-lg font-semibold text-[color:var(--mk-ink)]">
+        Sales over time
+      </h2>
+
+      <div
+        ref={setElement}
+        data-testid="admin-analytics-sales-chart"
+        className="relative h-80 min-h-80 w-full min-w-0 overflow-hidden text-[color:var(--mk-ink)]"
+      >
+        {salesChartData.length === 0 ? (
+          <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm mk-muted-text">
+            Not enough data to display chart yet.
+          </div>
+        ) : hasPositiveSize ? (
+          <AreaChart
+            width={width}
+            height={height}
+            data={salesChartData}
+            margin={{ top: 10, right: 18, left: 0, bottom: 28 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.22} />
+            <XAxis
+              dataKey="label"
+              interval="preserveStartEnd"
+              tick={chartAxisTick}
+              tickMargin={8}
+            />
+            <YAxis tick={chartAxisTick} width={36} />
+            <Tooltip />
+            <Area
+              type="monotone"
+              dataKey="grossSales"
+              name="Paid sales ($)"
+              stroke="#38bdf8"
+              fill="#38bdf8"
+              fillOpacity={0.45}
+            />
+          </AreaChart>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-sm mk-muted-text">
+            Preparing chart…
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function AuctionChartSection({
+  auctionChartData,
+}: {
+  auctionChartData: Array<{
+    label: string
+    sold: number
+    unsold: number
+    closed: number
+  }>
+}) {
+  const { setElement, width, height, hasPositiveSize } = useElementSize()
+
+  return (
+    <section className="mk-glass-strong rounded-[2rem] p-5">
+      <h2 className="mb-4 text-lg font-semibold text-[color:var(--mk-ink)]">
+        Auctions over time
+      </h2>
+
+      <div
+        ref={setElement}
+        data-testid="admin-analytics-auctions-chart"
+        className="relative h-80 min-h-80 w-full min-w-0 overflow-hidden text-[color:var(--mk-ink)]"
+      >
+        {auctionChartData.length === 0 ? (
+          <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm mk-muted-text">
+            Not enough data to display chart yet.
+          </div>
+        ) : hasPositiveSize ? (
+          <BarChart
+            width={width}
+            height={height}
+            data={auctionChartData}
+            margin={{ top: 10, right: 18, left: 0, bottom: 28 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.22} />
+            <XAxis
+              dataKey="label"
+              interval="preserveStartEnd"
+              tick={chartAxisTick}
+              tickMargin={8}
+            />
+            <YAxis tick={chartAxisTick} width={36} />
+            <Tooltip />
+            <Bar dataKey="sold" name="Sold" fill="#f59e0b" />
+            <Bar dataKey="unsold" name="Unsold" fill="#a855f7" />
+          </BarChart>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-sm mk-muted-text">
+            Preparing chart…
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 export function AdminAnalyticsPage() {
+  const isPrinting = usePrintMode()
   const [range, setRange] = useState(getDefaultRange())
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null)
   const [sales, setSales] = useState<SalesDayPoint[]>([])
@@ -142,6 +508,13 @@ export function AdminAnalyticsPage() {
     [auctions],
   )
 
+  const salesDetailRows = useMemo(() => sales.filter(hasSalesActivity), [sales])
+
+  const auctionDetailRows = useMemo(
+    () => auctions.filter(hasAuctionActivity),
+    [auctions],
+  )
+
   function handleExportCsv() {
     if (!overview || !inventory || !operations) return
 
@@ -180,6 +553,7 @@ export function AdminAnalyticsPage() {
         csvCell("AuctionSalesCents"),
       ].join(","),
     )
+
     for (const row of sales) {
       lines.push(
         [
@@ -192,8 +566,8 @@ export function AdminAnalyticsPage() {
         ].join(","),
       )
     }
-    lines.push("")
 
+    lines.push("")
     lines.push([csvCell("Auction time series")].join(","))
     lines.push(
       [
@@ -207,6 +581,7 @@ export function AdminAnalyticsPage() {
         csvCell("PaymentCompletionRate"),
       ].join(","),
     )
+
     for (const row of auctions) {
       lines.push(
         [
@@ -221,16 +596,16 @@ export function AdminAnalyticsPage() {
         ].join(","),
       )
     }
-    lines.push("")
 
+    lines.push("")
     lines.push([csvCell("Inventory snapshot")].join(","))
     lines.push([csvCell("Metric"), csvCell("Value")].join(","))
     lines.push([csvCell("Published listings"), csvCell(inventory.publishedListings)].join(","))
     lines.push([csvCell("Low stock listings"), csvCell(inventory.lowStockListings)].join(","))
     lines.push([csvCell("Active auctions"), csvCell(inventory.activeAuctions)].join(","))
     lines.push([csvCell("Auctions ending soon"), csvCell(inventory.auctionsEndingSoon)].join(","))
-    lines.push("")
 
+    lines.push("")
     lines.push([csvCell("Operational snapshot")].join(","))
     lines.push([csvCell("Metric"), csvCell("Value")].join(","))
     lines.push([csvCell("Pending jobs"), csvCell(operations.pendingJobs)].join(","))
@@ -245,14 +620,14 @@ export function AdminAnalyticsPage() {
   }
 
   function handlePrint() {
-    window.print()
+    setTimeout(() => window.print(), 0)
   }
 
   if (isLoading) {
     return (
       <div
         data-testid="admin-analytics-page"
-        className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+        className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text"
       >
         Loading analytics…
       </div>
@@ -260,225 +635,293 @@ export function AdminAnalyticsPage() {
   }
 
   return (
-    <div
-      data-testid="admin-analytics-page"
-      className="space-y-6 print:space-y-4 print:bg-white print:text-black"
-    >
-      <div className="flex flex-wrap items-end justify-between gap-4 print:block">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold print:text-3xl">Analytics</h1>
-          <p className="text-sm text-muted-foreground print:text-black">
-            Lightweight sales, auction, inventory, and operations overview.
-          </p>
-          <p className="hidden text-xs text-muted-foreground print:block print:text-black">
-            Report range: {range.from} through {range.to}
-          </p>
-        </div>
+    <>
+      <style jsx global>{`
+        @media print {
+          @page {
+            margin: 0.45in;
+          }
 
-        <div className="flex flex-wrap items-end gap-3 print:hidden">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
-            <input
-              type="date"
-              value={range.from}
-              onChange={(e) => setRange((prev) => ({ ...prev, from: e.target.value }))}
-              className="rounded-md border bg-background px-3 py-2 text-sm"
+          footer {
+            display: none !important;
+          }
+
+          [data-testid="admin-analytics-page"] {
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+
+          [data-testid="admin-analytics-page"] .mk-glass,
+          [data-testid="admin-analytics-page"] .mk-glass-strong {
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+
+          .mk-analytics-print-hidden {
+            display: none !important;
+          }
+
+          .mk-analytics-print-summary {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .mk-analytics-print-detail {
+            break-before: page !important;
+            page-break-before: always !important;
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+            overflow: visible !important;
+          }
+
+          .mk-analytics-print-table-wrap {
+            overflow: visible !important;
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+
+          .mk-analytics-print-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 8.5px !important;
+            line-height: 1.2 !important;
+          }
+
+          .mk-analytics-print-table thead {
+            display: table-header-group !important;
+          }
+
+          .mk-analytics-print-table tbody {
+            display: table-row-group !important;
+          }
+
+          .mk-analytics-print-table tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .mk-analytics-print-table th,
+          .mk-analytics-print-table td {
+            border: 1px solid rgba(0, 0, 0, 0.18) !important;
+            padding: 3px 4px !important;
+            text-align: left !important;
+            vertical-align: top !important;
+          }
+        }
+      `}</style>
+
+      <div
+        data-testid="admin-analytics-page"
+        className="space-y-6 print:space-y-3 print:bg-white print:text-black"
+      >
+        <div className="mk-analytics-print-summary space-y-6 print:space-y-3">
+          <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7 print:rounded-none print:border-0 print:border-b print:border-black/20 print:bg-white print:p-0 print:pb-2 print:shadow-none">
+            <div className="flex flex-wrap items-end justify-between gap-4 print:block">
+              <div className="print:space-y-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)] print:text-[9px] print:leading-tight print:text-black">
+                  Mineral Kingdom
+                </p>
+
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)] print:mt-0 print:text-xl print:leading-tight print:text-black">
+                  Analytics Report
+                </h1>
+
+                <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text print:mt-0.5 print:block print:text-[10px] print:leading-tight print:text-black">
+                  Report range: {range.from} through {range.to}
+                </p>
+
+                <p className="hidden text-xs mk-muted-text print:mt-0.5 print:block print:text-[10px] print:leading-tight print:text-black">
+                  Generated: {new Date().toLocaleString()}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-end gap-3 print:hidden">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[color:var(--mk-gold)]">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={range.from}
+                    onChange={(e) => setRange((prev) => ({ ...prev, from: e.target.value }))}
+                    className={adminInputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[color:var(--mk-gold)]">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={range.to}
+                    onChange={(e) => setRange((prev) => ({ ...prev, to: e.target.value }))}
+                    className={adminInputClass}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  data-testid="admin-analytics-export-csv"
+                  onClick={handleExportCsv}
+                  disabled={!overview || !inventory || !operations}
+                  className={adminSecondaryButtonClass}
+                >
+                  Export CSV
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="admin-analytics-print"
+                  onClick={handlePrint}
+                  className={adminSecondaryButtonClass}
+                >
+                  Print / Save PDF
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {error ? (
+            <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)] print:hidden">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5 print:gap-2">
+            <KpiCard
+              label="Paid sales"
+              value={formatCurrency(overview?.sales.grossSalesCents)}
+              testId="admin-analytics-kpi-gross-sales"
+            />
+            <KpiCard
+              label="Paid orders"
+              value={overview?.sales.orderCount ?? 0}
+              testId="admin-analytics-kpi-orders"
+            />
+            <KpiCard
+              label="Paid order AOV"
+              value={formatCurrency(overview?.sales.aovCents)}
+              testId="admin-analytics-kpi-aov"
+            />
+            <KpiCard
+              label="Auctions sold"
+              value={overview?.auctions.auctionsSold ?? 0}
+              testId="admin-analytics-kpi-auctions-sold"
+            />
+            <KpiCard
+              label="Sell-through"
+              value={
+                overview
+                  ? formatPercent(
+                    overview.auctions.auctionsClosed > 0
+                      ? overview.auctions.auctionsSold / overview.auctions.auctionsClosed
+                      : 0,
+                  )
+                  : "—"
+              }
+              testId="admin-analytics-kpi-sell-through"
             />
           </div>
+
+          <div className="grid gap-6 xl:grid-cols-2 print:grid-cols-2 print:gap-3">
+            <section className="mk-glass-strong rounded-[2rem] p-5 break-inside-avoid print:rounded-xl print:border print:border-black/15 print:bg-white print:p-3 print:shadow-none">
+              <h2 className="mb-4 text-lg font-semibold text-[color:var(--mk-ink)] print:mb-2 print:text-sm print:text-black">
+                Revenue and auction summary
+              </h2>
+              <dl className="grid gap-3 text-sm print:gap-0">
+                <MetricRow
+                  label="Paid store revenue"
+                  value={formatCurrency(overview?.sales.storeSalesCents)}
+                />
+                <MetricRow
+                  label="Paid auction revenue"
+                  value={formatCurrency(overview?.sales.auctionSalesCents)}
+                />
+                <MetricRow
+                  label="Auctions closed"
+                  value={overview?.auctions.auctionsClosed ?? 0}
+                />
+                <MetricRow
+                  label="Auctions sold"
+                  value={overview?.auctions.auctionsSold ?? 0}
+                />
+                <MetricRow
+                  label="Auctions unsold"
+                  value={overview?.auctions.auctionsUnsold ?? 0}
+                />
+                <MetricRow
+                  label="Avg final price"
+                  value={formatCurrency(overview?.auctions.avgFinalPriceCents)}
+                />
+                <MetricRow
+                  label="Payment completion rate"
+                  value={formatPercent(overview?.auctions.paymentCompletionRate)}
+                />
+              </dl>
+            </section>
+
+            <section className="mk-glass-strong rounded-[2rem] p-5 break-inside-avoid print:rounded-xl print:border print:border-black/15 print:bg-white print:p-3 print:shadow-none">
+              <h2 className="mb-4 text-lg font-semibold text-[color:var(--mk-ink)] print:mb-2 print:text-sm print:text-black">
+                Inventory snapshot
+              </h2>
+              <dl className="grid gap-3 text-sm print:gap-0">
+                <MetricRow label="Published listings" value={inventory?.publishedListings ?? 0} />
+                <MetricRow label="Low stock listings" value={inventory?.lowStockListings ?? 0} />
+                <MetricRow label="Active auctions" value={inventory?.activeAuctions ?? 0} />
+                <MetricRow
+                  label="Auctions ending soon"
+                  value={inventory?.auctionsEndingSoon ?? 0}
+                />
+              </dl>
+            </section>
+          </div>
+
+          <section className="mk-glass-strong rounded-[2rem] p-5 break-inside-avoid print:rounded-xl print:border print:border-black/15 print:bg-white print:p-3 print:shadow-none">
+            <h2 className="mb-4 text-lg font-semibold text-[color:var(--mk-ink)] print:mb-2 print:text-sm print:text-black">
+              Operational snapshot
+            </h2>
+            <div
+              data-testid="admin-analytics-operations"
+              className="grid gap-4 md:grid-cols-4 print:grid-cols-4 print:gap-2"
+            >
+              <OperationCard label="Pending jobs" value={operations?.pendingJobs ?? 0} />
+              <OperationCard label="Running jobs" value={operations?.runningJobs ?? 0} />
+              <OperationCard label="DLQ jobs" value={operations?.deadLetterJobs ?? 0} />
+              <OperationCard
+                label="Unprocessed webhooks"
+                value={operations?.unprocessedWebhookEvents ?? 0}
+              />
+            </div>
+          </section>
+        </div>
+
+        {!isPrinting ? (
+          <div className="mk-analytics-print-hidden grid gap-6 xl:grid-cols-2">
+            <SalesChartSection salesChartData={salesChartData} />
+            <AuctionChartSection auctionChartData={auctionChartData} />
+          </div>
+        ) : null}
+
+        <section className="mk-analytics-print-detail hidden space-y-4 print:block print:space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
-            <input
-              type="date"
-              value={range.to}
-              onChange={(e) => setRange((prev) => ({ ...prev, to: e.target.value }))}
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-            />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)] print:text-[9px] print:text-black">
+              Mineral Kingdom
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold text-[color:var(--mk-ink)] print:text-xl print:text-black">
+              Analytics Detail
+            </h2>
+            <p className="mt-1 text-sm mk-muted-text print:text-[10px] print:text-black">
+              Time-series detail for {range.from} through {range.to}
+            </p>
           </div>
-          <button
-            type="button"
-            data-testid="admin-analytics-export-csv"
-            onClick={handleExportCsv}
-            disabled={!overview || !inventory || !operations}
-            className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Export CSV
-          </button>
-          <button
-            type="button"
-            data-testid="admin-analytics-print"
-            onClick={handlePrint}
-            className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            Print / Save PDF
-          </button>
-        </div>
-      </div>
 
-      {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive print:hidden">
-          {error}
-        </div>
-      ) : null}
+          <SalesDetailTable sales={salesDetailRows} />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5">
-        <section className="rounded-xl border bg-card p-5">
-          <div className="text-sm text-muted-foreground">Paid sales</div>
-          <div data-testid="admin-analytics-kpi-gross-sales" className="mt-2 text-2xl font-semibold">
-            {formatCurrency(overview?.sales.grossSalesCents)}
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5">
-          <div className="text-sm text-muted-foreground">Paid orders</div>
-          <div data-testid="admin-analytics-kpi-orders" className="mt-2 text-2xl font-semibold">
-            {overview?.sales.orderCount ?? 0}
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5">
-          <div className="text-sm text-muted-foreground">Paid order AOV</div>
-          <div data-testid="admin-analytics-kpi-aov" className="mt-2 text-2xl font-semibold">
-            {formatCurrency(overview?.sales.aovCents)}
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5">
-          <div className="text-sm text-muted-foreground">Auctions sold</div>
-          <div data-testid="admin-analytics-kpi-auctions-sold" className="mt-2 text-2xl font-semibold">
-            {overview?.auctions.auctionsSold ?? 0}
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5">
-          <div className="text-sm text-muted-foreground">Sell-through</div>
-          <div data-testid="admin-analytics-kpi-sell-through" className="mt-2 text-2xl font-semibold">
-            {overview
-              ? formatPercent(
-                overview.auctions.auctionsClosed > 0
-                  ? overview.auctions.auctionsSold / overview.auctions.auctionsClosed
-                  : 0,
-              )
-              : "—"}
-          </div>
+          <AuctionDetailTable auctions={auctionDetailRows} />
         </section>
       </div>
-
-      <div className="grid gap-6 xl:grid-cols-2 print:grid-cols-2">
-        <section className="rounded-xl border bg-card p-5 break-inside-avoid">
-          <h2 className="mb-4 text-lg font-semibold">Sales over time</h2>
-          <div data-testid="admin-analytics-sales-chart" className="h-80 print:h-65">
-            {salesChartData.length === 0 ? (
-              <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-                Not enough data to display chart yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={salesChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="grossSales" name="Paid sales ($)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5 break-inside-avoid">
-          <h2 className="mb-4 text-lg font-semibold">Auctions over time</h2>
-          <div data-testid="admin-analytics-auctions-chart" className="h-80 print:h-65">
-            {auctionChartData.length === 0 ? (
-              <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-                Not enough data to display chart yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={auctionChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="sold" name="Sold" />
-                  <Bar dataKey="unsold" name="Unsold" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2 print:grid-cols-2">
-        <section className="rounded-xl border bg-card p-5 break-inside-avoid">
-          <h2 className="mb-4 text-lg font-semibold">Revenue and auction summary</h2>
-          <dl className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Paid store revenue</dt>
-              <dd>{formatCurrency(overview?.sales.storeSalesCents)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Paid auction revenue</dt>
-              <dd>{formatCurrency(overview?.sales.auctionSalesCents)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Auctions closed</dt>
-              <dd>{overview?.auctions.auctionsClosed ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Avg final price</dt>
-              <dd>{formatCurrency(overview?.auctions.avgFinalPriceCents)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Payment completion rate</dt>
-              <dd>{formatPercent(overview?.auctions.paymentCompletionRate)}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="rounded-xl border bg-card p-5 break-inside-avoid">
-          <h2 className="mb-4 text-lg font-semibold">Inventory snapshot</h2>
-          <dl className="grid gap-3 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Published listings</dt>
-              <dd>{inventory?.publishedListings ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Low stock listings</dt>
-              <dd>{inventory?.lowStockListings ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Active auctions</dt>
-              <dd>{inventory?.activeAuctions ?? 0}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-muted-foreground">Auctions ending soon</dt>
-              <dd>{inventory?.auctionsEndingSoon ?? 0}</dd>
-            </div>
-          </dl>
-        </section>
-      </div>
-
-      <section className="rounded-xl border bg-card p-5 break-inside-avoid">
-        <h2 className="mb-4 text-lg font-semibold">Operational snapshot</h2>
-        <div data-testid="admin-analytics-operations" className="grid gap-4 md:grid-cols-4 print:grid-cols-4">
-          <div className="rounded-lg border p-4">
-            <div className="text-sm text-muted-foreground">Pending jobs</div>
-            <div className="mt-2 text-xl font-semibold">{operations?.pendingJobs ?? 0}</div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-sm text-muted-foreground">Running jobs</div>
-            <div className="mt-2 text-xl font-semibold">{operations?.runningJobs ?? 0}</div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-sm text-muted-foreground">DLQ jobs</div>
-            <div className="mt-2 text-xl font-semibold">{operations?.deadLetterJobs ?? 0}</div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="text-sm text-muted-foreground">Unprocessed webhooks</div>
-            <div className="mt-2 text-xl font-semibold">{operations?.unprocessedWebhookEvents ?? 0}</div>
-          </div>
-        </div>
-      </section>
-    </div>
+    </>
   )
 }

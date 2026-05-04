@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { ShoppingBag } from "lucide-react"
+
 import { AdminStoreOfferDefinitionNotice } from "@/components/admin/store-offers/AdminStoreOfferDefinitionNotice"
 import { AdminStoreOfferForm } from "@/components/admin/store-offers/AdminStoreOfferForm"
 import { AdminStoreOffersTable } from "@/components/admin/store-offers/AdminStoreOffersTable"
@@ -30,6 +32,8 @@ export function AdminStoreOffersPage() {
     void load()
   }, [])
 
+  const activeCount = useMemo(() => items.filter((x) => x.isActive).length, [items])
+
   const publishedCount = useMemo(
     () => items.filter((x) => x.listingStatus?.toUpperCase() === "PUBLISHED").length,
     [items],
@@ -37,38 +41,43 @@ export function AdminStoreOffersPage() {
 
   return (
     <div data-testid="admin-store-offers-page" className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold">Store Offers</h2>
-        <p className="text-sm text-muted-foreground">
-          Create and manage fixed-price offers and discounts without changing listing core data.
-        </p>
-      </div>
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-gold)]">
+            <ShoppingBag className="h-5 w-5" />
+          </span>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+              Admin commerce
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+              Store Offers
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text">
+              Create and manage fixed-price buyer offers, sale pricing, and discount presentation
+              without changing the listing’s core specimen record.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <AdminStoreOfferDefinitionNotice />
 
       {error ? (
         <div
           data-testid="admin-store-offers-error"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]"
         >
           {error}
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border bg-card p-4">
-          <div className="text-sm text-muted-foreground">Offers</div>
-          <div className="mt-1 text-2xl font-semibold">{items.length}</div>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <div className="text-sm text-muted-foreground">Active offers</div>
-          <div className="mt-1 text-2xl font-semibold">{items.filter((x) => x.isActive).length}</div>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <div className="text-sm text-muted-foreground">Published listing offers</div>
-          <div className="mt-1 text-2xl font-semibold">{publishedCount}</div>
-        </div>
-      </div>
+      <section className="grid gap-3 md:grid-cols-3">
+        <SummaryCard label="Total offers" value={items.length} />
+        <SummaryCard label="Active offers" value={activeCount} />
+        <SummaryCard label="Published listing offers" value={publishedCount} />
+      </section>
 
       <AdminStoreOfferForm
         editing={editing}
@@ -86,6 +95,25 @@ export function AdminStoreOffersPage() {
           await load()
         }}
       />
+    </div>
+  )
+}
+
+function SummaryCard({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div className="mk-glass rounded-[2rem] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+        {value}
+      </p>
     </div>
   )
 }

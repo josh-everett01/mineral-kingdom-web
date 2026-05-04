@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { Menu } from "lucide-react"
+import { LogOut, Menu } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth/useAuth"
@@ -35,8 +36,10 @@ function MobileMenuLink({ href, children, testId, onNavigate }: MobileMenuLinkPr
 }
 
 export function HeaderMobileMenu() {
-  const { me, isLoading } = useAuth()
+  const router = useRouter()
+  const { me, isLoading, logout } = useAuth()
   const [open, setOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   const isAuthenticated = me.isAuthenticated
@@ -44,6 +47,21 @@ export function HeaderMobileMenu() {
   const canSeeAdmin = hasAnyRole(me.roles, ["STAFF", "OWNER"])
 
   const closeMenu = () => setOpen(false)
+
+  async function handleLogout() {
+    if (isLoggingOut) return
+
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+      closeMenu()
+      router.replace("/")
+      router.refresh()
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   useEffect(() => {
     function handleThemeMenuOpen() {
@@ -122,9 +140,19 @@ export function HeaderMobileMenu() {
             </MobileMenuLink>
 
             {!isLoading && !isAuthenticated ? (
-              <MobileMenuLink href="/register" testId="nav-register-mobile" onNavigate={closeMenu}>
-                Register
-              </MobileMenuLink>
+              <>
+                <MobileMenuLink href="/login" testId="nav-login-mobile" onNavigate={closeMenu}>
+                  Login
+                </MobileMenuLink>
+
+                <MobileMenuLink
+                  href="/register"
+                  testId="nav-register-mobile"
+                  onNavigate={closeMenu}
+                >
+                  Register
+                </MobileMenuLink>
+              </>
             ) : null}
 
             {!isLoading && canSeeDashboard ? (
@@ -153,6 +181,21 @@ export function HeaderMobileMenu() {
               <MobileMenuLink href="/admin" testId="nav-admin-mobile" onNavigate={closeMenu}>
                 Admin
               </MobileMenuLink>
+            ) : null}
+
+            {!isLoading && isAuthenticated ? (
+              <div className="border-t border-[color:var(--mk-border)] pt-2">
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  disabled={isLoggingOut}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                  data-testid="nav-logout-mobile"
+                >
+                  <LogOut className="h-4 w-4 text-[color:var(--mk-gold)]" />
+                  {isLoggingOut ? "Logging out…" : "Logout"}
+                </button>
+              </div>
             ) : null}
           </div>
         </div>

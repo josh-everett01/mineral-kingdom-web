@@ -29,6 +29,7 @@ type UploadQueueItem = {
 }
 
 const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024
+
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -36,11 +37,18 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/gif",
   "image/avif",
 ])
+
 const ALLOWED_VIDEO_TYPES = new Set([
   "video/mp4",
   "video/webm",
   "video/quicktime",
 ])
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminDangerButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-danger)]/40 bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-danger)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
 
 function classifyMediaType(file: File): "IMAGE" | "VIDEO" | null {
   if (ALLOWED_IMAGE_TYPES.has(file.type)) return "IMAGE"
@@ -86,16 +94,33 @@ function statusClasses(status: string) {
     case "READY":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     case "FAILED":
-      return "border-destructive/30 bg-destructive/10 text-destructive"
+      return "border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] text-[color:var(--mk-danger)]"
     case "UPLOADING":
       return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
     default:
-      return "border-muted bg-muted text-muted-foreground"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
   }
 }
 
 function mediaLabel(item: AdminListingMediaItem) {
   return item.originalFileName?.trim() || item.caption?.trim() || item.id
+}
+
+function uploadStatusLabel(item: UploadQueueItem) {
+  switch (item.status) {
+    case "initiating":
+      return "Preparing upload…"
+    case "uploading":
+      return `Uploading… ${item.progress}%`
+    case "completing":
+      return "Completing upload…"
+    case "failed":
+      return item.error || "Upload failed."
+    case "done":
+      return "Upload complete."
+    default:
+      return "Working…"
+  }
 }
 
 function uploadWithProgress(
@@ -165,7 +190,9 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
   const loadMedia = useCallback(async () => {
     try {
       if (isMountedRef.current) setIsLoading(true)
+
       const data = await getAdminListingMedia(listingId)
+
       if (!isMountedRef.current) return
       setItems(data)
     } catch (e) {
@@ -197,8 +224,11 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
   async function refreshAfterMutation(successMessage?: string) {
     await loadMedia()
     if (!isMountedRef.current) return
+
     setRefreshVersion((v) => v + 1)
+
     if (successMessage) setActionSuccess(successMessage)
+
     await onChanged?.()
   }
 
@@ -349,6 +379,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       await refreshAfterMutation("Media deleted.")
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to delete media."
+
       if (isAuctionDeleteConflictMessage(message)) {
         setDeleteConflict(message)
       } else {
@@ -362,19 +393,27 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
   return (
     <section
       data-testid="admin-listing-media-section"
-      className="rounded-xl border bg-card p-5"
+      className="mk-glass-strong rounded-[2rem] p-5"
     >
-      <div className="mb-4">
-        <h3 data-testid="admin-listing-media-title" className="text-lg font-semibold">
+      <div className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Listing media
+        </p>
+
+        <h3
+          data-testid="admin-listing-media-title"
+          className="mt-2 text-lg font-semibold text-[color:var(--mk-ink)]"
+        >
           Media
         </h3>
+
         <p
           data-testid="admin-listing-media-description"
-          className="mt-2 text-sm text-muted-foreground"
+          className="mt-2 max-w-3xl text-sm leading-6 mk-muted-text"
         >
-          Upload images or video for this listing. Images are required for publish readiness, videos
-          cannot be primary, and deleted media may remain visible briefly because cached copies can
-          take time to refresh.
+          Upload images or video for this listing. Images are required for publish readiness,
+          videos cannot be primary, and deleted media may remain visible briefly because cached
+          copies can take time to refresh.
         </p>
       </div>
 
@@ -390,18 +429,20 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       />
 
       {archived ? (
-        <div className="mb-4 rounded-xl border bg-muted p-4 text-sm text-muted-foreground">
+        <div className="mb-5 rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5 text-sm mk-muted-text">
           Archived listings cannot upload or change media.
         </div>
       ) : (
-        <div className="mb-5 rounded-xl border border-dashed bg-muted/20 p-5">
+        <div className="mb-5 rounded-[2rem] border border-dashed border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
-              <div className="text-sm font-medium">Upload listing media</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm font-semibold text-[color:var(--mk-ink)]">
+                Upload listing media
+              </div>
+              <div className="text-sm mk-muted-text">
                 Supported formats: JPG, PNG, WebP, GIF, AVIF, MP4, WebM, MOV.
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs mk-muted-text">
                 Max file size: {formatBytes(MAX_FILE_SIZE_BYTES)} per file.
               </div>
             </div>
@@ -410,7 +451,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
               type="button"
               data-testid="admin-listing-media-open-picker"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              className="mk-cta inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold"
             >
               Upload images or video
             </button>
@@ -421,7 +462,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       {actionError ? (
         <div
           data-testid="admin-listing-media-action-error"
-          className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+          className="mb-4 rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]"
         >
           {actionError}
         </div>
@@ -430,7 +471,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       {deleteConflict ? (
         <div
           data-testid="admin-listing-media-delete-conflict"
-          className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200"
+          className="mb-4 rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-amber-800 dark:text-amber-200"
         >
           {deleteConflict}
         </div>
@@ -439,7 +480,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       {actionSuccess ? (
         <div
           data-testid="admin-listing-media-action-success"
-          className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200"
+          className="mb-4 rounded-[2rem] border border-emerald-500/30 bg-emerald-500/10 p-5 text-sm text-emerald-800 dark:text-emerald-200"
         >
           {actionSuccess}
         </div>
@@ -451,18 +492,14 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
             <div
               key={item.localId}
               data-testid="admin-listing-media-upload-item"
-              className="rounded-xl border p-4"
+              className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
-                  <div className="truncate font-medium">{item.fileName}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {item.status === "initiating" && "Preparing upload…"}
-                    {item.status === "uploading" && `Uploading… ${item.progress}%`}
-                    {item.status === "completing" && "Completing upload…"}
-                    {item.status === "failed" && (item.error || "Upload failed.")}
-                    {item.status === "done" && "Upload complete."}
+                  <div className="truncate font-semibold text-[color:var(--mk-ink)]">
+                    {item.fileName}
                   </div>
+                  <div className="text-sm mk-muted-text">{uploadStatusLabel(item)}</div>
                 </div>
 
                 {item.status === "failed" && !archived ? (
@@ -470,17 +507,17 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
                     type="button"
                     data-testid="admin-listing-media-retry-upload"
                     onClick={() => void handleRetry(item.localId)}
-                    className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+                    className={adminSecondaryButtonClass}
                   >
                     Retry upload
                   </button>
                 ) : null}
               </div>
 
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[color:var(--mk-panel)]">
                 <div
                   data-testid="admin-listing-media-upload-progress"
-                  className="h-full rounded-full bg-foreground transition-all"
+                  className="h-full rounded-full bg-[color:var(--mk-gold)] transition-all"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
@@ -488,7 +525,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
               {item.error ? (
                 <div
                   data-testid="admin-listing-media-upload-error"
-                  className="mt-2 text-sm text-destructive"
+                  className="mt-2 text-sm text-[color:var(--mk-danger)]"
                 >
                   {item.error}
                 </div>
@@ -499,16 +536,16 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
       ) : null}
 
       {isLoading ? (
-        <div className="rounded-xl border bg-background p-6 text-sm text-muted-foreground">
+        <div className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-6 text-sm mk-muted-text">
           Loading media…
         </div>
       ) : sortedItems.length === 0 ? (
-        <div className="rounded-xl border bg-background px-6 py-10 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border bg-muted/40 text-lg">
+        <div className="rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] px-6 py-10 text-center">
+          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-lg">
             🖼️
           </div>
-          <div className="font-medium">No media yet</div>
-          <div className="mt-1 text-sm text-muted-foreground">
+          <div className="font-semibold text-[color:var(--mk-ink)]">No media yet</div>
+          <div className="mt-1 text-sm mk-muted-text">
             Upload an image to help satisfy publish requirements and create a better listing.
           </div>
           {!archived ? (
@@ -516,7 +553,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
               type="button"
               data-testid="admin-listing-media-empty-upload"
               onClick={() => fileInputRef.current?.click()}
-              className="mt-4 inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              className={`${adminSecondaryButtonClass} mt-4`}
             >
               Upload first file
             </button>
@@ -537,25 +574,27 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
               <article
                 key={item.id}
                 data-testid="admin-listing-media-item"
-                className="overflow-hidden rounded-xl border bg-background"
+                className="overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]"
               >
-                <div className="aspect-square bg-muted">
-                  {imageLike ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={buildCacheBustedUrl(item.url, refreshVersion)}
-                      alt={mediaLabel(item)}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <div className="text-2xl">🎥</div>
-                      <div>Video preview</div>
-                    </div>
-                  )}
+                <div className="bg-[color:var(--mk-panel)] p-3">
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[1.5rem] bg-[color:var(--mk-panel-muted)]">
+                    {imageLike ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={buildCacheBustedUrl(item.url, refreshVersion)}
+                        alt={mediaLabel(item)}
+                        className="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-sm"
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm mk-muted-text">
+                        <div className="text-2xl">🎥</div>
+                        <div>Video preview</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-3 p-4">
@@ -580,8 +619,10 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
                   </div>
 
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{mediaLabel(item)}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="truncate font-semibold text-[color:var(--mk-ink)]">
+                      {mediaLabel(item)}
+                    </div>
+                    <div className="text-sm mk-muted-text">
                       {item.mediaType} • {formatBytes(item.contentLengthBytes)}
                     </div>
                   </div>
@@ -593,7 +634,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
                         data-testid="admin-listing-media-make-primary"
                         onClick={() => void handleMakePrimary(item.id)}
                         disabled={primaryBusy || !!busyDeleteId}
-                        className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                        className={adminSecondaryButtonClass}
                       >
                         {primaryBusy ? "Updating…" : "Make primary"}
                       </button>
@@ -605,7 +646,7 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
                         data-testid="admin-listing-media-delete"
                         onClick={() => void handleDelete(item)}
                         disabled={deleteBusy || !!busyPrimaryId}
-                        className="inline-flex rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+                        className={adminDangerButtonClass}
                       >
                         {deleteBusy ? "Deleting…" : "Delete"}
                       </button>

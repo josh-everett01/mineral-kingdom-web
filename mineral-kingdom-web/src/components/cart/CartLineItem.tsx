@@ -19,18 +19,18 @@ export function CartLineItem({ line }: Props) {
     >
       <Link
         href={line.listingHref}
-        className="overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]"
+        className="group overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-2"
       >
-        <div className="aspect-square">
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[1.1rem] bg-[color:var(--mk-panel)]">
           {line.primaryImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={line.primaryImageUrl}
               alt={line.title}
-              className="h-full w-full object-cover transition duration-500 hover:scale-105"
+              className="max-h-full max-w-full rounded-xl object-contain shadow-sm transition duration-500 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm mk-muted-text">
+            <div className="flex h-full w-full items-center justify-center text-sm mk-muted-text">
               <Gem className="mr-2 h-5 w-5 text-[color:var(--mk-gold)]" />
               No image
             </div>

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Gem, ShieldCheck, Truck, Gavel } from "lucide-react"
+import Image from "next/image"
 
 import { Container } from "@/components/site/Container"
 
@@ -11,8 +12,20 @@ export function Footer() {
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
             <div className="space-y-4">
               <Link href="/" className="inline-flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-2xl border border-[color:var(--mk-border-strong)] bg-[color:var(--mk-panel)] text-[color:var(--mk-gold)]">
-                  <Gem className="h-5 w-5" />
+                <span
+                  className="
+    grid h-10 w-10 place-items-center rounded-2xl border shadow-sm
+    border-amber-300/90 bg-[linear-gradient(180deg,#fff7df_0%,#ffe9b8_100%)]
+    dark:border-[color:var(--mk-border)] dark:bg-[color:var(--mk-panel)]
+  "
+                >
+                  <Image
+                    src="/brand/mineral-kingdom-icon-transparent.png"
+                    alt=""
+                    width={30}
+                    height={30}
+                    className="h-7 w-7 object-contain"
+                  />
                 </span>
                 <span>
                   <span className="block font-semibold tracking-tight text-[color:var(--mk-ink)]">
@@ -25,7 +38,7 @@ export function Footer() {
               </Link>
 
               <p className="max-w-xl text-sm leading-6 mk-muted-text">
-                Discover featured minerals, fixed-price listings, and collector-focused auctions
+                Discover available-now minerals, direct-buy specimens, and collector-focused auctions
                 with a polished, secure buying experience.
               </p>
 
@@ -40,7 +53,7 @@ export function Footer() {
               <FooterLinkGroup
                 title="Shop"
                 links={[
-                  { href: "/shop", label: "Shop all" },
+                  { href: "/shop", label: "Available Now" },
                   { href: "/auctions", label: "Auctions" },
                   { href: "/cart", label: "Cart" },
                   { href: "/faq", label: "FAQ" },

@@ -9,6 +9,15 @@ type Props = {
   onRefunded: () => Promise<void> | void
 }
 
+const adminInputClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminTextareaClass =
+  "w-full rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm text-[color:var(--mk-ink)] outline-none transition focus:border-[color:var(--mk-border-strong)] focus:ring-2 focus:ring-[color:var(--mk-amethyst)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+
+const adminSecondaryButtonClass =
+  "inline-flex items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+
 function formatMoney(cents: number, currencyCode: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -103,7 +112,7 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
 
   if (!detail.canRefund) {
     return (
-      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+      <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm mk-muted-text">
         Refunds are not available for this order.
       </div>
     )
@@ -112,26 +121,28 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-2xl border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-4 text-sm text-[color:var(--mk-danger)]">
           {error}
         </div>
       ) : null}
 
       {success ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-200">
           {success}
         </div>
       ) : null}
 
-      <div className="rounded-lg border bg-muted/20 p-4 text-sm">
-        <div className="font-medium">Refundable amount</div>
-        <div className="mt-1 text-muted-foreground">
+      <div className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm">
+        <div className="font-semibold text-[color:var(--mk-ink)]">Refundable amount</div>
+        <div className="mt-1 mk-muted-text">
           {formatMoney(detail.remainingRefundableCents, detail.currencyCode)}
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Provider</label>
+        <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+          Provider
+        </label>
         <select
           data-testid="admin-order-detail-refund-provider"
           value={provider}
@@ -140,7 +151,7 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
             setError(null)
             setSuccess(null)
           }}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+          className={adminInputClass}
         >
           <option value="">Select provider</option>
           {detail.availableRefundProviders.map((value) => (
@@ -153,11 +164,13 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
 
       <div>
         <div className="mb-1 flex items-center justify-between gap-3">
-          <label className="block text-sm font-medium">Refund amount ($)</label>
+          <label className="block text-sm font-semibold text-[color:var(--mk-ink)]">
+            Refund amount ($)
+          </label>
           <button
             type="button"
             onClick={handleUseFullAmount}
-            className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+            className="text-xs font-semibold text-[color:var(--mk-gold)] underline-offset-4 hover:underline"
           >
             Use full amount
           </button>
@@ -172,17 +185,19 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
             setSuccess(null)
           }}
           inputMode="decimal"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+          className={adminInputClass}
         />
 
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs mk-muted-text">
           Remaining refundable:{" "}
           {formatMoney(detail.remainingRefundableCents, detail.currencyCode)}
         </p>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Reason</label>
+        <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
+          Reason
+        </label>
         <textarea
           data-testid="admin-order-detail-refund-reason"
           value={reason}
@@ -192,7 +207,7 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
             setSuccess(null)
           }}
           rows={4}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
+          className={adminTextareaClass}
           placeholder="Reason for refund"
         />
       </div>
@@ -201,7 +216,7 @@ export function AdminOrderRefundPanel({ detail, onRefunded }: Props) {
         type="submit"
         data-testid="admin-order-detail-refund-submit"
         disabled={!canSubmit}
-        className="inline-flex rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        className={adminSecondaryButtonClass}
       >
         {isSubmitting ? "Submitting refund…" : "Submit refund"}
       </button>

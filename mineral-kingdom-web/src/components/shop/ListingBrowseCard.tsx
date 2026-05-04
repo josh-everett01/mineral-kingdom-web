@@ -46,17 +46,17 @@ export function ListingBrowseCard({ item }: Props) {
       data-testid="shop-listing-card"
     >
       <Link href={item.href} className="block p-3 pb-0" data-testid="shop-listing-card-image-link">
-        <div className="relative overflow-hidden rounded-3xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)]">
-          <div className="aspect-square">
+        <div className="relative overflow-hidden rounded-3xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-2">
+          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[1.35rem] bg-[color:var(--mk-panel)]">
             {item.primaryImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={item.primaryImageUrl}
                 alt={item.title}
-                className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                className="max-h-full max-w-full rounded-[1.1rem] object-contain shadow-sm transition duration-500 hover:scale-[1.03]"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm mk-muted-text">
+              <div className="flex h-full w-full items-center justify-center text-sm mk-muted-text">
                 <Gem className="mr-2 h-5 w-5 text-[color:var(--mk-gold)]" />
                 No image
               </div>

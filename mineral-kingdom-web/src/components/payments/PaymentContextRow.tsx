@@ -23,12 +23,16 @@ function Thumbnail({
 }) {
   return (
     <div
-      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100"
+      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100 p-1"
       data-testid={testId}
     >
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt={imageAlt} className="h-full w-full object-cover" />
+        <img
+          src={imageUrl}
+          alt={imageAlt}
+          className="max-h-full max-w-full rounded-lg object-contain shadow-sm"
+        />
       ) : (
         <span className="px-2 text-center text-[11px] font-medium text-stone-500">
           {fallbackLabel}

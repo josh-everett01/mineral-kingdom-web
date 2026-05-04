@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { fetchAdminFulfillmentGroups } from "@/lib/admin/fulfillment/api"
 import type { AdminFulfillmentListItem } from "@/lib/admin/fulfillment/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 function formatDate(value: string | null) {
   if (!value) return "—"
@@ -18,15 +17,15 @@ function formatDate(value: string | null) {
 function badgeClasses(kind: "requested" | "review" | "invoiced" | "paid" | "default") {
   switch (kind) {
     case "requested":
-      return "bg-amber-100 text-amber-900 border border-amber-200"
+      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
     case "review":
-      return "bg-blue-100 text-blue-900 border border-blue-200"
+      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
     case "invoiced":
-      return "bg-purple-100 text-purple-900 border border-purple-200"
+      return "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300"
     case "paid":
-      return "bg-emerald-100 text-emerald-900 border border-emerald-200"
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
     default:
-      return "bg-muted text-foreground border border-border"
+      return "border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] mk-muted-text"
   }
 }
 
@@ -91,6 +90,14 @@ function queueBadgeKind(queueState: string): "requested" | "review" | "invoiced"
     default:
       return "default"
   }
+}
+
+function StatusBadge({ children, kind }: { children: React.ReactNode; kind: "requested" | "review" | "invoiced" | "paid" | "default" }) {
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${badgeClasses(kind)}`}>
+      {children}
+    </span>
+  )
 }
 
 export default function AdminFulfillmentPage() {
@@ -169,29 +176,32 @@ export default function AdminFulfillmentPage() {
 
   return (
     <div className="space-y-6" data-testid="admin-fulfillment-page">
-      <Card>
-        <CardHeader>
-          <CardTitle>Fulfillment</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
+      <section className="mk-glass-strong rounded-[2rem] p-5 sm:p-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--mk-gold)]">
+          Admin fulfillment
+        </p>
+
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--mk-ink)]">
+          Fulfillment
+        </h1>
+
+        <div className="mt-2 max-w-3xl space-y-2 text-sm leading-6 mk-muted-text">
           <p>Review requested shipments, create shipping invoices, and monitor fulfillment groups.</p>
           <p>
             Queue state, shipment request state, invoice state, and fulfillment state are shown
             separately so operations can understand exactly where each group stands.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {loading ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            Loading fulfillment groups…
-          </CardContent>
-        </Card>
+        <div className="mk-glass-strong rounded-[2rem] p-6 text-sm mk-muted-text">
+          Loading fulfillment groups…
+        </div>
       ) : error ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-red-600">{error}</CardContent>
-        </Card>
+        <div className="rounded-[2rem] border border-[color:var(--mk-danger)]/50 bg-[color:var(--mk-panel-muted)] p-5 text-sm text-[color:var(--mk-danger)]">
+          {error}
+        </div>
       ) : (
         <>
           <FulfillmentSection title="Requested Shipments" items={requestedItems} />
@@ -216,96 +226,85 @@ function FulfillmentSection({
   items: AdminFulfillmentListItem[]
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No groups in this state.</p>
-        ) : (
-          <div className="space-y-4">
-            {items.map((item) => (
-              <div
-                key={item.fulfillmentGroupId}
-                className="rounded-lg border p-4"
-                data-testid="admin-fulfillment-row"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-2">
-                    <div className="font-medium">{item.fulfillmentGroupId}</div>
+    <section className="mk-glass-strong rounded-[2rem] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">{title}</h2>
+          <p className="mt-1 text-sm mk-muted-text">
+            {items.length} group{items.length === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
 
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 ${badgeClasses(
-                          queueBadgeKind(item.queueState),
-                        )}`}
-                      >
-                        Queue: {queueLabel(item.queueState)}
-                      </span>
+      {items.length === 0 ? (
+        <p className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 text-sm mk-muted-text">
+          No groups in this state.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {items.map((item) => (
+            <article
+              key={item.fulfillmentGroupId}
+              className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+              data-testid="admin-fulfillment-row"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 space-y-3">
+                  <div className="break-all font-semibold text-[color:var(--mk-ink)]">
+                    {item.fulfillmentGroupId}
+                  </div>
 
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 ${badgeClasses(
-                          shipmentBadgeKind(item.shipmentRequestStatus),
-                        )}`}
-                      >
-                        Shipment: {item.shipmentRequestStatus}
-                      </span>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <StatusBadge kind={queueBadgeKind(item.queueState)}>
+                      Queue: {queueLabel(item.queueState)}
+                    </StatusBadge>
 
-                      <span className="inline-flex rounded-full border border-border bg-muted px-2 py-1">
-                        Box: {item.boxStatus}
-                      </span>
+                    <StatusBadge kind={shipmentBadgeKind(item.shipmentRequestStatus)}>
+                      Shipment: {item.shipmentRequestStatus}
+                    </StatusBadge>
 
-                      <span className="inline-flex rounded-full border border-border bg-muted px-2 py-1">
-                        Fulfillment: {item.fulfillmentStatus}
-                      </span>
+                    <StatusBadge kind="default">Box: {item.boxStatus}</StatusBadge>
 
-                      {item.shippingInvoiceStatus ? (
-                        <span className="inline-flex rounded-full border border-border bg-muted px-2 py-1">
-                          Invoice: {item.shippingInvoiceStatus}
-                        </span>
-                      ) : null}
-                    </div>
+                    <StatusBadge kind="default">
+                      Fulfillment: {item.fulfillmentStatus}
+                    </StatusBadge>
 
-                    <div className="text-sm text-muted-foreground">
-                      Orders: {item.orderCount}
-                    </div>
+                    {item.shippingInvoiceStatus ? (
+                      <StatusBadge kind="default">
+                        Invoice: {item.shippingInvoiceStatus}
+                      </StatusBadge>
+                    ) : null}
+                  </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      Requested: {formatDate(item.shipmentRequestedAt)}
-                    </div>
+                  <div className="grid gap-2 text-sm mk-muted-text sm:grid-cols-2">
+                    <div>Orders: {item.orderCount}</div>
+                    <div>Requested: {formatDate(item.shipmentRequestedAt)}</div>
 
                     {item.shipmentReviewedAt ? (
-                      <div className="text-xs text-muted-foreground">
-                        Reviewed: {formatDate(item.shipmentReviewedAt)}
-                      </div>
+                      <div>Reviewed: {formatDate(item.shipmentReviewedAt)}</div>
                     ) : null}
 
                     {item.shippingInvoicePaidAt ? (
-                      <div className="text-xs text-muted-foreground">
-                        Shipping paid: {formatDate(item.shippingInvoicePaidAt)}
-                      </div>
+                      <div>Shipping paid: {formatDate(item.shippingInvoicePaidAt)}</div>
                     ) : null}
 
-                    <div className="text-xs text-muted-foreground">
-                      Updated: {formatDate(item.updatedAt)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Link
-                      href={`/admin/fulfillment/${item.fulfillmentGroupId}`}
-                      className="inline-flex rounded-md border px-3 py-2 text-sm hover:bg-muted"
-                    >
-                      View details
-                    </Link>
+                    <div>Updated: {formatDate(item.updatedAt)}</div>
                   </div>
                 </div>
+
+                <div className="shrink-0">
+                  <Link
+                    href={`/admin/fulfillment/${item.fulfillmentGroupId}`}
+                    className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-3 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                  >
+                    View details
+                  </Link>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

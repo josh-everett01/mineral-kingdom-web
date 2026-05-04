@@ -1,4 +1,4 @@
-import { ShippingInvoiceDetailClient } from '@/components/shipping-invoices/ShippingInvoiceDetailClient'
+import { ShippingInvoiceDetailClient } from "@/components/shipping-invoices/ShippingInvoiceDetailClient"
 
 type PageProps = {
   params: Promise<{
@@ -10,8 +10,10 @@ export default async function ShippingInvoiceDetailPage({ params }: PageProps) {
   const { invoiceId } = await params
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <ShippingInvoiceDetailClient invoiceId={invoiceId} />
+    <div className="mk-preview-page min-h-screen overflow-x-hidden">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <ShippingInvoiceDetailClient invoiceId={invoiceId} />
+      </div>
     </div>
   )
 }
