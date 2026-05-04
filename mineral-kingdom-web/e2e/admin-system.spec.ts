@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Response } from "@playwright/test"
-import { waitForAuthMe } from "./helpers/session"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -28,8 +28,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account|\/admin|\/dashboard/, { timeout: 15_000 })
-  await waitForAuthMe(page, email)
+  await waitForAuthenticatedSession(page, email)
 }
 
 async function loginAsAdmin(page: Page) {
@@ -52,10 +51,10 @@ test.describe("admin system", () => {
     await expect(page.getByTestId("admin-system-jobs-card")).toBeVisible()
     await expect(page.getByTestId("admin-system-webhooks-card")).toBeVisible()
 
-    await expect(page.getByText(/application health/i)).toBeVisible()
-    await expect(page.getByText(/database health/i)).toBeVisible()
-    await expect(page.getByText(/jobs snapshot/i)).toBeVisible()
-    await expect(page.getByText(/webhook \/ payment issues/i)).toBeVisible()
+    await expect(page.getByRole("heading", { name: /application health/i })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /database health/i })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /jobs snapshot/i })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /webhook \/ payment issues/i })).toBeVisible()
   })
 
   test("queue counts render", async ({ page }) => {

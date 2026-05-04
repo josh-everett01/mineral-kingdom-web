@@ -5,7 +5,7 @@ test.describe.configure({ mode: "serial" })
 
 const hasAdminFixture = !!process.env.E2E_ADMIN_EMAIL && !!process.env.E2E_ADMIN_PASSWORD
 
-const TICKET_ID = process.env.E2E_ADMIN_SUPPORT_TICKET_ID ?? "11111111-1111-1111-1111-111111111111"
+const TICKET_ID = process.env.E2E_ADMIN_SUPPORT_TICKET_ID ?? "d3333333-1111-1111-1111-111111111111"
 const TICKET_NUMBER = process.env.E2E_ADMIN_SUPPORT_TICKET_NUMBER ?? "MK-E2E-SUPPORT-1"
 const TICKET_EMAIL = process.env.E2E_ADMIN_SUPPORT_TICKET_EMAIL ?? "support@example.com"
 const FILTER_STATUS = process.env.E2E_ADMIN_SUPPORT_FILTER_STATUS ?? "OPEN"

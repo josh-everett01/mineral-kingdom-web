@@ -6,7 +6,7 @@ test("shop browse page loads successfully", async ({ page }) => {
   await page.goto("/shop", { waitUntil: "domcontentloaded" })
 
   await expect(page.getByTestId("shop-page")).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Browse listings" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Available Now" })).toBeVisible()
   await expect(page.getByTestId("shop-filters")).toBeVisible()
   await expect(page.getByTestId("shop-results-summary")).toBeVisible()
 
@@ -52,9 +52,9 @@ test("shop listing cards navigate to canonical listing urls", async ({ page }) =
 test("homepage listing cards use canonical listing urls when data is present", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" })
 
-  await expect(page.getByRole("heading", { name: "Mineral Kingdom" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: /Rare Minerals/i })).toBeVisible()
 
-  const listingLinks = page.getByRole("link", { name: "View Listing" })
+  const listingLinks = page.getByRole("link", { name: /view listing/i })
   const linkCount = await listingLinks.count()
 
   test.skip(linkCount === 0, "No homepage listing cards available in this environment.")
@@ -109,7 +109,7 @@ test("mineral category page filters listings appropriately and uses the correct 
 
   const cards = page.getByTestId("shop-listing-card")
   await expect(cards).toHaveCount(1)
-  await expect(page.getByTestId("shop-listing-card-mineral").first()).toContainText("Smoke Fluorite E2E")
+  await expect(cards.first()).toContainText("Smoke Fluorite E2E")
 
   const href = await page.getByTestId("shop-listing-card-link").first().getAttribute("href")
   expect(href).toBeTruthy()

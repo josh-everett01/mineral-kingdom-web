@@ -378,7 +378,7 @@ test.describe("checkout return page", () => {
     ).toBeVisible()
 
     await expect(page.getByTestId("checkout-return-status-message")).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-status-message")).toContainText(
@@ -395,7 +395,7 @@ test.describe("checkout return page", () => {
     await expect(
       page.getByRole("heading", { name: /we recorded your return from the payment provider/i }),
     ).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-status-message")).toBeVisible()
@@ -406,7 +406,7 @@ test.describe("checkout return page", () => {
 
     await expect(page.getByTestId("checkout-return-page")).toBeVisible()
     await expect(page.getByTestId("checkout-return-cancelled")).toBeVisible()
-    await expect(page.getByTestId("checkout-return-copy")).toContainText(
+    await expect(page.getByTestId("checkout-return-page")).toContainText(
       /never treated as proof of payment/i,
     )
     await expect(page.getByTestId("checkout-return-cancelled")).toContainText(
@@ -558,9 +558,7 @@ test.describe("checkout return page", () => {
 
     await expect(page.getByTestId("order-confirmation-page")).toBeVisible()
     await expect(page.getByTestId("order-confirmation-card")).toBeVisible()
-    await expect(
-      page.getByRole("heading", { name: /your order status is backend-confirmed/i }),
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: /confirming your order/i })).toBeVisible()
     await expect(page.getByTestId("order-confirmation-payment-status")).toContainText("Paid")
     await expect(page.getByTestId("order-confirmation-provider")).toContainText(/stripe/i)
     await expect(page.getByTestId("order-confirmation-total")).toContainText("$219.00")

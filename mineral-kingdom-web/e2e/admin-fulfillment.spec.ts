@@ -103,7 +103,8 @@ test.describe("requested Open Box shipment fixtures", () => {
 
     await expect(page.getByTestId("admin-fulfillment-detail-page")).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId("admin-fulfillment-detail-orders")).toBeVisible()
-    await expect(page.getByTestId("admin-fulfillment-detail-invoice")).toBeVisible()
+    await expect(page.getByTestId("admin-fulfillment-invoice-workflow")).toBeVisible()
+    await expect(page.getByTestId("admin-fulfillment-pricing-panel")).toBeVisible()
     await expect(page.getByTestId("admin-fulfillment-detail-orders")).toContainText(orderNumber)
   })
 })

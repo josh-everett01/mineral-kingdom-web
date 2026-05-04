@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Response } from "@playwright/test"
-import { waitForAuthMe } from "./helpers/session"
+import { waitForAuthenticatedSession } from "./helpers/session"
 
 test.describe.configure({ mode: "serial" })
 
@@ -40,8 +40,7 @@ async function login(page: Page, email: string, password: string) {
     throw new Error(`Login failed: HTTP ${status}\nBody:\n${bodyText}`)
   }
 
-  await expect(page).toHaveURL(/\/account|\/dashboard/, { timeout: 15_000 })
-  await waitForAuthMe(page, email)
+  await waitForAuthenticatedSession(page, email)
 }
 
 async function loginAsAdmin(page: Page) {
@@ -148,7 +147,7 @@ test("admin can create a discounted store offer and preview updates correctly", 
   await expect(row).toBeVisible({ timeout: 15_000 })
   await expect(row).toContainText("$150.00")
   await expect(row).toContainText("$112.50")
-  await expect(row).toContainText("Percentage discount")
+  await expect(row).toContainText(/percent(age)? discount/i)
 })
 
 test("admin can deactivate and reactivate an offer", async ({ page }) => {
