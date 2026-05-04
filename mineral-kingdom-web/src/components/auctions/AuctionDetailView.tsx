@@ -243,8 +243,7 @@ export function AuctionDetailView({ data }: Props) {
     !authMismatch &&
     closedAuction &&
     detail.isCurrentUserWinner === true &&
-    paymentVisibilityState === "PAID" &&
-    Boolean(detail.paymentOrderId)
+    paymentVisibilityState === "PAID"
 
   const showClosedNonWinnerState =
     !authMismatch &&
@@ -260,6 +259,46 @@ export function AuctionDetailView({ data }: Props) {
   function goToOrder(orderId: string) {
     router.push(`/orders/${encodeURIComponent(orderId)}`)
   }
+
+  const winnerStatusBanner = showWinnerPaymentDueState ? (
+    <div data-testid="auction-detail-winner-status-banner">
+      <StateCard
+        tone="info"
+        title="You won this auction"
+        message="Payment is due for this auction order. Continue to your order to complete payment."
+        testId="auction-detail-winner-payment-due"
+      >
+        <button
+          type="button"
+          onClick={() => goToOrder(detail.paymentOrderId!)}
+          className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+          data-testid="auction-detail-pay-now"
+        >
+          Pay now
+        </button>
+      </StateCard>
+    </div>
+  ) : showWinnerPaidState ? (
+    <div data-testid="auction-detail-winner-status-banner">
+      <StateCard
+        tone="success"
+        title="You won this auction"
+        message="Payment confirmed. We’ll update your order as it moves through fulfillment."
+        testId="auction-detail-winner-paid"
+      >
+        {detail.paymentOrderId ? (
+          <button
+            type="button"
+            onClick={() => goToOrder(detail.paymentOrderId!)}
+            className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
+            data-testid="auction-detail-view-order"
+          >
+            View order
+          </button>
+        ) : null}
+      </StateCard>
+    </div>
+  ) : null
 
   return (
     <main
@@ -286,6 +325,8 @@ export function AuctionDetailView({ data }: Props) {
             </span>
           </div>
         </section>
+
+        {winnerStatusBanner}
 
         <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-4">
@@ -415,42 +456,6 @@ export function AuctionDetailView({ data }: Props) {
                   data-testid="auction-detail-sign-in-again"
                 >
                   Sign in again
-                </button>
-              </StateCard>
-            ) : null}
-
-            {!authMismatch && showWinnerPaymentDueState ? (
-              <StateCard
-                tone="info"
-                title="You won this auction"
-                message="Payment is due for this auction order. Continue to your order to complete payment."
-                testId="auction-detail-winner-payment-due"
-              >
-                <button
-                  type="button"
-                  onClick={() => goToOrder(detail.paymentOrderId!)}
-                  className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
-                  data-testid="auction-detail-pay-now"
-                >
-                  Pay Now
-                </button>
-              </StateCard>
-            ) : null}
-
-            {!authMismatch && showWinnerPaidState ? (
-              <StateCard
-                tone="success"
-                title="You won this auction"
-                message="Payment for this auction order has already been completed."
-                testId="auction-detail-winner-paid"
-              >
-                <button
-                  type="button"
-                  onClick={() => goToOrder(detail.paymentOrderId!)}
-                  className="mk-cta mt-4 inline-flex rounded-2xl px-4 py-2 text-sm font-semibold"
-                  data-testid="auction-detail-view-order"
-                >
-                  View Order
                 </button>
               </StateCard>
             ) : null}
