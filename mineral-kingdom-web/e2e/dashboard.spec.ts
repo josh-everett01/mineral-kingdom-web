@@ -35,6 +35,17 @@ function buildDashboardFixture() {
         currentPriceCents: 10500,
         closeTime: "2026-03-25T21:41:19.828377+00:00",
         status: "CLOSED_PAID",
+        previewTitle: "Smoky Quartz Cluster",
+        previewImageUrl: "https://example.com/won-auction-smoky-quartz.jpg",
+      },
+      {
+        auctionId: "4786bb4a-0a26-4236-9d64-54524fb486c4",
+        listingId: "01309a6c-8601-45c7-b9c4-945485ca3a0c",
+        currentPriceCents: 15500,
+        closeTime: "2026-03-24T21:41:19.828377+00:00",
+        status: "CLOSED_PAID",
+        previewTitle: null,
+        previewImageUrl: null,
       },
     ],
     unpaidAuctionOrders: [
@@ -280,6 +291,14 @@ test.describe("dashboard", () => {
     await expect(page.getByTestId("dashboard-widget-auctions")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-orders")).toBeVisible()
     await expect(page.getByTestId("dashboard-widget-shipping-invoices")).toBeVisible()
+
+    const auctionsWidget = page.getByTestId("dashboard-widget-auctions")
+    await expect(auctionsWidget).toContainText("Smoky Quartz Cluster")
+    await expect(auctionsWidget).toContainText("Won auction")
+    await expect(
+      auctionsWidget.getByRole("img", { name: "Smoky Quartz Cluster" }),
+    ).toHaveAttribute("src", "https://example.com/won-auction-smoky-quartz.jpg")
+    await expect(auctionsWidget.getByText("Mineral")).toBeVisible()
 
     await expect(
       page.getByTestId("dashboard-action-shipping"),

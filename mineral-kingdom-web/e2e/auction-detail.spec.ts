@@ -422,8 +422,12 @@ test("winner sees pay now CTA for closed auction awaiting payment", async ({ pag
 
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toBeVisible()
   await expect(page.getByTestId("auction-detail-winner-payment-due")).toBeVisible()
   await expect(page.getByText(/you won this auction/i)).toBeVisible()
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toContainText(
+    /payment is due/i,
+  )
   await expect(page.getByTestId("auction-detail-pay-now")).toBeVisible()
   await expect(page.getByTestId("auction-detail-bidding-panel")).toHaveCount(0)
 })
@@ -471,6 +475,7 @@ test("non-winner does not see pay now CTA for closed auction", async ({ page }) 
 
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toHaveCount(0)
   await expect(page.getByTestId("auction-detail-closed-non-winner")).toBeVisible()
   await expect(page.getByTestId("auction-detail-pay-now")).toHaveCount(0)
   await expect(page.getByTestId("auction-detail-bidding-panel")).toHaveCount(0)
@@ -520,8 +525,65 @@ test("winner paid sees view order CTA instead of pay now", async ({ page }) => {
 
   await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
 
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toBeVisible()
   await expect(page.getByTestId("auction-detail-winner-paid")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toContainText(
+    /payment confirmed/i,
+  )
   await expect(page.getByTestId("auction-detail-view-order")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-pay-now")).toHaveCount(0)
+})
+
+test("winner paid without linked order sees won banner without order CTA", async ({ page }) => {
+  await page.route("**/api/bff/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        isAuthenticated: true,
+        emailVerified: true,
+        user: {
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          email: "winner@example.com",
+        },
+        roles: [],
+      })
+    })
+  })
+
+  await page.route(`**/api/bff/auctions/${AUCTION_ID}*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAuctionDetailMock({
+          status: "CLOSED_PAID",
+          currentPriceCents: 24500,
+          bidCount: 6,
+          minimumNextBidCents: 25000,
+          isCurrentUserLeading: false,
+          hasCurrentUserBid: true,
+          currentUserMaxBidCents: 25000,
+          currentUserBidState: "NONE",
+          hasPendingDelayedBid: false,
+          currentUserDelayedBidCents: null,
+          currentUserDelayedBidStatus: "NONE",
+          isCurrentUserWinner: true,
+          paymentOrderId: null,
+          paymentVisibilityState: "PAID",
+        }),
+      )
+    })
+  })
+
+  await page.goto(`/auctions/${AUCTION_ID}`, { waitUntil: "domcontentloaded" })
+
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-winner-paid")).toBeVisible()
+  await expect(page.getByTestId("auction-detail-winner-status-banner")).toContainText(
+    /payment confirmed/i,
+  )
+  await expect(page.getByTestId("auction-detail-view-order")).toHaveCount(0)
   await expect(page.getByTestId("auction-detail-pay-now")).toHaveCount(0)
 })
 
