@@ -184,34 +184,36 @@ test("admin can create a discounted store offer and preview updates correctly", 
 })
 
 test("admin can deactivate and reactivate an offer", async ({ page }) => {
-  const listingTitle = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_TITLE!
-
   await loginAsAdmin(page)
   await gotoStoreOffers(page)
 
+  const listing = await getEligibleStoreOfferListing(page)
+  test.skip(!listing, "No eligible listing available for store offer activation toggle.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
+  await searchAndSelectListing(page, listingId, listingTitle)
+
+  await page.getByTestId("admin-store-offer-pricing-mode").selectOption("FIXED")
+  await page.getByTestId("admin-store-offer-price").fill("175.00")
+
+  const [saveResp] = await Promise.all([
+    page.waitForResponse((resp: Response) => {
+      return resp.url().includes("/api/bff/admin/store/offers") && resp.request().method() === "POST"
+    }),
+    page.getByTestId("admin-store-offer-save").click(),
+  ])
+
+  if (!saveResp.ok()) {
+    const status = saveResp.status()
+    const bodyText = await saveResp.text().catch(() => "<unable to read body>")
+    throw new Error(`Create toggle store offer failed: HTTP ${status}\nBody:\n${bodyText}`)
+  }
+
   const row = rowForListing(page, listingTitle)
   await expect(row).toBeVisible({ timeout: 15_000 })
-
-  const currentText = (await row.textContent()) ?? ""
-
-  if (currentText.includes("INACTIVE")) {
-    const activateButton = row.getByRole("button", { name: /activate/i })
-    const [activateResp] = await Promise.all([
-      page.waitForResponse((resp: Response) => {
-        return /\/api\/bff\/admin\/store\/offers\/[0-9a-fA-F-]{36}$/.test(resp.url()) &&
-          resp.request().method() === "PATCH"
-      }),
-      activateButton.click(),
-    ])
-
-    if (!activateResp.ok()) {
-      const status = activateResp.status()
-      const bodyText = await activateResp.text().catch(() => "<unable to read body>")
-      throw new Error(`Pre-activate store offer failed: HTTP ${status}\nBody:\n${bodyText}`)
-    }
-
-    await expect(row).toContainText("ACTIVE")
-  }
+  await expect(row).toContainText("ACTIVE")
 
   const deactivateButton = row.getByRole("button", { name: /deactivate/i })
   const [deactivateResp] = await Promise.all([
