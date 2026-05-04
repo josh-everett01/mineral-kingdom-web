@@ -104,7 +104,7 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
   const [isSaving, setIsSaving] = useState(false)
 
   const [listingQuery, setListingQuery] = useState("")
-  const [publishedListings, setPublishedListings] = useState<AdminListingListItem[]>([])
+  const [eligibleListings, setEligibleListings] = useState<AdminListingListItem[]>([])
   const [isLoadingListings, setIsLoadingListings] = useState(true)
 
   useEffect(() => {
@@ -131,10 +131,10 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
         const data = await getAdminListings()
         if (!active) return
 
-        setPublishedListings(data.filter((item) => item.status?.toUpperCase() === "PUBLISHED"))
+        setEligibleListings(data.filter(isEligibleForStoreOfferSelection))
       } catch {
         if (!active) return
-        setPublishedListings([])
+        setEligibleListings([])
       } finally {
         if (active) {
           setIsLoadingListings(false)
@@ -172,12 +172,12 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
 
   const filteredListings = useMemo(() => {
     const query = listingQuery.trim().toLowerCase()
-    if (!query) return publishedListings.slice(0, 8)
+    if (!query) return eligibleListings.slice(0, 8)
 
-    return publishedListings
+    return eligibleListings
       .filter((item) => (item.title ?? "").toLowerCase().includes(query))
       .slice(0, 8)
-  }, [listingQuery, publishedListings])
+  }, [listingQuery, eligibleListings])
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -319,9 +319,8 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
             />
 
             <p className="mt-2 text-xs leading-5 mk-muted-text">
-              For now, this picker shows published listings. After the commerce-state backend story lands, it
-              should only show listings that are not sold, auction-backed, or already attached to a current
-              store offer.
+              Only published listings that are not already assigned to an auction, active sale
+              offer, or sold order can be selected.
             </p>
 
             <input type="hidden" value={form.listingId} />
@@ -343,16 +342,25 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
                       {item.title?.trim() || "Untitled listing"}
                     </div>
                     <div className="text-xs mk-muted-text">{item.id}</div>
+                    {item.commerceState ? (
+                      <div className="mt-1 text-xs mk-muted-text">
+                        Commerce state: {formatCommerceState(item.commerceState)}
+                      </div>
+                    ) : null}
                   </button>
                 ))}
               </div>
             ) : null}
 
-            <p className="mt-2 text-xs leading-5 mk-muted-text">
-              For now, this picker shows published listings. After the commerce-state backend story lands, it
-              should only show listings that are not sold, auction-backed, or already attached to a current
-              store offer.
-            </p>
+            {!editing && !isLoadingListings && filteredListings.length === 0 ? (
+              <div
+                data-testid="admin-store-offer-listing-empty"
+                className="mt-2 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-3 text-xs leading-5 mk-muted-text"
+              >
+                No eligible listings found. A listing must be published and not already used by an
+                auction, active store offer, or sold order.
+              </div>
+            ) : null}
 
             <div className="mt-2 text-xs mk-muted-text">
               Selected listing id: {form.listingId || "—"}
@@ -506,4 +514,29 @@ export function AdminStoreOfferForm({ editing, onSaved }: Props) {
       </div>
     </section>
   )
+}
+
+function isEligibleForStoreOfferSelection(item: AdminListingListItem) {
+  if (typeof item.isEligibleForStoreOffer === "boolean") {
+    return item.isEligibleForStoreOffer
+  }
+
+  return item.status?.toUpperCase() === "PUBLISHED"
+}
+
+function formatCommerceState(value: string) {
+  switch (value.toUpperCase()) {
+    case "AVAILABLE":
+      return "Available"
+    case "STORE_OFFER":
+      return "Store Offer"
+    case "AUCTION":
+      return "Auction"
+    case "SOLD":
+      return "Sold"
+    case "UNAVAILABLE":
+      return "Unavailable"
+    default:
+      return value
+  }
 }

@@ -21,6 +21,17 @@ export type AdminListingListItem = {
   publishedAt: string | null
   archivedAt: string | null
   publishChecklist: AdminListingPublishChecklist
+  commerceState?: "AVAILABLE" | "STORE_OFFER" | "AUCTION" | "SOLD" | "UNAVAILABLE" | string
+  isEligibleForStoreOffer?: boolean
+  storeOfferIneligibilityReason?: string | null
+  isEligibleForAuction?: boolean
+  auctionIneligibilityReason?: string | null
+  hasActiveStoreOffer?: boolean
+  hasAuction?: boolean
+  hasNonTerminalAuction?: boolean
+  isSold?: boolean
+  soldAt?: string | null
+  soldVia?: "STORE" | "AUCTION" | string | null
 }
 
 export type AdminListingMediaSummary = {
@@ -58,6 +69,17 @@ export type AdminListingDetail = {
   archivedAt: string | null
   mediaSummary: AdminListingMediaSummary
   publishChecklist: AdminListingPublishChecklist
+  commerceState?: "AVAILABLE" | "STORE_OFFER" | "AUCTION" | "SOLD" | "UNAVAILABLE" | string
+  isEligibleForStoreOffer?: boolean
+  storeOfferIneligibilityReason?: string | null
+  isEligibleForAuction?: boolean
+  auctionIneligibilityReason?: string | null
+  hasActiveStoreOffer?: boolean
+  hasAuction?: boolean
+  hasNonTerminalAuction?: boolean
+  isSold?: boolean
+  soldAt?: string | null
+  soldVia?: "STORE" | "AUCTION" | string | null
 }
 
 export type AdminMineralLookupItem = {

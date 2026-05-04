@@ -37,9 +37,9 @@ export function AdminStoreOfferDefinitionNotice() {
       <div className="mt-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4">
         <p className="font-semibold text-[color:var(--mk-ink)]">Eligibility note</p>
         <p className="mt-1 leading-6 mk-muted-text">
-          Until backend commerce-state fields are added, the picker can only filter by published
-          listing status. Backend validation should remain the source of truth for preventing offers
-          on sold, auction-backed, or already-offered listings.
+          Only published listings that are not already assigned to an auction, active sale offer,
+          or sold order can be selected. Backend validation remains the source of truth for
+          preventing duplicate commerce paths.
         </p>
       </div>
     </section>

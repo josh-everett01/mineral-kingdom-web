@@ -118,8 +118,16 @@ test("admin listings page loads and explains listing vs store offer vs auction",
   await expect(notice).toContainText(/core\s+inventory\/specimen record/i)
   await expect(notice).toContainText(/store offer/i)
   await expect(notice).toContainText(/auction/i)
+  await expect(notice).toContainText(/commerce state/i)
+  await expect(notice).toContainText(/available/i)
+  await expect(notice).toContainText(/sold/i)
 
   await expect(page.getByTestId("admin-create-draft-listing")).toBeVisible()
+
+  const table = page.getByTestId("admin-listings-table")
+  await expect(table).toBeVisible({ timeout: 15_000 })
+  await expect(table).toContainText(/commerce state/i)
+  await expect(table).toContainText(/available|store offer|auction|sold|unavailable/i)
 })
 
 test("admin can create a draft listing, edit fields, and save", async ({ page }) => {

@@ -6,18 +6,6 @@ test.describe.configure({ mode: "serial" })
 const hasAdminFixture =
   !!process.env.E2E_ADMIN_LISTINGS_EMAIL && !!process.env.E2E_ADMIN_LISTINGS_PASSWORD
 
-const hasDraftFixture =
-  !!process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_ID &&
-  !!process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_TITLE
-
-const hasScheduledFixture =
-  !!process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_ID &&
-  !!process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE
-
-const hasLiveFixture =
-  !!process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID &&
-  !!process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE
-
 const BACKEND_BASE_URL = process.env.API_BASE_URL ?? "http://127.0.0.1:8080"
 
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).")
@@ -95,28 +83,55 @@ async function searchAndSelectListing(page: Page, listingId: string, listingTitl
 
   await search.fill(listingTitle)
 
-  const results = page.getByTestId("admin-auction-listing-results")
-  await expect(results).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-auction-create-form")).toContainText(
+    /not already assigned to an active auction, active store offer, or sold order/i,
+  )
 
+  const results = page.getByTestId("admin-auction-listing-results")
   const exactOption = page.getByTestId(`admin-auction-listing-option-${listingId}`)
+  const emptyState = page.getByTestId("admin-auction-listing-empty")
+
+  await expect(exactOption.or(emptyState)).toBeVisible({ timeout: 15_000 })
+
+  if (await emptyState.isVisible().catch(() => false)) {
+    throw new Error(`Listing ${listingTitle} (${listingId}) is not eligible for auction creation.`)
+  }
+
+  await expect(results).toBeVisible({ timeout: 15_000 })
   await expect(exactOption).toBeVisible({ timeout: 15_000 })
   await exactOption.click()
 
   await expect(page.getByText(/Selected listing id:/i)).toContainText(listingId)
 }
 
-test.skip(
-  !hasDraftFixture,
-  "Requires draft auction listing fixture (set E2E_ADMIN_AUCTIONS_DRAFT_LISTING_ID and E2E_ADMIN_AUCTIONS_DRAFT_LISTING_TITLE).",
-)
+async function getEligibleAuctionListing(page: Page) {
+  const response = await page.request.get("/api/bff/admin/listings")
+  expect(response.ok()).toBeTruthy()
+
+  const listings = (await response.json()) as Array<{
+    id: string
+    title: string | null
+    isEligibleForAuction?: boolean
+  }>
+
+  return listings.find((item) => item.isEligibleForAuction === true) ?? null
+}
 
 test("admin can create an auction draft", async ({ page }) => {
-  const listingId = process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_ID!
-  const listingTitle = process.env.E2E_ADMIN_AUCTIONS_DRAFT_LISTING_TITLE!
-
   await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
+
+  const listing = await getEligibleAuctionListing(page)
+  test.skip(!listing, "No eligible listing available for auction draft creation.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
+  await expect(page.getByTestId("admin-auction-definition-notice")).toContainText(
+    /one\s+current commerce path/i,
+  )
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByRole("button", { name: /save as draft/i }).click()
@@ -150,20 +165,19 @@ test("admin can create an auction draft", async ({ page }) => {
   await expect(draftSection).toContainText("DRAFT")
 })
 
-test.skip(
-  !hasScheduledFixture,
-  "Requires scheduled auction listing fixture (set E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_ID and E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE).",
-)
-
 test("admin can schedule a future auction", async ({ page }) => {
-  const listingId = process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_ID!
-  const listingTitle = process.env.E2E_ADMIN_AUCTIONS_SCHEDULED_LISTING_TITLE!
-
   const scheduledStart = new Date(Date.now() + 2 * 60 * 60 * 1000)
 
   await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
+
+  const listing = await getEligibleAuctionListing(page)
+  test.skip(!listing, "No eligible listing available for scheduled auction creation.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByRole("button", { name: /schedule for later/i }).click()
@@ -197,18 +211,17 @@ test("admin can schedule a future auction", async ({ page }) => {
   await expect(futureSection).toContainText("SCHEDULED")
 })
 
-test.skip(
-  !hasLiveFixture,
-  "Requires launch-now auction listing fixture (set E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID and E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE).",
-)
-
 test("admin can launch an auction now", async ({ page }) => {
-  const listingId = process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_ID!
-  const listingTitle = process.env.E2E_ADMIN_AUCTIONS_LIVE_LISTING_TITLE!
-
   await reseedCatalog(page.request)
   await loginAsAdmin(page)
   await gotoAdminAuctions(page)
+
+  const listing = await getEligibleAuctionListing(page)
+  test.skip(!listing, "No eligible listing available for launch-now auction creation.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByRole("button", { name: /launch now/i }).click()

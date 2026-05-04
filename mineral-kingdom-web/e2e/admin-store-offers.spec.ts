@@ -6,18 +6,10 @@ test.describe.configure({ mode: "serial" })
 const hasAdminFixture =
   !!process.env.E2E_ADMIN_LISTINGS_EMAIL && !!process.env.E2E_ADMIN_LISTINGS_PASSWORD
 
-const hasPublishedListingFixture =
-  !!process.env.E2E_ADMIN_STORE_OFFERS_LISTING_ID &&
-  !!process.env.E2E_ADMIN_STORE_OFFERS_LISTING_TITLE
-
 test.skip(!process.env.E2E_BACKEND, "Requires backend running (set E2E_BACKEND=1).")
 test.skip(
   !hasAdminFixture,
   "Requires seeded admin fixture (set E2E_ADMIN_LISTINGS_EMAIL and E2E_ADMIN_LISTINGS_PASSWORD).",
-)
-test.skip(
-  !hasPublishedListingFixture,
-  "Requires a published listing fixture (set E2E_ADMIN_STORE_OFFERS_LISTING_ID and E2E_ADMIN_STORE_OFFERS_LISTING_TITLE).",
 )
 
 async function login(page: Page, email: string, password: string) {
@@ -67,10 +59,21 @@ async function searchAndSelectListing(page: Page, listingId: string, listingTitl
 
   await search.fill(listingTitle)
 
-  const results = page.getByTestId("admin-store-offer-listing-results")
-  await expect(results).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId("admin-store-offer-form")).toContainText(
+    /not already assigned to an auction, active sale offer, or sold order/i,
+  )
 
+  const results = page.getByTestId("admin-store-offer-listing-results")
   const exactOption = page.getByTestId(`admin-store-offer-listing-option-${listingId}`)
+  const emptyState = page.getByTestId("admin-store-offer-listing-empty")
+
+  await expect(exactOption.or(emptyState)).toBeVisible({ timeout: 15_000 })
+
+  if (await emptyState.isVisible().catch(() => false)) {
+    throw new Error(`Listing ${listingTitle} (${listingId}) is not eligible for store offer creation.`)
+  }
+
+  await expect(results).toBeVisible({ timeout: 15_000 })
   await expect(exactOption).toBeVisible({ timeout: 15_000 })
   await exactOption.click()
 
@@ -81,12 +84,38 @@ function rowForListing(page: Page, listingTitle: string) {
   return page.getByTestId("admin-store-offers-row").filter({ hasText: listingTitle }).first()
 }
 
-test("admin can create a fixed-price store offer", async ({ page }) => {
-  const listingId = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_ID!
-  const listingTitle = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_TITLE!
+async function getEligibleStoreOfferListing(page: Page, excludeIds: string[] = []) {
+  const response = await page.request.get("/api/bff/admin/listings")
+  expect(response.ok()).toBeTruthy()
 
+  const listings = (await response.json()) as Array<{
+    id: string
+    title: string | null
+    isEligibleForStoreOffer?: boolean
+  }>
+
+  return listings.find(
+    (item) => item.isEligibleForStoreOffer === true && !excludeIds.includes(item.id),
+  ) ?? null
+}
+
+test("admin can create a fixed-price store offer", async ({ page }) => {
   await loginAsAdmin(page)
   await gotoStoreOffers(page)
+
+  const listing = await getEligibleStoreOfferListing(page)
+  test.skip(!listing, "No eligible listing available for store offer creation.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
+  await expect(page.getByTestId("admin-store-offer-definition-notice")).toContainText(
+    /one active commerce path/i,
+  )
+  await expect(page.getByTestId("admin-store-offer-definition-notice")).toContainText(
+    /not already assigned to an auction, active sale offer, or sold order/i,
+  )
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByTestId("admin-store-offer-pricing-mode").selectOption("FIXED")
@@ -113,11 +142,15 @@ test("admin can create a fixed-price store offer", async ({ page }) => {
 })
 
 test("admin can create a discounted store offer and preview updates correctly", async ({ page }) => {
-  const listingId = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_ID!
-  const listingTitle = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_TITLE!
-
   await loginAsAdmin(page)
   await gotoStoreOffers(page)
+
+  const listing = await getEligibleStoreOfferListing(page)
+  test.skip(!listing, "No eligible listing available for discounted store offer creation.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
   await searchAndSelectListing(page, listingId, listingTitle)
 
   await page.getByTestId("admin-store-offer-price").fill("150.00")
@@ -151,34 +184,36 @@ test("admin can create a discounted store offer and preview updates correctly", 
 })
 
 test("admin can deactivate and reactivate an offer", async ({ page }) => {
-  const listingTitle = process.env.E2E_ADMIN_STORE_OFFERS_LISTING_TITLE!
-
   await loginAsAdmin(page)
   await gotoStoreOffers(page)
 
+  const listing = await getEligibleStoreOfferListing(page)
+  test.skip(!listing, "No eligible listing available for store offer activation toggle.")
+
+  const listingId = listing!.id
+  const listingTitle = listing!.title ?? listingId
+
+  await searchAndSelectListing(page, listingId, listingTitle)
+
+  await page.getByTestId("admin-store-offer-pricing-mode").selectOption("FIXED")
+  await page.getByTestId("admin-store-offer-price").fill("175.00")
+
+  const [saveResp] = await Promise.all([
+    page.waitForResponse((resp: Response) => {
+      return resp.url().includes("/api/bff/admin/store/offers") && resp.request().method() === "POST"
+    }),
+    page.getByTestId("admin-store-offer-save").click(),
+  ])
+
+  if (!saveResp.ok()) {
+    const status = saveResp.status()
+    const bodyText = await saveResp.text().catch(() => "<unable to read body>")
+    throw new Error(`Create toggle store offer failed: HTTP ${status}\nBody:\n${bodyText}`)
+  }
+
   const row = rowForListing(page, listingTitle)
   await expect(row).toBeVisible({ timeout: 15_000 })
-
-  const currentText = (await row.textContent()) ?? ""
-
-  if (currentText.includes("INACTIVE")) {
-    const activateButton = row.getByRole("button", { name: /activate/i })
-    const [activateResp] = await Promise.all([
-      page.waitForResponse((resp: Response) => {
-        return /\/api\/bff\/admin\/store\/offers\/[0-9a-fA-F-]{36}$/.test(resp.url()) &&
-          resp.request().method() === "PATCH"
-      }),
-      activateButton.click(),
-    ])
-
-    if (!activateResp.ok()) {
-      const status = activateResp.status()
-      const bodyText = await activateResp.text().catch(() => "<unable to read body>")
-      throw new Error(`Pre-activate store offer failed: HTTP ${status}\nBody:\n${bodyText}`)
-    }
-
-    await expect(row).toContainText("ACTIVE")
-  }
+  await expect(row).toContainText("ACTIVE")
 
   const deactivateButton = row.getByRole("button", { name: /deactivate/i })
   const [deactivateResp] = await Promise.all([

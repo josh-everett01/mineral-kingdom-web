@@ -29,7 +29,53 @@ function readinessClasses(ready: boolean) {
     : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
 }
 
-function commerceGuidance(status: string, ready: boolean) {
+function commerceClasses(state: string | null | undefined) {
+  switch ((state ?? "").toUpperCase()) {
+    case "AVAILABLE":
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    case "STORE_OFFER":
+      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+    case "AUCTION":
+      return "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300"
+    case "SOLD":
+      return "border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
+    default:
+      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+  }
+}
+
+function commerceLabel(state: string | null | undefined) {
+  switch ((state ?? "").toUpperCase()) {
+    case "AVAILABLE":
+      return "Available"
+    case "STORE_OFFER":
+      return "Store Offer"
+    case "AUCTION":
+      return "Auction"
+    case "SOLD":
+      return "Sold"
+    case "UNAVAILABLE":
+      return "Unavailable"
+    default:
+      return "Unknown"
+  }
+}
+
+function commerceGuidance(item: AdminListingListItem, ready: boolean) {
+  const state = item.commerceState?.toUpperCase()
+  if (state) {
+    if (item.isEligibleForStoreOffer || item.isEligibleForAuction) {
+      return "Eligible for store offer or auction"
+    }
+
+    if (state === "STORE_OFFER") return "Fixed-price sale active"
+    if (state === "AUCTION") return "Auction-backed listing"
+    if (state === "SOLD") return "Locked from reuse"
+
+    return item.storeOfferIneligibilityReason ?? item.auctionIneligibilityReason ?? "Review listing state"
+  }
+
+  const status = item.status
   const normalized = status.toUpperCase()
 
   if (normalized === "DRAFT") {
@@ -91,8 +137,9 @@ export function AdminListingsTable({
           <thead className="border-b border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] text-left text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
             <tr>
               <th className="px-5 py-3">Title</th>
-              <th className="px-5 py-3">Catalog status</th>
-              <th className="px-5 py-3">Mineral</th>
+                  <th className="px-5 py-3">Catalog status</th>
+                  <th className="px-5 py-3">Commerce state</th>
+                  <th className="px-5 py-3">Mineral</th>
               <th className="px-5 py-3">Locality</th>
               <th className="px-5 py-3">Inventory</th>
               <th className="px-5 py-3">Updated</th>
@@ -129,6 +176,17 @@ export function AdminListingsTable({
                     </span>
                   </td>
 
+                  <td className="px-5 py-4 align-top">
+                    <span
+                      data-testid={`admin-listing-commerce-state-${item.id}`}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${commerceClasses(
+                        item.commerceState,
+                      )}`}
+                    >
+                      {commerceLabel(item.commerceState)}
+                    </span>
+                  </td>
+
                   <td className="px-5 py-4 align-top mk-muted-text">
                     {item.primaryMineralName || "—"}
                   </td>
@@ -148,10 +206,13 @@ export function AdminListingsTable({
                   <td className="px-5 py-4 align-top">
                     <span
                       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${readinessClasses(
-                        item.status.toUpperCase() === "PUBLISHED" || ready,
+                        item.isEligibleForStoreOffer === true ||
+                          item.isEligibleForAuction === true ||
+                          item.status.toUpperCase() === "PUBLISHED" ||
+                          ready,
                       )}`}
                     >
-                      {commerceGuidance(item.status, ready)}
+                      {commerceGuidance(item, ready)}
                     </span>
                   </td>
 
