@@ -165,6 +165,54 @@ test("admin can create a draft listing, edit fields, and save", async ({ page })
   await expect(page.getByTestId("admin-listing-country-code")).toHaveValue("CN")
 })
 
+test("admin listing editor restores unsaved tab edits after reload", async ({ page }) => {
+  test.setTimeout(60_000)
+
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  const unsavedTitle = `Recovered Draft ${Date.now()}`
+  const unsavedDescription = "Unsaved work should survive a session recovery detour."
+
+  await page.getByTestId("admin-listing-title").fill(unsavedTitle)
+  await page.getByTestId("admin-listing-description").fill(unsavedDescription)
+  await expect(page.getByTestId("admin-listing-unsaved")).toBeVisible()
+
+  page.once("dialog", (dialog) => void dialog.accept())
+  await page.reload()
+
+  await expect(page.getByTestId("admin-listing-title")).toHaveValue(unsavedTitle)
+  await expect(page.getByTestId("admin-listing-description")).toHaveValue(unsavedDescription)
+  await expect(page.getByTestId("admin-listing-action-success")).toContainText(
+    /restored unsaved listing edits/i,
+  )
+})
+
+test("admin session renewal succeeds and preserves unsaved edits", async ({ page }) => {
+  test.setTimeout(60_000)
+
+  await loginAsAdmin(page)
+  await createDraftAndOpenEditor(page)
+
+  const unsavedTitle = `Session Renewal Draft ${Date.now()}`
+  await page.getByTestId("admin-listing-title").fill(unsavedTitle)
+  await expect(page.getByTestId("admin-listing-unsaved")).toBeVisible()
+
+  const [refreshResp] = await Promise.all([
+    page.waitForResponse((resp: Response) => {
+      return resp.url().includes("/api/bff/auth/refresh") && resp.request().method() === "POST"
+    }),
+    page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("mk:auth-expired"))
+    }),
+  ])
+
+  expect(refreshResp.ok()).toBeTruthy()
+  await expect(page.getByTestId("session-expiry-dialog")).toBeHidden({ timeout: 10_000 })
+  await expect(page).toHaveURL(/\/admin\/listings\/[0-9a-fA-F-]{36}$/, { timeout: 15_000 })
+  await expect(page.getByTestId("admin-listing-title")).toHaveValue(unsavedTitle)
+})
+
 test("admin can search and select a mineral for a listing when lookup results are available", async ({
   page,
 }) => {

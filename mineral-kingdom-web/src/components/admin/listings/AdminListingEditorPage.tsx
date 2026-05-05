@@ -51,6 +51,15 @@ type FormState = {
   shippingRates: ShippingRegionForm[]
 }
 
+type PersistedListingDraft = {
+  version: 1
+  savedAt: string
+  baselineSnapshot: string
+  form: FormState
+}
+
+const LISTING_DRAFT_STORAGE_PREFIX = "mk_admin_listing_draft:"
+
 const SHIPPING_REGIONS: Array<{ regionCode: ShippingRegionForm["regionCode"]; label: string }> = [
   { regionCode: "US", label: "US" },
   { regionCode: "CA", label: "Canada" },
@@ -182,6 +191,66 @@ function toFormState(detail: AdminListingDetail): FormState {
   }
 }
 
+function listingDraftStorageKey(id: string) {
+  return `${LISTING_DRAFT_STORAGE_PREFIX}${id}`
+}
+
+function readPersistedListingDraft(key: string, baselineSnapshot: string) {
+  try {
+    const raw = window.sessionStorage.getItem(key)
+    if (!raw) return null
+
+    const draft = JSON.parse(raw) as Partial<PersistedListingDraft>
+
+    if (draft.version !== 1 || draft.baselineSnapshot !== baselineSnapshot || !draft.form) {
+      return null
+    }
+
+    if (JSON.stringify(draft.form) === baselineSnapshot) {
+      window.sessionStorage.removeItem(key)
+      return null
+    }
+
+    return draft as PersistedListingDraft
+  } catch {
+    return null
+  }
+}
+
+function writePersistedListingDraft(
+  key: string,
+  baselineSnapshot: string,
+  form: FormState,
+) {
+  try {
+    const snapshot = JSON.stringify(form)
+
+    if (snapshot === baselineSnapshot) {
+      window.sessionStorage.removeItem(key)
+      return
+    }
+
+    const draft: PersistedListingDraft = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      baselineSnapshot,
+      form,
+    }
+
+    window.sessionStorage.setItem(key, JSON.stringify(draft))
+  } catch {
+    // Draft persistence is a best-effort guard; saving to the API remains the source of truth.
+  }
+}
+
+function clearPersistedListingDraft(key: string) {
+  try {
+    window.sessionStorage.removeItem(key)
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
 function isArchived(status: string) {
   return status.toUpperCase() === "ARCHIVED"
 }
@@ -266,6 +335,7 @@ export function AdminListingEditorPage({ id }: Props) {
   const [isPublishing, startPublishTransition] = useTransition()
   const [isArchiving, startArchiveTransition] = useTransition()
   const initialSnapshotRef = useRef<string>("")
+  const draftStorageKey = useMemo(() => listingDraftStorageKey(id), [id])
 
   const load = useCallback(async () => {
     try {
@@ -274,15 +344,23 @@ export function AdminListingEditorPage({ id }: Props) {
       const data = await getAdminListing(id)
       setDetail(data)
       const nextForm = toFormState(data)
-      setForm(nextForm)
-      initialSnapshotRef.current = JSON.stringify(nextForm)
-      setMineralQuery(data.primaryMineralName ?? "")
+      const baselineSnapshot = JSON.stringify(nextForm)
+      const persistedDraft = readPersistedListingDraft(draftStorageKey, baselineSnapshot)
+      const formToUse = persistedDraft?.form ?? nextForm
+
+      setForm(formToUse)
+      initialSnapshotRef.current = baselineSnapshot
+      setMineralQuery(formToUse.primaryMineralName || data.primaryMineralName || "")
+
+      if (persistedDraft) {
+        setSuccess("Restored unsaved listing edits from this browser tab.")
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load listing.")
     } finally {
       setIsLoading(false)
     }
-  }, [id])
+  }, [draftStorageKey, id])
 
   const refreshDetailOnly = useCallback(async () => {
     try {
@@ -310,6 +388,12 @@ export function AdminListingEditorPage({ id }: Props) {
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [form])
+
+  useEffect(() => {
+    if (!form || !initialSnapshotRef.current) return
+
+    writePersistedListingDraft(draftStorageKey, initialSnapshotRef.current, form)
+  }, [draftStorageKey, form])
 
   useEffect(() => {
     let active = true
@@ -429,6 +513,7 @@ export function AdminListingEditorPage({ id }: Props) {
         }
 
         await updateAdminListing(id, payload)
+        clearPersistedListingDraft(draftStorageKey)
         await load()
         setSuccess("Listing saved.")
       } catch (e) {
@@ -445,6 +530,7 @@ export function AdminListingEditorPage({ id }: Props) {
         setError(null)
         setSuccess(null)
         await publishAdminListing(detail.id)
+        clearPersistedListingDraft(draftStorageKey)
         await load()
         setSuccess("Listing published.")
       } catch (e) {
@@ -461,6 +547,7 @@ export function AdminListingEditorPage({ id }: Props) {
         setError(null)
         setSuccess(null)
         await archiveAdminListing(detail.id)
+        clearPersistedListingDraft(draftStorageKey)
         await load()
         setSuccess("Listing archived.")
       } catch (e) {

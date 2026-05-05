@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const warningTimerRef = React.useRef<number | null>(null)
   const expiryTimerRef = React.useRef<number | null>(null)
   const inFlightRefreshRef = React.useRef<Promise<boolean> | null>(null)
+  const inFlightSessionRefreshRef = React.useRef<Promise<boolean> | null>(null)
   const lastRefreshAtRef = React.useRef<number>(0)
   const hadAuthenticatedSessionRef = React.useRef(false)
 
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await fetch("/api/bff/auth/me", {
             cache: "no-store",
+            credentials: "same-origin",
           })
 
           if (!res.ok) {
@@ -183,33 +185,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true)
 
-    try {
-      const res = await fetch("/api/bff/auth/refresh", {
-        method: "POST",
-        cache: "no-store",
-      })
+    if (inFlightRefreshRef.current) {
+      return inFlightRefreshRef.current
+    }
 
-      if (!res.ok) {
+    if (inFlightSessionRefreshRef.current) {
+      return inFlightSessionRefreshRef.current
+    }
+
+    const refreshPromise = (async () => {
+      try {
+        const res = await fetch("/api/bff/auth/refresh", {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+        })
+
+        if (!res.ok) {
+          setMe(emptyMe)
+          setDialogMode(shouldShowExpiryUi() ? "expired" : null)
+          return false
+        }
+
+        const data = (await res.json()) as AuthMe
+
+        if (!data.isAuthenticated) {
+          setMe(emptyMe)
+          setDialogMode(shouldShowExpiryUi() ? "expired" : null)
+          return false
+        }
+
+        setMe(data)
+        hadAuthenticatedSessionRef.current = true
+        setDialogMode(null)
+        lastRefreshAtRef.current = Date.now()
+        return true
+      } catch {
         setMe(emptyMe)
         setDialogMode(shouldShowExpiryUi() ? "expired" : null)
         return false
+      } finally {
+        setIsLoading(false)
+        inFlightSessionRefreshRef.current = null
       }
+    })()
 
-      const data = (await res.json()) as AuthMe
-      setMe(data)
-      if (data.isAuthenticated) {
-        hadAuthenticatedSessionRef.current = true
-      }
-      setDialogMode(null)
-      lastRefreshAtRef.current = Date.now()
-      return true
-    } catch {
-      setMe(emptyMe)
-      setDialogMode(shouldShowExpiryUi() ? "expired" : null)
-      return false
-    } finally {
-      setIsLoading(false)
-    }
+    inFlightSessionRefreshRef.current = refreshPromise
+    return refreshPromise
   }, [isLoggingOut, shouldShowExpiryUi])
 
   const logout = React.useCallback(async () => {
@@ -252,10 +274,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     return subscribeToAuthExpired(() => {
-      setMe(emptyMe)
-      setDialogMode(shouldShowExpiryUi() ? "expired" : null)
+      if (!shouldShowExpiryUi()) return
+
+      setDialogMode("warning")
+      void forceRefreshSession().then((ok) => {
+        if (!ok) {
+          setDialogMode(shouldShowExpiryUi() ? "expired" : null)
+        }
+      })
     })
-  }, [shouldShowExpiryUi])
+  }, [forceRefreshSession, shouldShowExpiryUi])
 
   const handleStaySignedIn = React.useCallback(async () => {
     setDialogBusy(true)
