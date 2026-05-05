@@ -18,6 +18,24 @@ const inputClass =
 
 const labelClass = "block text-sm font-semibold text-[color:var(--mk-ink)]"
 
+function friendlyLoginMessage(status: number, code?: string, message?: string) {
+  switch (code) {
+    case "INVALID_CREDENTIALS":
+      return "The email or password you entered is incorrect."
+    case "INVALID_INPUT":
+      return "Enter both email and password."
+    case "TOO_MANY_ATTEMPTS":
+      return "Too many sign-in attempts. Please wait a moment and try again."
+    case "UPSTREAM_UNAVAILABLE":
+      return "We couldn't reach the sign-in service. Please try again."
+    default:
+      if (status === 401) return "The email or password you entered is incorrect."
+      if (status === 429) return "Too many sign-in attempts. Please wait a moment and try again."
+      if (status >= 500) return "We couldn't reach the sign-in service. Please try again."
+      return message ?? "Sign-in failed. Please try again."
+  }
+}
+
 export default function LoginClient() {
   const search = useSearchParams()
   const redirectTarget = getSafeRedirectTarget(search.get("returnTo") ?? search.get("next"))
@@ -44,16 +62,18 @@ export default function LoginClient() {
       const data = (await res.json()) as {
         ok: boolean
         message?: string
-        details?: { error?: string }
+        code?: string
+        details?: { error?: string; code?: string }
       }
+      const errorCode = data.code ?? data.details?.error ?? data.details?.code
 
       if (!res.ok || !data.ok) {
-        if (data.details?.error === "EMAIL_NOT_VERIFIED") {
+        if (errorCode === "EMAIL_NOT_VERIFIED") {
           setEmailNotVerified(true)
           return
         }
 
-        const msg = data.message ?? "Login failed"
+        const msg = friendlyLoginMessage(res.status, errorCode, data.message)
         setError(msg)
         toast.error(msg)
         return

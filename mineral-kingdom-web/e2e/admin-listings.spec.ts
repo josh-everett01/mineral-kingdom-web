@@ -299,6 +299,11 @@ test("admin form shows optional specimen details section containing all relocate
 
   // All relocated optional fields must be accessible within the section
   await expect(page.getByTestId("admin-listing-country-code")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-dimensions-group")).toBeVisible()
+  await expect(page.getByTestId("admin-listing-dimensions-group")).toContainText(/dimensions \(cm\)/i)
+  await expect(page.getByTestId("admin-listing-dimensions-group")).toContainText(/length/i)
+  await expect(page.getByTestId("admin-listing-dimensions-group")).toContainText(/width/i)
+  await expect(page.getByTestId("admin-listing-dimensions-group")).toContainText(/height/i)
   await expect(page.getByTestId("admin-listing-length-cm")).toBeVisible()
   await expect(page.getByTestId("admin-listing-width-cm")).toBeVisible()
   await expect(page.getByTestId("admin-listing-height-cm")).toBeVisible()
