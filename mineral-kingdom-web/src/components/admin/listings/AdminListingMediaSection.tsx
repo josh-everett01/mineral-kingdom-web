@@ -26,6 +26,8 @@ type UploadQueueItem = {
   status: "initiating" | "uploading" | "completing" | "failed" | "done"
   progress: number
   error: string | null
+  sortOrder: number
+  isPrimary: boolean
 }
 
 const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024
@@ -265,6 +267,8 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
           fileName: queueItem.file.name,
           contentType: queueItem.file.type || "application/octet-stream",
           contentLengthBytes: queueItem.file.size,
+          sortOrder: queueItem.sortOrder,
+          isPrimary: queueItem.isPrimary || undefined,
         })
 
       updateQueue(queueItem.localId, {
@@ -319,13 +323,19 @@ export function AdminListingMediaSection({ listingId, archived, onChanged }: Pro
     setDeleteConflict(null)
     setActionSuccess(null)
 
-    const nextQueue = files.map<UploadQueueItem>((file) => ({
+    const baseSort = items.length > 0 ? Math.max(...items.map((i) => i.sortOrder)) + 1 : 0
+    const noExistingMedia = items.length === 0
+
+    const nextQueue = files.map<UploadQueueItem>((file, idx) => ({
       localId: crypto.randomUUID(),
       file,
       fileName: file.name,
       status: "initiating",
       progress: 0,
       error: null,
+      sortOrder: baseSort + idx,
+      // Only the first image in a fresh batch auto-becomes primary
+      isPrimary: noExistingMedia && idx === 0 && ALLOWED_IMAGE_TYPES.has(file.type),
     }))
 
     setQueue((current) => [...current, ...nextQueue])

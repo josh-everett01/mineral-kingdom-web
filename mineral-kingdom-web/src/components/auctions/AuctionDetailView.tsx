@@ -62,10 +62,10 @@ export function AuctionDetailView({ data }: Props) {
 
   const galleryImages = useMemo(() => {
     return [...detail.media]
-      .filter((media: (typeof detail.media)[number]) => media.mediaType === "IMAGE")
       .map((media: (typeof detail.media)[number]) => ({
         id: media.id,
         url: media.url,
+        mediaType: media.mediaType,
         caption: media.caption,
         isPrimary: media.isPrimary,
         sortOrder: media.sortOrder,

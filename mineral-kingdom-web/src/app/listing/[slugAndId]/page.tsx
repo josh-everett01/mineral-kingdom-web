@@ -37,10 +37,10 @@ export default async function ListingDetailPage({ params }: Props) {
   const isAuctionListing = purchaseContext.showAuctionWidget && auction
 
   const galleryImages = [...listing.media]
-    .filter((media: (typeof listing.media)[number]) => media.mediaType === "IMAGE")
     .map((media: (typeof listing.media)[number]) => ({
       id: media.id,
       url: media.url,
+      mediaType: media.mediaType,
       caption: media.caption,
       isPrimary: media.isPrimary,
       sortOrder: media.sortOrder,
