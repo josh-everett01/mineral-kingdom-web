@@ -883,47 +883,58 @@ export function AdminListingEditorPage({ id }: Props) {
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
-                  Length (cm)
-                </label>
-                <input
-                  data-testid="admin-listing-length-cm"
-                  value={form.lengthCm}
-                  onChange={(e) => setField("lengthCm", e.target.value)}
-                  disabled={archived}
-                  inputMode="decimal"
-                  className={adminInputClass}
-                />
-              </div>
+              <fieldset
+                data-testid="admin-listing-dimensions-group"
+                className="md:col-span-2"
+              >
+                <legend className="mb-2 text-sm font-semibold text-[color:var(--mk-ink)]">
+                  Dimensions (cm)
+                </legend>
 
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
-                  Width (cm)
-                </label>
-                <input
-                  data-testid="admin-listing-width-cm"
-                  value={form.widthCm}
-                  onChange={(e) => setField("widthCm", e.target.value)}
-                  disabled={archived}
-                  inputMode="decimal"
-                  className={adminInputClass}
-                />
-              </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-[color:var(--mk-ink)]">
+                      Length
+                    </label>
+                    <input
+                      data-testid="admin-listing-length-cm"
+                      value={form.lengthCm}
+                      onChange={(e) => setField("lengthCm", e.target.value)}
+                      disabled={archived}
+                      inputMode="decimal"
+                      className={adminInputClass}
+                    />
+                  </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">
-                  Height (cm)
-                </label>
-                <input
-                  data-testid="admin-listing-height-cm"
-                  value={form.heightCm}
-                  onChange={(e) => setField("heightCm", e.target.value)}
-                  disabled={archived}
-                  inputMode="decimal"
-                  className={adminInputClass}
-                />
-              </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-[color:var(--mk-ink)]">
+                      Width
+                    </label>
+                    <input
+                      data-testid="admin-listing-width-cm"
+                      value={form.widthCm}
+                      onChange={(e) => setField("widthCm", e.target.value)}
+                      disabled={archived}
+                      inputMode="decimal"
+                      className={adminInputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-[color:var(--mk-ink)]">
+                      Height
+                    </label>
+                    <input
+                      data-testid="admin-listing-height-cm"
+                      value={form.heightCm}
+                      onChange={(e) => setField("heightCm", e.target.value)}
+                      disabled={archived}
+                      inputMode="decimal"
+                      className={adminInputClass}
+                    />
+                  </div>
+                </div>
+              </fieldset>
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[color:var(--mk-ink)]">

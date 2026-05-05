@@ -51,6 +51,41 @@ function normalizeTokens(json: unknown): TokenResponse {
   return { access_token: access, refresh_token: refresh };
 }
 
+function authErrorPayload(status: number, body: unknown) {
+  const errorCode = isRecord(body) ? getString(body, "error") ?? getString(body, "code") : null;
+
+  switch (errorCode) {
+    case "INVALID_CREDENTIALS":
+      return {
+        status,
+        code: "INVALID_CREDENTIALS",
+        message: "The email or password you entered is incorrect.",
+      };
+    case "EMAIL_NOT_VERIFIED":
+      return {
+        status,
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Your email address has not been verified yet.",
+      };
+    case "INVALID_INPUT":
+      return {
+        status,
+        code: "INVALID_INPUT",
+        message: "Enter both email and password.",
+      };
+    default:
+      if (status === 429) {
+        return {
+          status,
+          code: "TOO_MANY_ATTEMPTS",
+          message: "Too many sign-in attempts. Please wait a moment and try again.",
+        };
+      }
+
+      return toProxyError(status, body, "Sign-in failed. Please try again.");
+  }
+}
+
 export async function POST(req: NextRequest) {
   const json = (await req.json().catch(() => null)) as
     | { email?: string; password?: string }
@@ -107,11 +142,7 @@ export async function POST(req: NextRequest) {
   const body = safeJsonParse(text);
 
   if (!upstream.ok) {
-    const err = toProxyError(
-      upstream.status,
-      body,
-      `Upstream request failed (${upstream.status})`,
-    );
+    const err = authErrorPayload(upstream.status, body);
     return NextResponse.json(err, { status: upstream.status });
   }
 

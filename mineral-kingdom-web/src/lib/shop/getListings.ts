@@ -7,6 +7,9 @@ export type ListingBrowseItemDto = {
   primaryMineral?: string | null
   localityDisplay?: string | null
   sizeClass?: string | null
+  lengthCm?: number | null
+  widthCm?: number | null
+  heightCm?: number | null
   isFluorescent: boolean
   listingType: "STORE" | "AUCTION" | string
   priceCents?: number | null

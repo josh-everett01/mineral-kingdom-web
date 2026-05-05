@@ -28,6 +28,29 @@ function getStoreSavingsLabel(item: ListingBrowseItemDto): string | null {
   return null
 }
 
+function formatDimension(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null
+  }
+
+  return Number.isInteger(value)
+    ? value.toString()
+    : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
+}
+
+function getSizeSummary(item: ListingBrowseItemDto) {
+  const sizeClass = item.sizeClass?.trim()
+  if (sizeClass) return sizeClass
+
+  const dimensions = [item.lengthCm, item.widthCm, item.heightCm].map(formatDimension)
+
+  if (dimensions.every(Boolean)) {
+    return `${dimensions.join(" x ")} cm`
+  }
+
+  return "Dimensions not specified"
+}
+
 export function ListingBrowseCard({ item }: Props) {
   const displayPrice = formatMoney(item.effectivePriceCents ?? item.priceCents)
 
@@ -101,7 +124,7 @@ export function ListingBrowseCard({ item }: Props) {
           </p>
 
           <p data-testid="shop-listing-card-size">
-            {item.sizeClass ?? "Size not specified"}
+            {getSizeSummary(item)}
           </p>
         </div>
 
