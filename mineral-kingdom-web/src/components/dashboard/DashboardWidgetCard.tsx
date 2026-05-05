@@ -8,7 +8,7 @@ type Props = {
 
 export function DashboardWidgetCard({ testId, model }: Props) {
   return (
-    <section className="mk-glass-strong h-full rounded-[2rem] p-5" data-testid={testId}>
+    <section className="mk-glass-strong h-full min-w-0 overflow-hidden rounded-[2rem] p-5" data-testid={testId}>
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
@@ -37,7 +37,7 @@ export function DashboardWidgetCard({ testId, model }: Props) {
             {model.rows.map((row) => (
               <li
                 key={row.id}
-                className="rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+                className="min-w-0 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-1">

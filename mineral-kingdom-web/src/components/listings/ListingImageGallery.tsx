@@ -2,25 +2,26 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { Gem } from "lucide-react"
+import { Gem, Play } from "lucide-react"
 
-type ListingGalleryImage = {
+type ListingGalleryItem = {
   id: string
   url: string
+  mediaType: string
   caption?: string | null
   isPrimary: boolean
   sortOrder: number
 }
 
 type ListingImageGalleryProps = {
-  images: ListingGalleryImage[]
+  images: ListingGalleryItem[]
   title: string
 }
 
-function getImageAltText(title: string, image: ListingGalleryImage, index: number) {
-  const caption = image.caption?.trim()
+function getAltText(title: string, item: ListingGalleryItem, index: number) {
+  const caption = item.caption?.trim()
   if (caption) return caption
-  return `${title} image ${index + 1}`
+  return `${title} ${item.mediaType === "VIDEO" ? "video" : "image"} ${index + 1}`
 }
 
 function clampIndex(index: number, max: number) {
@@ -31,7 +32,7 @@ function clampIndex(index: number, max: number) {
 }
 
 export function ListingImageGallery({ images, title }: ListingImageGalleryProps) {
-  const orderedImages = useMemo(() => {
+  const orderedItems = useMemo(() => {
     return [...images].sort((a, b) => {
       if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1
       return a.sortOrder - b.sortOrder
@@ -40,9 +41,9 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
 
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const hasImages = orderedImages.length > 0
+  const hasItems = orderedItems.length > 0
 
-  if (!hasImages) {
+  if (!hasItems) {
     return (
       <section
         data-testid="listing-gallery"
@@ -59,10 +60,11 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
     )
   }
 
-  const hasMultipleImages = orderedImages.length > 1
-  const maxIndex = orderedImages.length - 1
+  const hasMultiple = orderedItems.length > 1
+  const maxIndex = orderedItems.length - 1
   const safeSelectedIndex = clampIndex(selectedIndex, maxIndex)
-  const selectedImage = orderedImages[safeSelectedIndex]
+  const selectedItem = orderedItems[safeSelectedIndex]
+  const isVideo = selectedItem.mediaType === "VIDEO"
 
   function handlePrevious() {
     setSelectedIndex((current) => clampIndex(current - 1, maxIndex))
@@ -80,16 +82,27 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
     >
       <div className="mk-glass-strong relative aspect-square overflow-hidden rounded-[2rem] border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-2">
         <div className="relative flex h-full items-center justify-center overflow-hidden rounded-[1.5rem] bg-[color:var(--mk-panel)] p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={selectedImage.id}
-            data-testid="listing-gallery-main-image"
-            src={selectedImage.url}
-            alt={getImageAltText(title, selectedImage, safeSelectedIndex)}
-            className="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-sm"
-          />
+          {isVideo ? (
+            <video
+              key={selectedItem.id}
+              data-testid="listing-gallery-main-video"
+              src={selectedItem.url}
+              controls
+              playsInline
+              className="max-h-full w-full rounded-[1.25rem] object-contain shadow-sm"
+            />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              key={selectedItem.id}
+              data-testid="listing-gallery-main-image"
+              src={selectedItem.url}
+              alt={getAltText(title, selectedItem, safeSelectedIndex)}
+              className="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-sm"
+            />
+          )}
 
-          {hasMultipleImages ? (
+          {hasMultiple ? (
             <>
               <button
                 type="button"
@@ -117,18 +130,19 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
         </div>
       </div>
 
-      {hasMultipleImages ? (
+      {hasMultiple ? (
         <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
-          {orderedImages.map((image, index) => {
+          {orderedItems.map((item, index) => {
             const isSelected = index === safeSelectedIndex
+            const itemIsVideo = item.mediaType === "VIDEO"
 
             return (
               <button
-                key={image.id}
+                key={item.id}
                 type="button"
                 data-testid="listing-gallery-thumbnail"
                 data-selected={isSelected ? "true" : "false"}
-                aria-label={`View image ${index + 1}`}
+                aria-label={`View ${itemIsVideo ? "video" : "image"} ${index + 1}`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedIndex(index)}
                 className={[
@@ -138,13 +152,19 @@ export function ListingImageGallery({ images, title }: ListingImageGalleryProps)
                     : "opacity-85 hover:opacity-100",
                 ].join(" ")}
               >
-                <Image
-                  src={image.url}
-                  alt={getImageAltText(title, image, index)}
-                  fill
-                  sizes="160px"
-                  className="object-cover"
-                />
+                {itemIsVideo ? (
+                  <div className="flex h-full w-full items-center justify-center bg-[color:var(--mk-panel)]">
+                    <Play className="h-6 w-6 text-[color:var(--mk-gold)]" fill="currentColor" />
+                  </div>
+                ) : (
+                  <Image
+                    src={item.url}
+                    alt={getAltText(title, item, index)}
+                    fill
+                    sizes="160px"
+                    className="object-cover"
+                  />
+                )}
               </button>
             )
           })}

@@ -408,7 +408,7 @@ function ActionRow({
 }) {
   return (
     <div
-      className="flex flex-col gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start"
+      className="flex flex-col gap-4 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start"
       data-testid={testId}
     >
       <Thumbnail
@@ -460,7 +460,7 @@ function ActionSection({
 function OpenBoxOrderRow({ order }: { order: DashboardOrderSummaryDto }) {
   return (
     <li
-      className="flex flex-col gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 sm:flex-row sm:items-start"
+      className="flex flex-col gap-4 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] p-4 sm:flex-row sm:items-start"
       data-testid="dashboard-open-box-order-row"
     >
       <Thumbnail
@@ -501,7 +501,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
 
   return (
     <section
-      className="mk-glass-strong rounded-[2rem] p-5 shadow-sm"
+      className="mk-glass-strong min-w-0 overflow-hidden rounded-[2rem] p-5 shadow-sm"
       data-testid="dashboard-in-progress"
     >
       <h2 className="text-lg font-semibold text-[color:var(--mk-ink)]">In progress</h2>
@@ -511,7 +511,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
 
       <div className="mt-4 grid gap-6 lg:grid-cols-2">
         {openBox ? (
-          <div>
+          <div className="min-w-0">
             <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
               Open Box
             </h3>
@@ -555,7 +555,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
         ) : null}
 
         {paidOrders.length > 0 ? (
-          <div>
+          <div className="min-w-0">
             <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
               Orders in fulfillment
             </h3>
@@ -563,7 +563,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
               {paidOrders.map((order) => (
                 <div
                   key={order.orderId}
-                  className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+                  className="flex flex-col gap-3 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start sm:gap-4"
                 >
                   <Thumbnail
                     src={order.previewImageUrl}
@@ -581,7 +581,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                   </div>
                   <Link
                     href={`/orders/${order.orderId}`}
-                    className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                    className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                   >
                     View
                   </Link>
@@ -592,7 +592,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
         ) : null}
 
         {pendingInvoices.length > 0 ? (
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-span-2">
             <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--mk-gold)]">
               Shipping awaiting confirmation
             </h3>
@@ -600,7 +600,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
               {pendingInvoices.map((invoice) => (
                 <div
                   key={invoice.shippingInvoiceId}
-                  className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+                  className="flex flex-col gap-3 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start sm:gap-4"
                 >
                   <Thumbnail
                     src={invoice.previewImageUrl}
@@ -615,7 +615,7 @@ function InProgressSection({ data }: { data: MemberDashboardDto }) {
                   </div>
                   <Link
                     href={`/shipping-invoices/${invoice.shippingInvoiceId}`}
-                    className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+                    className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
                   >
                     View
                   </Link>
@@ -650,7 +650,7 @@ function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
         {completedOrders.map((order) => (
           <div
             key={order.orderId}
-            className="flex items-start gap-4 rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4"
+            className="flex flex-col gap-3 overflow-hidden rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel-muted)] p-4 sm:flex-row sm:items-start sm:gap-4"
             data-testid={`dashboard-completed-order-${order.orderId}`}
           >
             <Thumbnail
@@ -674,7 +674,7 @@ function CompletedOrdersSection({ data }: { data: MemberDashboardDto }) {
 
             <Link
               href={`/orders/${order.orderId}`}
-              className="inline-flex rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
+              className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-[color:var(--mk-border)] bg-[color:var(--mk-panel)] px-4 py-2 text-sm font-semibold text-[color:var(--mk-ink)] transition hover:bg-[color:var(--mk-panel-muted)]"
             >
               View
             </Link>
